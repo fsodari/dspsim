@@ -1,4 +1,4 @@
-from dspsim._core import hello_from_bin
+from dspsim._framework import hello_from_bin
 
 __version__ = "0.1.0"
 

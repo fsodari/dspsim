@@ -14,7 +14,7 @@ void some_func()
   VSomeModel some_model;
 }
 
-NB_MODULE(_core, m)
+NB_MODULE(_framework, m)
 {
   m.doc() = "nanobind hello module";
 

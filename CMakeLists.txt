@@ -17,6 +17,6 @@ message("Found Nanobind: ${nanobind_DIR}")
 message("Found DSPSim: ${dspsim_DIR}")
 
 # Add dspsim module
-dspsim_add_module(_core src/main.cpp
+dspsim_add_module(_framework src/_framework.cpp
     SOURCE ${DSPSIM_HDL_DIR}/SomeModel.sv)
-install(TARGETS _core DESTINATION ${SKBUILD_PROJECT_NAME})
+install(TARGETS _framework DESTINATION ${SKBUILD_PROJECT_NAME})
