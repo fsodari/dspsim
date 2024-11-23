@@ -1,8 +1,8 @@
 name: Build
 on:
-    push:
-        branches:
-            - release/*
+  push:
+    branches:
+      - release/*
 
 jobs:
   build_sdist:
