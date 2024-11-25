@@ -2,7 +2,7 @@
 Main Command-line app interface "dspsim"
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import argparse
 from typing import Callable
@@ -14,7 +14,7 @@ class Args:
     cmake_dir: bool
     include_dir: bool
     hdl_dir: bool
-    func: Callable
+    func: Callable = field(init=False)
 
     @classmethod
     def create_parser(cls):

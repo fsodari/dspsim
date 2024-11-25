@@ -1,5 +1,7 @@
-module SomeModel #(
-    parameter DW = 32
+module Foo #(
+    parameter DW = 32,
+    parameter AW = 8
+    // parameter COEFW = 18
 ) (
     input  logic clk,
     input  logic rst,

@@ -1,5 +1,6 @@
 # from dspsim._framework import hello_from_bin
-import dspsim._framework as _framework
+
+from .util import cmake_dir, include_dir, hdl_dir
 
 __version__ = "0.1.1"
 

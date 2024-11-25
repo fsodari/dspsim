@@ -15,25 +15,21 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
-requires-python = ">=3.12"
 dependencies = [
-    "dspsim_library",
-    "nanobind>=2.2.0",
     "scikit-build-core>=0.10.7",
+    "nanobind>=2.2.0",
+    "jinja2>=3.1.4",
+    "numpy>=2.1.3",
+    "dataclass-wizard[toml]>=0.29.3",
 ]
-
-[tool.uv.sources]
-dspsim_library = { workspace = true }
-
-[tool.uv.workspace]
-members = ["packages/dspsim_library"]
+requires-python = ">=3.12"
 
 [project.urls]
 Homepage = "https://github.com/fsodari/dspsim"
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
-input = "packages/dspsim/src/dspsim/__init__.py"
+input = "src/dspsim/__init__.py"
 
 # Scripts.
 [project.scripts]
@@ -42,29 +38,45 @@ dspsim = "dspsim.main:main"
 ### dspsim tool configuration ###
 
 [tool.dspsim]
-sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
-# include_dirs = ["src/dspsim/hdl"] # this is already included.
-# [tool.dspsim.parameters]
-# DW = 32
-[tool.dspsim.modules]
-SomeModel = { source = "SomeModel.sv", parameters = { DW = 24 } }
+# sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
+sources = ["src/dspsim/hdl/X.sv"]
+trace = "fst"
 
-###
+# include_dirs = ["src/dspsim/hdl"] # this is already included.
+[tool.dspsim.parameters]
+DW = 32
+AW = 32
+COEFW = 18
+
+[tool.dspsim.models]
+SomeModel = { parameters = { DW = 24 } }
+AnotherModel = { source = "Foo.sv", parameters = { COEFW = 16, BAERR = 22 } }
+# ###
 
 [tool.scikit-build]
 # Use the package's package config when building.
-cmake.args = ["-Ddspsim_DIR=packages/dspsim/src/dspsim/cmake", "-Wno-dev"]
+cmake.args = ["-Ddspsim_DIR=src/dspsim/cmake", "-Wno-dev"]
 
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
 
-wheel.packages = ["src/dspsim_generate", "src/dspsim"]
+wheel.packages = ["src/dspsim"]
 wheel.py-api = "cp312"
 
 
 [build-system]
-requires = ["scikit-build-core>=0.10.7", "nanobind>=2.2.0"]
+requires = [
+    "scikit-build-core>=0.10.7",
+    "nanobind>=2.2.0",
+    "jinja2>=3.1.4",
+    "dataclass-wizard[toml]>=0.29.3",
+]
 build-backend = "scikit_build_core.build"
 
 [dependency-groups]
-dev = ["pytest>=8.3.3"]
+dev = [
+    "pytest>=8.3.3",
+    "scikit-build-core>=0.10.7",
+    "nanobind>=2.2.0",
+    "dataclass-wizard[toml]>=0.29.3",
+]

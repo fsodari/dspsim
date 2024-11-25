@@ -13,4 +13,4 @@ wheels/
 .env
 .vscode
 
-!src/dspsim/build
+local
