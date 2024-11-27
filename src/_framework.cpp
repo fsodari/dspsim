@@ -11,7 +11,7 @@ NB_MODULE(_framework, m)
 {
   m.doc() = "nanobind hello module...";
 
-  m.def("hello_from_bin", &hello_from_bin);
+  m.def("hello_from_bin", &dspsim::hello_from_bin);
   m.def("foo42", []()
         { return 42; });
 }

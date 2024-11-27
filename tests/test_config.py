@@ -14,7 +14,7 @@ from tempfile import TemporaryDirectory
 import pytest
 
 
-@pytest.mark.skip(reason="Testing other things.")
+# @pytest.mark.skip(reason="Testing other things.")
 def test_read_parameters():
     source = Path("src/dspsim/hdl/SomeModel.sv")
 

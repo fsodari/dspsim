@@ -1,44 +1,5 @@
 include_guard(GLOBAL)
 
-message("dspsim-config.cmake")
-
-# cmake directory
-cmake_path(GET CMAKE_CURRENT_LIST_FILE PARENT_PATH DSPSIM_CMAKE_DIR)
-# Package directory
-cmake_path(GET DSPSIM_CMAKE_DIR PARENT_PATH DSPSIM_PKG_DIR)
-# C++ include directory
-set(DSPSIM_INCLUDE_DIRS ${DSPSIM_PKG_DIR}/include)
-# HDL directory
-set(DSPSIM_HDL_DIR ${DSPSIM_PKG_DIR}/hdl)
-
-message("DSPSim Pkg Dir: ${DSPSIM_PKG_DIR}")
-message("DSPSim CMake Dir: ${DSPSIM_CMAKE_DIR}")
-message("DSPSim Include Dir: ${DSPSIM_INCLUDE_DIRS}")
-message("DSPSim CMake Dir: ${DSPSIM_CMAKE_DIR}")
-
-message("Top Level? ${PROJECT_IS_TOP_LEVEL}")
-if (PROJECT_IS_TOP_LEVEL)
-    # Run as a script when building the dspsim package
-    list(APPEND DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} ${DSPSIM_PKG_DIR}/generate.py)
-    # list(APPEND DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
-else()
-    # Run package script if this is installed.
-    list(APPEND DSPSIM_GENERATE_CMD dspsim generate)
-endif()
-message("Generate Command: ${DSPSIM_GENERATE_CMD}")
-
-# function(dspsim_use_config pyproject_path outfile)
-#     message("dspsim_config_json()...")
-#     message("pyproject: ${pyproject_path}, ${outfile}")
-
-#     execute_process(COMMAND ${DSPSIM_GENERATE_CMD}
-#         --json-config ${pyproject_path} ${outfile}
-#         RESULT_VARIABLE cfg_result)
-#     if (cfg_result)
-#         message(FATAL_ERROR "DSPSIM Generate pyproject Script failed")
-#     endif()
-# endfunction()
-
 function(dspsim_run_generate pyproject_path tool_cfg outdir)
     message("dspsim_run_generate()...")
     execute_process(COMMAND ${DSPSIM_GENERATE_CMD}
