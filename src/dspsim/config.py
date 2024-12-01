@@ -144,33 +144,19 @@ class Port:
     @property
     def vm_port_decl(self) -> str:
         """"""
-        print(f"Port: {self.name}, Shape: {self.shape}")
         port_dir = "Input" if self.direction.startswith("i") else "Output"
         decl = f"dspsim::{port_dir}<{self.ctype}"
         for s in self.shape:
             decl += f"[{s}]"
         return f"{decl}> _{self.name}"
-        # x = f"dspsim::{port_dir}<dspsim::Signal<{self.ctype}> *> _{self.name}"
-        # if self.shape:
-        #     for s in self.shape:
-        #         x += f"[{s}]"
-        #     return x
-        # return f"dspsim::{port_dir}<dspsim::Signal<{self.ctype}> &> _{self.name}"
 
     @property
     def vm_ctor_arg(self) -> str:
         """"""
-        # dspsim::SignalArray<dspsim::SignalArray<dspsim::Signal<T> *, 2>, 2>, 2>
-        # return f"dspsim::Signal<{self.ctype}> &{self.name}"
-        # raise Exception(f"shape: {self.shape}")
         if self.shape:
             return f"{_vm_ctor_arg_str(self.width, self.shape)} &{self.name}"
         else:
             return f"dspsim::Signal<{self.ctype}> &{self.name}"
-
-    # @property
-    # def vm_ctor_init(self) -> str:
-    #     return f"{self.name}({self.name}, top->{self.name})"
 
     @property
     def sv_range(self) -> str:

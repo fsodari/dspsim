@@ -186,77 +186,6 @@ class Config(JSONWizard):
             verilator_args=global_vargs,
             models=all_modules,
         )
-        # for mname, m in dspsim_tool_config["models"].items():
-        #     m["parameters"] = {
-        #         k: Parameter(k, np.array(v)) for k, v in m["parameters"].items()
-        #     }
-        #     m = ModuleConfig()
-        # tool_config = cls(**dspsim_tool_config)
-        # print(f"{tool_config}")
-
-        # # fix relative include dirs.
-        # tool_config.include_dirs = [
-        #     _get_abs_path(idir, pyproject_path) for idir in tool_config.include_dirs
-        # ]
-        # # Collect all sources from sources field. globbed.
-        # # Relative to pyproject.toml path if not absolute.
-        # found_sources: set[Path] = set()
-        # for source in tool_config.sources:
-        #     # Glob every source, and add all options to the set.
-        #     for filename in glob.glob(str(source)):
-        #         # Add to the set.
-        #         found_sources.add(_get_abs_path(Path(filename), pyproject_path))
-
-        # # Add any extra sources specified in the models config.
-        # for model_name, model in tool_config.models.items():
-        #     params =
-        #     model = ModuleConfig(
-        #         model.get("name", None),
-        #         model.get("source", None),
-        #         params,
-        #     )
-        #     if model.get("source", None):
-        #         source_name = model.source
-        #     else:
-        #         source_name = Path(model_name)
-        #     found = _find_source(
-        #         source_name,
-        #         found_sources,
-        #         tool_config.include_dirs,
-        #         pyproject_path,
-        #     )
-        #     model.source = found
-        #     found_sources.add(found)
-
-        # tool_config.sources = found_sources
-        # # Get all of the default parameters for each source.
-        # # Set up default models.
-        # default_models: dict[Path, ModuleConfig] = {}
-        # for source in tool_config.sources:
-        #     default_models[source] = ModuleConfig.from_verilator(
-        #         source,
-        #         parameters=tool_config.parameters,
-        #         verilator_args=tool_config.verilator_args,
-        #     )
-        # default_source_params = {
-        #     k: v.parameters.copy() for k, v in default_models.items()
-        # }
-        # final_models: dict[str, ModuleConfig] = default_models.copy()
-        # for name, model in tool_config.models.items():
-        #     params = default_source_params.get(model.source, {}).copy()
-        #     # Overrides.
-        #     for param_name in params:
-        #         if param_name in model.parameters:
-        #             params[param_name] = model.parameters[param_name]
-
-        #     # Add new model
-        #     final_models[name] = ModuleConfig.from_verilator(
-        #         model.source, parameters=params.copy()
-        #     )
-
-        # tool_config.models = final_models
-
-        # return tool_config
 
 
 def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Path):
@@ -276,33 +205,22 @@ def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Pa
             )
         )
     for name, model in config.models.items():
-        prefix = f"V{name}"
         gen_file = output_dir / f"{name}.dir/{name}.h"
         os.makedirs(gen_file.parent.absolute(), exist_ok=True)
         with open(gen_file, "w") as fp:
             fp.write(render_template("model.cpp.jinja", model=model, trace=model.trace))
 
-    # Remove array-like parameters.
-    # xparameters = {k: v for k, v in config.parameters.items() if not v.value.shape}
-    # config.parameters = xparameters
     from .config import _vvalue_str
 
-    # fmt_param = lambda v:
+    # Convert valid parameters to str values. Arrays are not allowed over command line or cmake.
     for model in config.models.values():
         model.parameters = {
             k: _vvalue_str(v.value)
             for k, v in model.parameters.items()
             if not v.value.shape
         }
-    # raise Exception(f"{config.parameters}")
     with open(json_tool_cfg, "w") as fp:
-        x = config.to_json(indent=4)
-        # # raise Exception(f"{x[]}")
-        # for model in x.get("models", {}).values():
-        #     for n, param in model.get("parameters", {}).items():
-        #         param["value"] = fmt_param(param["value"])
-        # raise Exception(f"{x}")
-        fp.write(x)
+        fp.write(config.to_json(indent=4))
 
 
 @dataclass

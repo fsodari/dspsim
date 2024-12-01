@@ -10,13 +10,16 @@ namespace dspsim
     class VModel : public Model
     {
     protected:
+        std::unique_ptr<VerilatedContext> vcontext;
         std::unique_ptr<V> top;
         // V top;
         std::unique_ptr<TraceType> tfp;
 
     public:
-        VModel() : Model(), top(std::make_unique<V>())
+        VModel() : Model()
         {
+            vcontext = std::make_unique<VerilatedContext>();
+            top = std::make_unique<V>(vcontext.get());
         }
 
         void eval_step()
@@ -45,8 +48,8 @@ namespace dspsim
 
         void trace(const std::string &trace_path, int levels = 99, int options = 0)
         {
-            Verilated::traceEverOn(true);
-            // vcontext->traceEverOn(true);
+            // Verilated::traceEverOn(true);
+            vcontext->traceEverOn(true);
 
             tfp = std::make_unique<TraceType>();
             tfp->set_time_resolution("ns");

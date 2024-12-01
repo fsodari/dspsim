@@ -20,7 +20,7 @@ namespace dspsim
         {
             if (this->context()->time() >= m_checkpoint)
             {
-                this->d = !this->q;
+                write(!q);
                 m_checkpoint += m_half_period;
             }
         }

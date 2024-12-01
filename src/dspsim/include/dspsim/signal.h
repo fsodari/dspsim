@@ -20,7 +20,8 @@ namespace dspsim
     public:
         Signal(T init = 0)
         {
-            d = init;
+            d_local = init;
+            d = &d_local;
             q = init;
             prev_q = !init; // !init ?
         }
@@ -29,7 +30,7 @@ namespace dspsim
         void eval_end_step()
         {
             prev_q = q;
-            q = d;
+            q = *d;
         }
 
         bool changed() const
@@ -65,7 +66,7 @@ namespace dspsim
 
         void write(T value)
         {
-            d = value;
+            *d = value;
         }
         T read() const
         {
@@ -75,14 +76,18 @@ namespace dspsim
         //
         T _read_d() const
         {
-            return d;
+            return *d;
         }
 
         //
         void _force(T value)
         {
-            d = value;
+            *d = value;
             q = value;
+        }
+        void _bind(T &other)
+        {
+            d = &other;
         }
 
         int _readi() const
@@ -102,7 +107,8 @@ namespace dspsim
         // }
 
     protected:
-        T d, q;
+        T d_local;
+        T *d, q;
         T prev_q;
     };
 
@@ -173,22 +179,17 @@ namespace dspsim
         Dff(Signal<uint8_t> &clk, T initial = 0) : Signal<T>(initial), clk(clk)
         {
         }
-        // Dff(SignalPtr<uint8_t> clk, T initial = 0) : Signal<T>(initial), clk(*clk) {}
 
-        virtual void eval_step()
+        void eval_step()
         {
-            if (clk.posedge())
-            {
-                update = true;
-            }
+            update = clk.posedge();
         }
         void eval_end_step()
         {
             this->prev_q = this->q;
             if (update)
             {
-                this->q = this->d;
-                update = false;
+                this->q = this->_read_d();
             }
         }
 

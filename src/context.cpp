@@ -16,7 +16,7 @@ namespace dspsim
     }
     Context::~Context()
     {
-        std::cout << fmt::format("Clearing Context: {}", (intptr_t)this) << std::endl;
+        // std::cout << fmt::format("Clearing Context: {}", (intptr_t)this) << std::endl;
         clear();
     }
 
@@ -44,7 +44,7 @@ namespace dspsim
         m_elaborate_done = true;
         this->detach();
 
-        eval();
+        // eval();
     }
 
     void Context::clear()

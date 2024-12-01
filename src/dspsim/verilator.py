@@ -103,7 +103,7 @@ class VModelTree:
             if len(parameters):
                 # We have to check len of parameters before calling, otherwise we recurse endlessly.
                 default_tree = VModelTree.generate(
-                    source, verilator_args=verilator_args
+                    source, include_dirs=include_dirs, verilator_args=verilator_args
                 )
                 # Only allow overriding valid parameters. Throw error if invalid?
                 param_args = [
@@ -114,6 +114,8 @@ class VModelTree:
                 verilator_args.extend(param_args)
 
             verilator_args.extend(["--json-only", "--Mdir", tmpdir])
+            inc_dirs = [f"-I{d.absolute()}" for d in include_dirs]
+            verilator_args.extend(inc_dirs)
             verilator([source] + verilator_args)
 
             tree_file = tmpdir / f"V{source.stem}.tree.json"

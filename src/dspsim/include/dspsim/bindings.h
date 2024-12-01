@@ -23,7 +23,7 @@ namespace dspsim
         }
         void eval_end_step() override
         {
-            NB_OVERRIDE_PURE(eval_end_step);
+            NB_OVERRIDE(eval_end_step);
         }
     };
 
@@ -57,6 +57,7 @@ namespace dspsim
             .def_prop_ro("elaborate_done", &Context::elaborate_done)
             .def("eval", &Context::eval)
             .def("advance", &Context::advance, nanobind::arg("time_inc") = 1)
+            .def("own_model", &Context::own_model, nanobind::arg("model"))
             .def_prop_ro("models", &Context::models, nanobind::rv_policy::reference)
             .def("print_info", &Context::print_info);
     }
@@ -65,6 +66,7 @@ namespace dspsim
     static inline auto bind_base_model(nanobind::handle &scope, const char *name)
     {
         return nanobind::class_<Model, PyModel>(scope, name)
+            .def(nanobind::init<>())
             .def_prop_ro("context", &Model::context)
             .def("eval_step", &Model::eval_step)
             .def("eval_end_step", &Model::eval_end_step);

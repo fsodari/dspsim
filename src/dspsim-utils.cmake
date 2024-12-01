@@ -145,7 +145,7 @@ function(dspsim_add_module name)
         set(prefix "V${model_name}")
         set(mdir ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${model_name}.dir)
 
-        message("Verilating ${model_source}, trace: ${trace_type}, prefix ${prefix}, vargs: ${model_vargs}")
+        message("Verilating ${model_source}, inc: ${model_include_dirs}, trace: ${trace_type}, prefix ${prefix}, vargs: ${model_vargs}")
         verilate(${name}
             ${trace_type}
             SOURCES ${model_source}

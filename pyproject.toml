@@ -38,8 +38,8 @@ dspsim = "dspsim.main:main"
 ### dspsim tool configuration ###
 
 [tool.dspsim]
-# sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
-sources = ["src/dspsim/hdl/SomeModel.sv"]
+sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
+# sources = ["src/dspsim/hdl/SomeModel.sv"]
 trace = "vcd"
 
 # include_dirs = ["src/dspsim/hdl"] # this is already included.
@@ -47,6 +47,7 @@ trace = "vcd"
 DW = 24
 AW = 32
 COEFW = 18
+COEFQ = 16
 
 # [tool.dspsim.models]
 # # SomeModel = { parameters = { DW = 24 } }

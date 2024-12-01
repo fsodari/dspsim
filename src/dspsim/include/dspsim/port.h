@@ -82,7 +82,7 @@ namespace dspsim
     };
 
     template <typename T>
-    class Output : Model
+    class Output
     {
     protected:
         Signal<T> &sig;
@@ -91,17 +91,12 @@ namespace dspsim
     public:
         Output(Signal<T> &sig, T &top_sig) : sig(sig), top_sig(top_sig)
         {
-            sig._force(top_sig);
-        }
-        void eval_step() {}
-        void eval_end_step()
-        {
-            sig._force(top_sig);
+            sig._bind(top_sig);
         }
     };
 
     template <typename T, size_t N>
-    class Output<T[N]> : Model
+    class Output<T[N]>
     {
     protected:
         std::array<Signal<T> *, N> sig;
@@ -112,22 +107,23 @@ namespace dspsim
         {
             for (size_t i = 0; i < N; i++)
             {
-                top_sig[i] = &_top_sig[i];
-                sig[i]->_force(*top_sig[i]);
+                // top_sig[i] = &_top_sig[i];
+                // sig[i]->_force(*top_sig[i]);
+                sig[i]->_bind(_top_sig[i]);
             }
         }
-        void eval_step() {}
-        void eval_end_step()
-        {
-            for (size_t i = 0; i < N; i++)
-            {
-                sig[i]->_force(*top_sig[i]);
-            }
-        }
+        // void eval_step() {}
+        // void eval_end_step()
+        // {
+        //     for (size_t i = 0; i < N; i++)
+        //     {
+        //         sig[i]->_force(*top_sig[i]);
+        //     }
+        // }
     };
 
     template <typename T, size_t N, size_t M>
-    class Output<T[N][M]> : Model
+    class Output<T[N][M]>
     {
         using SignalArray = std::array<std::array<Signal<T> *, M>, N>;
 
@@ -142,22 +138,23 @@ namespace dspsim
             {
                 for (size_t j = 0; j < M; j++)
                 {
-                    top_sig[i][j] = &_top_sig[i][j];
-                    sig[i][j]->_force(*top_sig[i][j]);
+                    // top_sig[i][j] = &_top_sig[i][j];
+                    // sig[i][j]->_force(*top_sig[i][j]);
+                    sig[i][j]->_bind(_top_sig[i][j]); // ???
                 }
             }
         }
-        void eval_step() {}
-        void eval_end_step()
-        {
-            for (size_t i = 0; i < N; i++)
-            {
-                for (size_t j = 0; j < M; j++)
-                {
-                    sig[i][j]->_force(*top_sig[i][j]);
-                }
-            }
-        }
+        // void eval_step() {}
+        // void eval_end_step()
+        // {
+        //     for (size_t i = 0; i < N; i++)
+        //     {
+        //         for (size_t j = 0; j < M; j++)
+        //         {
+        //             sig[i][j]->_force(*top_sig[i][j]);
+        //         }
+        //     }
+        // }
     };
 
     // template <typename T>
