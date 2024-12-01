@@ -14,7 +14,7 @@ class Args:
     cmake_dir: bool
     include_dir: bool
     hdl_dir: bool
-    func: Callable = field(init=False)
+    func: Callable
 
     @classmethod
     def create_parser(cls):

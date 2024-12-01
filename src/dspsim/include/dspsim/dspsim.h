@@ -3,6 +3,7 @@
 #include <dspsim/model.h>
 #include <dspsim/signal.h>
 #include <dspsim/clock.h>
+#include <dspsim/port.h>
 
 #include <string>
 

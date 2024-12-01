@@ -2,29 +2,43 @@ include_guard(GLOBAL)
 
 function(dspsim_run_generate pyproject_path tool_cfg outdir)
     message("dspsim_run_generate()...")
+    
+    cmake_path(GET DSPSIM_PKG_DIR PARENT_PATH dspsim_parent)
+
     execute_process(COMMAND ${DSPSIM_GENERATE_CMD}
         --pyproject ${pyproject_path}
         --tool-cfg ${tool_cfg}
         --output-dir ${outdir}
-        RESULT_VARIABLE gen_result)
+        RESULT_VARIABLE gen_result
+        WORKING_DIRECTORY ${dspsim_parent})
     if (gen_result)
         message(FATAL_ERROR "DSPSIM Generate Script failed")
     endif()
 endfunction(dspsim_run_generate)
 
-# Build the dspsim library.
-function(dspsim_build_library name)
-    # Only build the library once for a given configuration.
-    if (TARGET ${name})
-        return()
-    endif()
-    # Read build configuration from pyproject.toml
-    # dspsim library
-    add_library(${name}
-        ${DSPSIM_PKG_DIR}/include/dspsim/dspsim.cpp)
-    # dspsim include directory
-    target_include_directories(${name} PUBLIC
-        ${DSPSIM_PKG_DIR}/include)
+function(dspsim_basic_module name)
+    # set(options SHARED TRACE TRACE_FST)
+    # set(oneValueArgs CONFIG)
+    # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
+    cmake_parse_arguments(PARSE_ARGV 1 arg
+        "${options}" "${oneValueArgs}" "${multiValueArgs}")
+    message("${name}: ${arg_UNPARSED_ARGUMENTS}")
+
+    # Create framework module
+    nanobind_add_module(${name}
+        STABLE_ABI
+        ${arg_UNPARSED_ARGUMENTS})
+
+    # Link to dspsim-core library
+    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+
+    # Stub generation
+    nanobind_add_stub(${name}_stub
+        MODULE ${name}
+        OUTPUT ${name}.pyi
+        PYTHON_PATH $<TARGET_FILE_DIR:${name}>
+        MARKER_FILE py.typed
+        DEPENDS ${name})
 endfunction()
 
 function(dspsim_add_module name)
@@ -38,6 +52,17 @@ function(dspsim_add_module name)
         "${options}" "${oneValueArgs}" "${multiValueArgs}")
 
     message("${name}: ${arg_UNPARSED_ARGUMENTS}")
+    nanobind_add_module(${name} 
+        NB_DOMAIN dspsim
+        STABLE_ABI
+        ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
+    target_link_libraries(${name} PRIVATE dspsim-core)
+    # Library stubs
+    nanobind_add_stub(${name}_stub
+        MODULE ${name}
+        OUTPUT ${name}.pyi
+        PYTHON_PATH $<TARGET_FILE_DIR:${name}>
+        DEPENDS ${name})
 
     ### If CONFIG is specified, read in the pyproject.toml config information when building.
     ### This is used when building a dspsim package. Use NO_CONFIG to specify settings in cmake.
@@ -51,6 +76,7 @@ function(dspsim_add_module name)
 
     set(cfg_path ${CMAKE_CURRENT_BINARY_DIR}/dspsim_tool_cfg.json)
     dspsim_run_generate(${pyproject_path} ${cfg_path} ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir)
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir)
 
     message("Use dspsim_tool_cfg.json")
     # Read the JSON file.
@@ -67,7 +93,7 @@ function(dspsim_add_module name)
         string(JSON model_name MEMBER ${models} ${IDX})
         string(JSON model GET ${models} ${model_name})
         string(JSON model_source GET ${model} "source")
-        # string(JSON model_parameters GET ${model} "parameters")
+        string(JSON model_parameters GET ${model} "parameters")
         string(JSON _model_include_dirs GET ${model} "includeDirs")
         string(JSON model_trace GET ${model} "trace")
         string(JSON _model_vargs GET ${model} "verilatorArgs")
@@ -93,6 +119,20 @@ function(dspsim_add_module name)
                 list(APPEND model_vargs ${varg})
             endforeach()
         endif()
+
+        # Add parameters to vargs
+        string(JSON n_params LENGTH ${model_parameters})
+        # message(FATAL_ERROR ${model_parameters})
+        if (${n_params})
+            math(EXPR count "${n_params}-1")            
+            foreach(IDX RANGE ${count})
+                string(JSON param_id MEMBER ${model_parameters} ${IDX})
+                string(JSON param GET ${model_parameters} ${param_id})
+                # string(JSON param_name GET ${param} "name")
+                # string(JSON param_value GET ${param} "value")
+                list(APPEND model_vargs "-G${param_id}=${param}")
+            endforeach()
+        endif()
         
         if (model_trace STREQUAL "fst")
             set(trace_type TRACE_FST)
@@ -103,34 +143,18 @@ function(dspsim_add_module name)
         endif()
 
         set(prefix "V${model_name}")
-        set(mdir ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${prefix}.dir)
+        set(mdir ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${model_name}.dir)
 
+        message("Verilating ${model_source}, trace: ${trace_type}, prefix ${prefix}, vargs: ${model_vargs}")
         verilate(${name}
             ${trace_type}
             SOURCES ${model_source}
             INCLUDE_DIRS ${model_include_dirs}
             PREFIX "V${model_name}"
-            VERILATOR_ARGS ${model_vargs} --quiet)
+            DIRECTORY ${mdir}
+            VERILATOR_ARGS ${model_vargs})
 
         # Generate the model bindings.
     endforeach()
-    
-    # Build the dspsim library
-    dspsim_build_library("dspsim-${lib_type}")
-
-    # # Create the nanobind module
-    # nanobind_add_module(${name} ${arg_UNPARSED_ARGUMENTS}
-    #     STABLE_ABI)
-
-    # Link to the dspsim library.
-    target_link_libraries(${name} PRIVATE dspsim_lib)
-
-    # # verilate
-    # verilate(${name} ${arg_TRACE} ${arg_TRACE_FST}
-    #     SOURCES ${arg_SOURCE})
-
-    # # generate
-    # dspsim_run_generate(${name}
-    #     SOURCE ${arg_SOURCE})
 
 endfunction()

@@ -1,9 +1,0 @@
-@PACKAGE_INIT@
-
-include(${CMAKE_CURRENT_LIST_DIR}/dspsim-core-targets.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/dspsim-utils.cmake)
-
-set_and_check(DSPSIM_PKG_DIR "@PACKAGE_PKG_INSTALL_DIR@")
-set_and_check(DSPSIM_INCLUDE_DIR "@PACKAGE_INCLUDE_INSTALL_DIR@")
-set_and_check(DSPSIM_HDL_DIR "@PACKAGE_HDL_INSTALL_DIR@")
-

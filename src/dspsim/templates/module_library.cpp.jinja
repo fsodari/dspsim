@@ -1,0 +1,17 @@
+#include <dspsim/dspsim.h>
+#include <dspsim/bindings.h>
+{%for model in models%}
+#include "{{model}}.h"
+{%-endfor%}
+
+static inline void bind_all(nanobind::module_ &m)
+{    //
+    {% for model in models %}
+    {{model}}::bind_model(m, "{{model}}");
+    {%-endfor%}
+}
+
+NB_MODULE({{libname}}, m)
+{
+    bind_all(m);
+}

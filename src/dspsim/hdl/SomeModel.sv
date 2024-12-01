@@ -10,15 +10,20 @@ module SomeModel #(
     parameter int IARR[3] = '{1, 2, 3},
     parameter string SARR[2] = '{"foo", "bar"},
     parameter int IMAT[2][3] = '{'{1,2,3}, '{4,5,6}},
-    parameter string SMAT[2][2][2] = '{'{'{"a", "b"}, '{"c", "d"}}, '{'{"e", "f"}, {"g", "h"}}}
+    parameter string SMAT[2][2][2] = '{'{'{"a", "b"}, '{"c", "d"}}, '{'{"e", "f"}, {"g", "h"}}},
+    parameter NC = 6,
+    parameter ND = 4,
+    parameter MD = 3,
+    parameter NE = 1,
+    parameter ME = 2
 ) (
     input  logic clk,
     input  logic rst,
     input  logic [DW-1:0] x,
     output logic [DW-1:0] y,
-    input logic [COEFW-1:0] c [6],
-    input logic [COEFW-1:0] d[4][3],
-    input logic [COEFW-1:0] e[1]
+    input logic [COEFW-1:0] c[NC],
+    output logic [COEFW-1:0] d[ND][MD],
+    input logic [COEFW-1:0] e[NE][ME]
 );
 
 always @(posedge clk) begin

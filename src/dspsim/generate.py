@@ -12,207 +12,16 @@ import tomllib
 import json
 import shutil
 import glob
-
-# from pydantic import BaseModel, field_validator
-
-# from pydantic.dataclasses import dataclass
+import numpy as np
 import subprocess
 from tempfile import TemporaryDirectory
 from typing import Literal, TypeAlias
 
 from dataclass_wizard import TOMLWizard, JSONWizard
+from functools import cache
 
-
-def verilator(args: list[str]):
-    """"""
-    if "VERILATOR_ROOT" in os.environ:
-        verilator_bin = Path(os.environ["VERILATOR_ROOT"]) / "bin/verilator"
-    else:
-        # Assume it's on the path.
-        verilator_bin = "verilator"
-    cmd = [verilator_bin, "--quiet"] + args
-    subprocess.run(cmd)
-
-
-def read_tree(tree_file: Path) -> dict:
-    """Read"""
-    with open(tree_file, "r") as fp:
-        return json.load(fp)
-
-
-def write_tree(tree_file: Path, content: dict):
-    """"""
-    with open(tree_file, "w") as fp:
-        json.dump(content, fp)
-
-
-def generate_tree(
-    source: Path, output_file: Path = None, *, verilator_args: list[str] = []
-) -> dict:
-    """"""
-    args = [source, "--json-only"]
-    args.extend(verilator_args)
-    with TemporaryDirectory() as _tmpdir:
-        tmpdir = Path(_tmpdir)
-
-        args.extend(["--Mdir", tmpdir])
-        verilator(args)
-
-        tmp_file = tmpdir / f"V{source.stem}.tree.json"
-
-        content = read_tree(tmp_file)
-        # Copy file if requested.
-        if output_file:
-            shutil.copy(tmp_file, output_file)
-
-    return content
-
-
-def _int_from_str(s: str) -> int:
-    """"""
-
-    def sign_extend(value, bits):
-        sign_bit = 1 << (bits - 1)
-        return (value & (sign_bit - 1)) - (value & sign_bit)
-
-    fmt, val = s.split("h", maxsplit=1)
-    # is_signed = "s" in fmt
-    nbits = int(fmt.split("'")[0])
-
-    # print(f"Width: {bits}, {val}, {is_signed}")
-    result = int(val, base=16)
-    return sign_extend(result, nbits)
-    # base_str, val = _rest.split("s", maxsplit=1)
-
-
-_type_names = {
-    "logic": _int_from_str,
-    "int": _int_from_str,
-    "real": float,
-    "string": lambda x: str(x).replace("\\", "").replace('"', "").replace("'", ""),
-}
-
-
-def _parse_value(valuep, typetable):
-    """Parse parameter value using typetable."""
-    return _type_names[typetable[valuep["dtypep"]]["name"]](valuep["name"])
-
-
-def _parse_param_value(valuep, typetable):
-    """Recursively read in parameter definition to build multi-dimensional arrays."""
-    if "initsp" in valuep:
-        return [_parse_param_value(i["valuep"][0], typetable) for i in valuep["initsp"]]
-
-    return _parse_value(valuep, typetable)
-
-
-Parameter: TypeAlias = int | float | str | list
-
-
-def read_parameters(json_tree: dict) -> dict[str, Parameter]:
-    """"""
-    modulesp = json_tree["modulesp"][0]
-    typetable = {t["addr"]: t for t in json_tree["miscsp"][0]["typesp"]}
-    stmtsp: list[dict[str]] = modulesp["stmtsp"]
-
-    # Read in parameters and parse the value.
-    return {
-        entry["name"]: _parse_param_value(entry["valuep"][0], typetable)
-        for entry in stmtsp
-        if entry.get("isGParam", False)
-    }
-
-
-def _range_to_int(r: str) -> int:
-    """"""
-    ul = [int(x) for x in r.replace("[", "").replace("]", "").split(":")]
-    return max(ul) - min(ul) + 1
-
-
-def _parse_port_shape(dtypep, typetable):
-    """"""
-    table_type = typetable[dtypep]
-
-    if table_type["name"] == "":
-        decl_range = _range_to_int(table_type.get("declRange", "[0:0]"))
-
-        ref_type = table_type["refDTypep"]
-        ref_declrange = _range_to_int(typetable[ref_type].get("declRange", "[0:0]"))
-        if ref_declrange == 1:
-            return (decl_range,)
-        else:
-            return (decl_range, _parse_port_shape(ref_type, typetable))
-
-    return ()
-
-
-def _parse_port_width(dtypep, typetable):
-    """Recursively find a ports type. Recursion needed for arrays."""
-    table_type = typetable[dtypep]
-    if table_type["name"] == "":
-        return _parse_port_width(table_type["refDTypep"], typetable)
-    return _range_to_int(table_type.get("range", "[0:0]"))
-
-
-def _flatten(data):
-    """Flatten a tuple."""
-    result = []
-    for item in data:
-        if isinstance(item, tuple):
-            result.extend(_flatten(item))
-        else:
-            result.append(item)
-    return tuple(result)
-
-
-@dataclass
-class Port:
-    """HDL module port configuration."""
-
-    # name: str
-    width: int
-    direction: Literal["input", "output"]  # input or output
-    shape: tuple = ()  # Support scalars or arrays
-
-
-def _parse_port_entry(entry: dict[str], typetable: dict[str]):
-    """"""
-    name = entry["name"]
-    direction = str(entry["direction"]).lower()
-    # dtypep = typetable[entry["dtypep"]]
-    dtypep = entry["dtypep"]
-
-    width = _parse_port_width(dtypep, typetable)
-    shape = _flatten(_parse_port_shape(dtypep, typetable))
-    return Port(width=width, direction=direction, shape=shape)
-
-
-def read_ports(json_tree: dict) -> dict[str, Port]:
-    """"""
-    modulesp = json_tree["modulesp"][0]
-    typetable = {t["addr"]: t for t in json_tree["miscsp"][0]["typesp"]}
-    stmtsp: list[dict[str]] = modulesp["stmtsp"]
-
-    # Read in parameters and parse the value.
-    ports = {
-        entry["name"]: _parse_port_entry(entry, typetable)
-        for entry in stmtsp
-        if entry.get("varType", "Not") == "PORT"
-    }
-
-    return ports
-
-
-@dataclass
-class Model:
-    """HDL module configuration."""
-
-    source: Path = None
-    parameters: dict[str, Parameter] = field(default_factory=dict)
-    include_dirs: list[Path] = field(default_factory=list)
-    trace: Literal[None, "vcd", "fst", "notrace"] = None
-    verilator_args: list = field(default_factory=list)
-    ports: dict[str, Port] = field(default_factory=dict)
+from dspsim.config import Parameter, Port, ModuleConfig
+from dspsim import util
 
 
 def _get_abs_path(source: Path, pyproject_path: Path) -> Path:
@@ -238,6 +47,7 @@ def _find_source(
     - check in include_dirs (including dspsim/hdl)
     - check relative to pyproject.toml directory.
     """
+
     if source.is_absolute():
         return source
 
@@ -266,24 +76,7 @@ def _find_source(
         if source.stem == src.stem:
             return src
 
-
-def fmt_param_val(param: Parameter):
-    """"""
-    if isinstance(param, str):
-        return f'"{param}"'
-
-    return str(param)
-
-
-def fmt_param_varg(param: Parameter):
-    """"""
-    if isinstance(param, list):
-        header = "'{"
-        tail = "}"
-        inits = ", ".join([fmt_param_varg(p) for p in param])
-        return f"{header}{inits}{tail}"
-
-    return fmt_param_val(param)
+    raise Exception(source, global_sources, include_dirs, pyproject_path)
 
 
 @dataclass
@@ -308,7 +101,7 @@ class Config(JSONWizard):
     verilator_args: list = field(default_factory=list)
 
     # Module configurations. Specify different configurations, non-default options, or overrides.
-    models: dict[str, Model] = field(default_factory=dict)
+    models: dict[str, ModuleConfig] = field(default_factory=dict)
 
     @classmethod
     def from_pyproject(cls, pyproject_path: Path = Path("pyproject.toml")):
@@ -318,143 +111,198 @@ class Config(JSONWizard):
         with open(pyproject_path, "rb") as fp:
             pyproject = tomllib.load(fp)
         dspsim_tool_config: dict = pyproject["tool"]["dspsim"]
-        tool_config = cls.from_dict(dspsim_tool_config)
 
-        # fix relative include dirs.
-        tool_config.include_dirs = [
-            _get_abs_path(idir, pyproject_path) for idir in tool_config.include_dirs
+        library_type = dspsim_tool_config.get("library_type", "static")
+        global_parameters = {
+            k: Parameter(k, np.array(v))
+            for k, v in dspsim_tool_config.get("parameters", {}).items()
+        }
+        global_includes = [
+            Path(p) for p in dspsim_tool_config.get("include_dirs", [util.hdl_dir()])
         ]
-        # Collect all sources from sources field. globbed.
-        # Relative to pyproject.toml path if not absolute.
-        found_sources: set[Path] = set()
-        for source in tool_config.sources:
-            # Glob every source, and add all options to the set.
-            for filename in glob.glob(str(source)):
-                # Add to the set.
-                found_sources.add(_get_abs_path(Path(filename), pyproject_path))
 
-        # Add any extra sources specified in the models config.
-        for model_name, model in tool_config.models.items():
-            # print(model)
-            if model.source:
-                source_name = model.source
-            else:
-                source_name = Path(model_name)
-            found = _find_source(
-                source_name,
-                found_sources,
-                tool_config.include_dirs,
+        global_trace = dspsim_tool_config.get("trace", None)
+        global_vargs = dspsim_tool_config.get("verilator_args", [])
+
+        # Find all default sources
+        global_sources: set[Path] = set()
+        for source in dspsim_tool_config.get("sources", []):
+            # Glob every source, and add all options to the set.
+            # fs.append(source)
+            abp = _get_abs_path(
+                Path(source),
                 pyproject_path,
             )
-            model.source = found
-            found_sources.add(found)
-
-        tool_config.sources = found_sources
-        # Get all of the default parameters for each source.
-        # Set up default models.
-        default_source_params: dict[Path, dict[str, Parameter]] = {}
-        default_models: dict[str, Model] = {}
-        for source in tool_config.sources:
-            _json_tree = generate_tree(source)
-            default_params = read_parameters(_json_tree)
-            # Add the default models.
-            default_models[source.stem] = Model(
-                source,
-                parameters={
-                    k: v
-                    for k, v in tool_config.parameters.items()
-                    if k in default_params
-                },
-                include_dirs=tool_config.include_dirs.copy(),
-                trace=tool_config.trace,
-                verilator_args=tool_config.verilator_args.copy(),
-            )
-            default_source_params[source] = default_params.copy()
-
-        final_models: dict[str, Model] = default_models.copy()
-        for name, model in tool_config.models.items():
-            params = default_source_params[model.source]
-            # Add new model
-            final_models[name] = Model(
-                model.source,
-                params.copy(),
-                include_dirs=model.include_dirs.copy(),
-                trace=model.trace,
-                verilator_args=model.verilator_args.copy(),
-            )
-            for param_name in params:
-                if param_name in tool_config.parameters:
-                    final_models[name].parameters[param_name] = tool_config.parameters[
-                        param_name
-                    ]
-                if param_name in model.parameters:
-                    final_models[name].parameters[param_name] = model.parameters[
-                        param_name
-                    ]
-            # final_models[name].parameters =
-            final_models[name].include_dirs.extend(tool_config.include_dirs)
-            if name not in default_models:
-                for k, v in model.parameters.items():
-                    if k in params:
-                        params[k] = v
-
-                final_models[name].trace = (
-                    model.trace if model.trace else tool_config.trace
+            for filename in glob.glob(str(abp)):
+                # fs.append(filename)
+                # Add to the set.
+                found = _find_source(
+                    Path(filename),
+                    global_sources,
+                    global_includes,
+                    pyproject_path,
                 )
+                global_sources.add(found)
+        tool_models: dict = dspsim_tool_config.get("models", {})
+        default_module_sources = {source.stem: source for source in global_sources}
+        extra_module_sources = {
+            model_name: _get_abs_path(
+                _find_source(
+                    Path(model.get("source", model_name)),
+                    global_sources,
+                    global_includes + model.get("include_dirs", []),
+                    pyproject_path,
+                ),
+                pyproject_path,
+            )
+            for model_name, model in tool_models.items()
+        }
+        all_module_sources = default_module_sources | extra_module_sources
 
-            else:
-                # override parameters
-                for param_name, value in model.parameters.items():
-                    if param_name in params:
-                        final_models[name].parameters[param_name] = value
-                # Override trace
-                if model.trace:
-                    final_models[name].trace = model.trace
-                # Extend verilator args.
-                final_models[name].verilator_args.extend(model.verilator_args)
-
-        # And finally, run verilator with all the overrides.
-        for model_name, model in final_models.items():
-            # We can't parse arrays on the command line.
-            param_args = [
-                f"-G{pn}={fmt_param_varg(pv)}"
-                for pn, pv in model.parameters.items()
-                if not isinstance(pv, list)
+        all_modules: dict[str, ModuleConfig] = {}
+        for name, source in all_module_sources.items():
+            model = tool_models.get(name, {}).copy()
+            _param_cfg = model.get("parameters", {})
+            model_parameters = {
+                k: Parameter(k, np.array(v)) for k, v in _param_cfg.items()
+            }
+            model_includes = [
+                _get_abs_path(i, pyproject_path) for i in model.get("include_dirs", [])
             ]
-            model.verilator_args.extend(param_args)
+            all_modules[name] = ModuleConfig.from_verilator(
+                source,
+                parameters=global_parameters | model_parameters,
+                trace=model.get("trace", global_trace),
+                include_dirs=global_includes + model_includes,
+                verilator_args=global_vargs + model.get("verilator_args", []),
+            )
+            all_modules[name].name = name
+        return cls(
+            library_type=library_type,
+            parameters=global_parameters,
+            include_dirs=global_includes,
+            sources=global_sources,
+            trace=global_trace,
+            verilator_args=global_vargs,
+            models=all_modules,
+        )
+        # for mname, m in dspsim_tool_config["models"].items():
+        #     m["parameters"] = {
+        #         k: Parameter(k, np.array(v)) for k, v in m["parameters"].items()
+        #     }
+        #     m = ModuleConfig()
+        # tool_config = cls(**dspsim_tool_config)
+        # print(f"{tool_config}")
 
-            json_tree = generate_tree(model.source, verilator_args=model.verilator_args)
-            model.parameters = read_parameters(json_tree)
-            model.ports = read_ports(json_tree)
-        tool_config.models = final_models
+        # # fix relative include dirs.
+        # tool_config.include_dirs = [
+        #     _get_abs_path(idir, pyproject_path) for idir in tool_config.include_dirs
+        # ]
+        # # Collect all sources from sources field. globbed.
+        # # Relative to pyproject.toml path if not absolute.
+        # found_sources: set[Path] = set()
+        # for source in tool_config.sources:
+        #     # Glob every source, and add all options to the set.
+        #     for filename in glob.glob(str(source)):
+        #         # Add to the set.
+        #         found_sources.add(_get_abs_path(Path(filename), pyproject_path))
 
-        return tool_config
+        # # Add any extra sources specified in the models config.
+        # for model_name, model in tool_config.models.items():
+        #     params =
+        #     model = ModuleConfig(
+        #         model.get("name", None),
+        #         model.get("source", None),
+        #         params,
+        #     )
+        #     if model.get("source", None):
+        #         source_name = model.source
+        #     else:
+        #         source_name = Path(model_name)
+        #     found = _find_source(
+        #         source_name,
+        #         found_sources,
+        #         tool_config.include_dirs,
+        #         pyproject_path,
+        #     )
+        #     model.source = found
+        #     found_sources.add(found)
 
+        # tool_config.sources = found_sources
+        # # Get all of the default parameters for each source.
+        # # Set up default models.
+        # default_models: dict[Path, ModuleConfig] = {}
+        # for source in tool_config.sources:
+        #     default_models[source] = ModuleConfig.from_verilator(
+        #         source,
+        #         parameters=tool_config.parameters,
+        #         verilator_args=tool_config.verilator_args,
+        #     )
+        # default_source_params = {
+        #     k: v.parameters.copy() for k, v in default_models.items()
+        # }
+        # final_models: dict[str, ModuleConfig] = default_models.copy()
+        # for name, model in tool_config.models.items():
+        #     params = default_source_params.get(model.source, {}).copy()
+        #     # Overrides.
+        #     for param_name in params:
+        #         if param_name in model.parameters:
+        #             params[param_name] = model.parameters[param_name]
 
-import jinja2
+        #     # Add new model
+        #     final_models[name] = ModuleConfig.from_verilator(
+        #         model.source, parameters=params.copy()
+        #     )
 
-_template_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates")
-)
+        # tool_config.models = final_models
 
-
-def render_template(template: str, name: str, config: Model) -> str:
-    """"""
-    return _template_env.get_template(template).render(name=name, config=config)
+        # return tool_config
 
 
 def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Path):
     """"""
-    config = Config.from_pyproject(pyproject_path)
-    with open(json_tool_cfg, "w") as fp:
-        fp.write(config.to_json(indent=4))
+    from dspsim.util import render_template
 
+    config = Config.from_pyproject(pyproject_path)
+
+    lib_odir = output_dir
+    os.makedirs(output_dir, exist_ok=True)
+    with open(lib_odir / f"{lib_odir.stem}.cpp", "w") as fp:
+        fp.write(
+            render_template(
+                "module_library.cpp.jinja",
+                models=config.models,
+                libname=f"{lib_odir.stem}",
+            )
+        )
     for name, model in config.models.items():
         prefix = f"V{name}"
-        gen_file = output_dir / f"{prefix}.dir/{name}.h"
+        gen_file = output_dir / f"{name}.dir/{name}.h"
         os.makedirs(gen_file.parent.absolute(), exist_ok=True)
         with open(gen_file, "w") as fp:
-            fp.write(render_template("model.cpp.jinja", name=name, config=model))
+            fp.write(render_template("model.cpp.jinja", model=model, trace=model.trace))
+
+    # Remove array-like parameters.
+    # xparameters = {k: v for k, v in config.parameters.items() if not v.value.shape}
+    # config.parameters = xparameters
+    from .config import _vvalue_str
+
+    # fmt_param = lambda v:
+    for model in config.models.values():
+        model.parameters = {
+            k: _vvalue_str(v.value)
+            for k, v in model.parameters.items()
+            if not v.value.shape
+        }
+    # raise Exception(f"{config.parameters}")
+    with open(json_tool_cfg, "w") as fp:
+        x = config.to_json(indent=4)
+        # # raise Exception(f"{x[]}")
+        # for model in x.get("models", {}).values():
+        #     for n, param in model.get("parameters", {}).items():
+        #         param["value"] = fmt_param(param["value"])
+        # raise Exception(f"{x}")
+        fp.write(x)
 
 
 @dataclass
@@ -513,6 +361,10 @@ def main(cli_args: list[str] = None):
     """"""
     args = ArgsGenerate.parse_args(cli_args)
     args.exec()
+
+
+def foo():
+    raise Exception("Foo")
 
 
 if __name__ == "__main__":
