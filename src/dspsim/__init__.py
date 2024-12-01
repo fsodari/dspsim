@@ -2,7 +2,7 @@
 
 from .util import cmake_dir, include_dir, hdl_dir
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 
 def main() -> None:
