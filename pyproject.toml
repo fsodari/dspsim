@@ -71,6 +71,7 @@ wheel.py-api = "cp312"
 requires = [
     "scikit-build-core>=0.10.7",
     "nanobind==2.1.0",
+    "verilator-dspsim==5.30.*",
     "numpy>=2.1.3",
     "jinja2>=3.1.4",
     "dataclass-wizard[toml]>=0.30.1",
@@ -85,3 +86,38 @@ dev = [
     "numpy>=2.1.3",
     "dataclass-wizard[toml]>=0.30.1",
 ]
+
+### cibuildwheel configuration
+# [tool.cibuildwheel]
+# test-requires = "pytest"
+# test-command = "pytest {project}/tests"
+
+[tool.cibuildwheel]
+# # Run pytest to ensure that the package was correctly built
+# test-command = "pytest {project}/tests"
+# test-requires = "pytest"
+
+# 64 bit builds
+archs = ["auto64"]
+
+build = ["cp312-*", "cp313-*"]
+# Don't build arm. Use only > cp39, no PyPy. Not using musl anywhere so no musl (it works though)
+skip = ["*-win_arm64"]
+
+# # manylinux builds
+# [tool.cibuildwheel.linux]
+# before-all = [
+#     "yum install -y flex",
+#     "yum install -y bison",
+#     "yum install -y ccache",
+# ]
+
+# # musllinux builds
+# [[tool.cibuildwheel.overrides]]
+# select = "*-musllinux*"
+# before-all = [
+#     "apk add flex",
+#     "apk add flex-dev",
+#     "apk add bison",
+#     "apk add ccache",
+# ]

@@ -1,32 +1,11 @@
 cmake_minimum_required(VERSION 3.26)
-
-if (NOT SKBUILD_PROJECT_NAME)
-  set(SKBUILD_PROJECT_NAME dspsim)
-  set(SKBUILD_PROJECT_VERSION "0.1.0")
-  set(SKBUILD_SABI_COMPONENT Development.SABIModule)
-  set(USING_SKBUILD Off)
-else()
-  # 
-  set(USING_SKBUILD On)
-endif()
-
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
-
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE On)
 
-
 # Required packages.
 find_package(Python COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT} REQUIRED)
-
-if (NOT USING_SKBUILD)
-  # Find nanobind if not using skbuild's cmake_module_path
-  execute_process(
-    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
-endif()
-
 find_package(nanobind CONFIG REQUIRED)
 find_package(VERILATOR CONFIG REQUIRED HINTS $ENV{VERILATOR_ROOT})
 
@@ -52,47 +31,37 @@ set(DSPSIM_PKG_DIR ${CMAKE_SOURCE_DIR}/src/dspsim)
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/include)
 set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
-# Need to use a slightly different command when building the package than when it has been installed.
-# SelfBuild: python -m dspsim.generate when called from the dir containing dspsim
-# Installed: python -m dspsim generate, or dspsim generate
-# set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
-# # Installation
-# if(USING_SKBUILD)
-#   set(INSTALL_PKGDIR "${CMAKE_INSTALL_PREFIX}/dspsim")
-# else()
-#   set(INSTALL_PKGDIR "${CMAKE_INSTALL_PREFIX}")
-# endif()
 
 set(INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
 set(INSTALL_DATADIR ${CMAKE_INSTALL_DATADIR})
-set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/dspsim)
+set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_DATADIR}/cmake/dspsim)
 
 
 # Doing this makes shared libaries work. Libraries are installed at dspsim/lib in site-packages.
-set(CMAKE_INSTALL_RPATH $ORIGIN/${CMAKE_INSTALL_LIBDIR})
+set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
 
 add_subdirectory(src)
 
-add_subdirectory(tests/cpp EXCLUDE_FROM_ALL)
+# add_subdirectory(tests/cpp EXCLUDE_FROM_ALL)
 
 
-# C++-only installs.
-if (NOT USING_SKBUILD)
+# # C++-only installs.
+# if (NOT USING_SKBUILD)
 
-  set(INSTALL_HDLDIR ${INSTALL_DATADIR}/dspsim/hdl)
+#   set(INSTALL_HDLDIR ${INSTALL_DATADIR}/dspsim/hdl)
 
-  # Install headers.
-  install(DIRECTORY ${DSPSIM_INCLUDE_DIR}/dspsim
-      DESTINATION ${INSTALL_INCLUDEDIR})
-  # Install HDL Sources
-  install(DIRECTORY ${DSPSIM_HDL_DIR}/
-      DESTINATION ${INSTALL_HDLDIR})
-elseif(SKBUILD_STATE STREQUAL "editable")
-  set(INSTALL_HDLDIR ${CMAKE_INSTALL_DATADIR}/dspsim/hdl)
-else()
-  set(INSTALL_HDLDIR hdl)
-endif()
+#   # Install headers.
+#   install(DIRECTORY ${DSPSIM_INCLUDE_DIR}/dspsim
+#       DESTINATION ${INSTALL_INCLUDEDIR})
+#   # Install HDL Sources
+#   install(DIRECTORY ${DSPSIM_HDL_DIR}/
+#       DESTINATION ${INSTALL_HDLDIR})
+# elseif(SKBUILD_STATE STREQUAL "editable")
+#   set(INSTALL_HDLDIR ${CMAKE_INSTALL_DATADIR}/dspsim/hdl)
+# else()
+#   set(INSTALL_HDLDIR hdl)
+# endif()
 
 # Install core library targets.
 install(TARGETS dspsim-core
