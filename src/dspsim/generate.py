@@ -76,8 +76,6 @@ def _find_source(
         if source.stem == src.stem:
             return src
 
-    raise Exception(source, global_sources, include_dirs, pyproject_path)
-
 
 @dataclass
 class Config(JSONWizard):
@@ -158,9 +156,9 @@ class Config(JSONWizard):
             for model_name, model in tool_models.items()
         }
         all_module_sources = default_module_sources | extra_module_sources
-
         all_modules: dict[str, ModuleConfig] = {}
-        for name, source in all_module_sources.items():
+        _errors = {}
+        for name, _source in all_module_sources.items():
             model = tool_models.get(name, {}).copy()
             _param_cfg = model.get("parameters", {})
             model_parameters = {
@@ -169,14 +167,19 @@ class Config(JSONWizard):
             model_includes = [
                 _get_abs_path(i, pyproject_path) for i in model.get("include_dirs", [])
             ]
+            print(f"Name: {name}, Source: {_source}")
+            _errors[name] = _source
+            # if name == "FifoAsync":
+            #     _errors.append(1)
             all_modules[name] = ModuleConfig.from_verilator(
-                source,
+                _source,
                 parameters=global_parameters | model_parameters,
                 trace=model.get("trace", global_trace),
                 include_dirs=global_includes + model_includes,
                 verilator_args=global_vargs + model.get("verilator_args", []),
             )
             all_modules[name].name = name
+        # raise Exception(_errors)
         return cls(
             library_type=library_type,
             parameters=global_parameters,
@@ -208,6 +211,7 @@ def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Pa
         gen_file = output_dir / f"{name}.dir/{name}.h"
         os.makedirs(gen_file.parent.absolute(), exist_ok=True)
         with open(gen_file, "w") as fp:
+            # raise Exception(model.port_info())
             fp.write(render_template("model.cpp.jinja", model=model, trace=model.trace))
 
     from .config import _vvalue_str

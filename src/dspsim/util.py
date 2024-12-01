@@ -42,3 +42,13 @@ def uint_width(width: int) -> int:
         return 32
     elif width <= 64:
         return 64
+
+
+def to_fixed(flt: float, q: int) -> int:
+    """"""
+    return flt * (2**q)
+
+
+def to_float(fxd: int, q: int) -> float:
+    """"""
+    return fxd / (2**q)

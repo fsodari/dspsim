@@ -1,19 +1,84 @@
-from dspsim.framework import Model, Signal8, SignalT, signal
-from typing import TypeVar
+from dspsim.framework import Model, Signal8, SignalT, signal, port_info
 import numpy as _np
 from numpy.typing import ArrayLike as _ArrayLike
-import functools as _functools
+
+TIDW = 8
 
 
 class Axis:
     tdata: SignalT
     tvalid: Signal8
     tready: Signal8
+    tid: Signal8 = None
+    tlast: Signal8 = None
 
-    def __init__(self, *, width: int):
+    _width: int
+
+    def __init__(self, *, width: int, tid: bool = False, tlast: bool = False):
+        self._width = width
         self.tdata = signal(width=width)
         self.tvalid = signal()
         self.tready = signal()
+        if tid:
+            self.tid = signal(width=TIDW)
+        if tlast:
+            self.tlast = signal()
+
+    def __str__(self) -> str:
+        return f"Axis(width={self.width}, tid={self.tid}, tlast={self.tlast})"
+
+    @property
+    def width(self):
+        return self._width
+
+
+import itertools
+
+
+def init_stream_model[
+    ModelT
+](
+    cls: type[ModelT],
+    clk: Signal8,
+    rst: Signal8,
+    s_axis: Axis,
+    m_axis: Axis,
+    **extra,
+) -> ModelT:
+    """
+    Init a model that contains a stream input and output using
+    """
+    from dspsim.config import Port
+
+    args = dict(
+        clk=clk,
+        rst=rst,
+        s_axis_tdata=s_axis.tdata,
+        s_axis_tvalid=s_axis.tvalid,
+        s_axis_tready=s_axis.tready,
+        m_axis_tdata=m_axis.tdata,
+        m_axis_tvalid=m_axis.tvalid,
+        m_axis_tready=m_axis.tready,
+    )
+
+    portinfo = port_info(cls)
+
+    # Connect an empty signal if the bus doesn't have it.
+    # If the model doesn't have it, don't connect it.
+    if "s_axis_tid" in portinfo:
+        args["s_axis_tid"] = s_axis.tid if s_axis.tid else signal(width=TIDW)
+    if "s_axis_tlast" in portinfo:
+        args["s_axis_tlast"] = s_axis.tlast if s_axis.tlast else signal(width=1)
+
+    if "m_axis_tid" in portinfo:
+        args["m_axis_tid"] = m_axis.tid if m_axis.tid else signal(width=TIDW)
+    if "m_axis_tlast" in portinfo:
+        args["m_axis_tlast"] = m_axis.tlast if m_axis.tlast else signal(width=1)
+
+    return cls(
+        **args,
+        **extra,
+    )
 
 
 class AxisTx(Model):
@@ -24,19 +89,24 @@ class AxisTx(Model):
 
     clk: Signal8
     rst: Signal8
-    tdata: SignalT
-    tvalid: Signal8
-    tready: Signal8
+    m_axis_tdata: SignalT
+    m_axis_tvalid: Signal8
+    m_axis_tready: Signal8
+    m_axis_tid: Signal8 = None
 
     _buf: list[int]
+    _tid_pattern: list[int] = [0]
+    _id_iter: itertools.cycle
 
     def __init__(
         self,
         clk: Signal8,
         rst: Signal8,
-        tdata: SignalT,
-        tvalid: Signal8,
-        tready: Signal8,
+        m_axis_tdata: SignalT,
+        m_axis_tvalid: Signal8,
+        m_axis_tready: Signal8,
+        m_axis_tid: Signal8 = None,
+        tid_pattern: list[int] = [0],
     ):
         """"""
         # Initialize the Model base class.
@@ -46,44 +116,51 @@ class AxisTx(Model):
 
         self.clk = clk
         self.rst = rst
-        self.tdata = tdata
-        self.tvalid = tvalid
-        self.tready = tready
+        self.m_axis_tdata = m_axis_tdata
+        self.m_axis_tvalid = m_axis_tvalid
+        self.m_axis_tready = m_axis_tready
+        self.m_axis_tid = m_axis_tid
+        self._tid_pattern = tid_pattern
+        self._id_iter = itertools.cycle(tid_pattern)
         self._buf = []
 
     @classmethod
-    def init_axis(cls, clk: Signal8, rst: Signal8, axis: Axis):
+    def init_bus(
+        cls, clk: Signal8, rst: Signal8, m_axis: Axis, tid_pattern: list[int] = [0]
+    ):
         """"""
-        return cls(clk, rst, axis.tdata, axis.tvalid, axis.tready)
+        return cls(
+            clk=clk,
+            rst=rst,
+            m_axis_tdata=m_axis.tdata,
+            m_axis_tvalid=m_axis.tvalid,
+            m_axis_tready=m_axis.tready,
+            m_axis_tid=m_axis.tid,
+            tid_pattern=tid_pattern,
+        )
+
+    # @property
+    # def tid_pattern(self) -> list[int]:
+    #     return self._tid_pattern
+
+    # @tid_pattern.setter
+    # def tid_pattern(self, pattern: list[int]):
+    #     self._tid_pattern = pattern
 
     def eval_step(self) -> None:
         if self.clk.posedge():
-            if self.tvalid.q and self.tready.q:
-                self.tvalid.d = 0
+            if self.m_axis_tvalid.q and self.m_axis_tready.q:
+                self.m_axis_tvalid.d = 0
 
-            if len(self._buf):
+            if self.rst.q:
+                self.m_axis_tvalid.d = 0
+            elif len(self._buf):
                 # Send new data if the output stream is not stalled.
-                if not self.tvalid.q or self.tready.q:
-                    self.tdata.d = self._buf.pop(0)
-                    self.tvalid.d = 1
-
-    # @_functools.singledispatchmethod
-    # def write(self, arg):
-    #     raise Exception("Not Iplemnts")
-
-    # @write.register
-    # def _(self, x: int):
-    #     """"""
-    #     self._buf.append(x)
-
-    # @write.register
-    # def _(self, x: list):
-    #     self._buf.extend(x)
-
-    # @write.register
-    # def _(self, x: _np.ndarray):
-    #     """"""
-    #     self._buf.extend(x.astype(_np.int32))
+                if not self.m_axis_tvalid.q or self.m_axis_tready.q:
+                    self.m_axis_tdata.d = self._buf.pop(0)
+                    if self.m_axis_tid:
+                        self.m_axis_tid.d = next(self._id_iter)
+                    self.m_axis_tvalid.d = 1
 
     def write(self, x, float_q: int = None, sign_extend: int = None):
         """"""
@@ -107,20 +184,23 @@ class AxisTx(Model):
 class AxisRx(Model):
     clk: Signal8
     rst: Signal8
-    tdata: SignalT
-    tvalid: Signal8
-    tready: Signal8
+    s_axis_tdata: SignalT
+    s_axis_tvalid: Signal8
+    s_axis_tready: Signal8
+    tid: Signal8 = None
 
     _buf: list[int]
+    _tid_buf: list[int]
     _next_ready: int
 
     def __init__(
         self,
         clk: Signal8,
         rst: Signal8,
-        tdata: SignalT,
-        tvalid: Signal8,
-        tready: Signal8,
+        s_axis_tdata: SignalT,
+        s_axis_tvalid: Signal8,
+        s_axis_tready: Signal8,
+        s_axis_tid: Signal8 = None,
     ):
         """"""
         # Initialize the Model base class.
@@ -130,16 +210,18 @@ class AxisRx(Model):
 
         self.clk = clk
         self.rst = rst
-        self.tdata = tdata
-        self.tvalid = tvalid
-        self.tready = tready
+        self.s_axis_tdata = s_axis_tdata
+        self.s_axis_tvalid = s_axis_tvalid
+        self.s_axis_tready = s_axis_tready
+        self.s_axis_tid = s_axis_tid
         self._buf = []
+        self._tid_buf = []
         self._next_ready = 0
 
     @classmethod
-    def init_axis(cls, clk: Signal8, rst: Signal8, axis: Axis):
+    def init_bus(cls, clk: Signal8, rst: Signal8, s_axis: Axis):
         """"""
-        return cls(clk, rst, axis.tdata, axis.tvalid, axis.tready)
+        return cls(clk, rst, s_axis.tdata, s_axis.tvalid, s_axis.tready, s_axis.tid)
 
     @property
     def ready(self):
@@ -150,49 +232,33 @@ class AxisRx(Model):
         self._next_ready = value
 
     def eval_step(self) -> None:
+        """Save data into a buf when it arrives."""
         if self.clk.posedge():
-            self.tready.d = self._next_ready
-            if self.tvalid.q and self.tready.q:
-                self._buf.append(self.tdata.q)
+            self.s_axis_tready.d = self._next_ready
+            if self.s_axis_tvalid.q and self.s_axis_tready.q:
+                self._buf.append(self.s_axis_tdata.q)
+                if self.tid:
+                    self._tid_buf.append(self.tid.q)
 
     def read(
-        self, clear: bool = True, float_q: int = None, sign_extend: int = None
+        self,
+        clear: bool = True,
+        float_q: int = None,
+        sign_extend: int = None,
+        tid: bool = False,
     ) -> _ArrayLike:
         """"""
-        res = _np.array(self._buf.copy())
+        _dt = _np.double if float_q else _np.int64
+        res = _np.array(self._buf.copy()).astype(_dt)
+        tid_res = self._tid_buf.copy()
         if clear:
             self._buf.clear()
+            self._tid_buf.clear()
 
         if float_q:
             qm = 1.0 / (2**float_q)
-            return res.astype(_np.double) * qm
+            res *= qm
+
+        if tid:
+            return (res, tid_res)
         return res
-
-
-M = TypeVar("M", bound=Model)
-
-
-def init_stream_model[
-    M
-](
-    cls: type[M],
-    clk: Signal8,
-    rst: Signal8,
-    s_axis: Axis,
-    m_axis: Axis,
-    *extra,
-    **extrak,
-) -> M:
-    """"""
-    return cls(
-        clk,
-        rst,
-        s_axis.tdata,
-        s_axis.tvalid,
-        s_axis.tready,
-        m_axis.tdata,
-        m_axis.tvalid,
-        m_axis.tready,
-        *extra,
-        **extrak,
-    )

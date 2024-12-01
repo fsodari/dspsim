@@ -7,9 +7,12 @@ from dspsim._framework import Dff8, Dff16, Dff32, Dff64
 import contextlib as _contextlib
 import functools as _functools
 from dspsim import util as _util
+from typing import TypeVar
 
 SignalT = Signal8 | Signal16 | Signal32 | Signal64
 DffT = Dff8 | Dff16 | Dff32 | Dff64
+
+ModelT = TypeVar("ModelT", bound=Model)
 
 
 def _sclass(width: int) -> type[SignalT]:
@@ -80,3 +83,14 @@ def runner(time_unit: float = 1e-9, time_precision: float = 1e-9):
         return wrapped
 
     return runner_deco
+
+
+from dspsim.config import Port as _Port
+
+
+def port_info(model: Model) -> dict[str, _Port]:
+    """"""
+    import ast
+
+    linfo = ast.literal_eval(model.port_info)
+    return {k: _Port(**v) for k, v in linfo.items()}

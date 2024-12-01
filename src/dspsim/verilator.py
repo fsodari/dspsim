@@ -126,19 +126,19 @@ class VModelTree:
                 shutil.copy(tree_file, output_file)
 
             obj = cls(tree_file, tree_meta_file)
-        return obj
+            return obj
 
     def to_config(self, cls: type[ModuleConfig]) -> ModuleConfig:
         """"""
-        return cls(self.source, self.name, self.parameters.copy(), self.ports.copy())
+        return cls(self.name, self.source, self.parameters.copy(), self.ports.copy())
 
-    @cached_property
-    def source(self) -> Path:
-        """"""
-        for f in self._meta_content["files"].values():
-            filename = Path(f["filename"])
-            if filename.exists() and filename.suffix in [".v", ".sv"]:
-                return Path(f["realpath"])
+    # @cached_property
+    # def source(self) -> Path:
+    #     """"""
+    #     for f in self._meta_content["files"].values():
+    #         filename = Path(f["filename"])
+    #         if filename.exists() and filename.suffix in [".v", ".sv"]:
+    #             return Path(f["realpath"])
 
     @cached_property
     def name(self) -> str:

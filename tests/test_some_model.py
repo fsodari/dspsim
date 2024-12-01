@@ -1,13 +1,12 @@
-from dspsim import framework
+"""
+The SomeModel.sv component contains every type of parameter and port.
+It can be used to test code generation and bus connection.
+"""
+
 from dspsim.framework import Context, Clock, signal, dff
 from dspsim.library import SomeModel, Foo, X
 
-import numpy as np
-from typing import TypeAlias
-from dspsim import util
 
-
-# @framework.runner(time_unit=1e-9, time_precision=1e-9)
 def test_context_basic():
     context = Context(1e-9, 1e-9)
 
@@ -41,6 +40,3 @@ def test_context_basic():
     for _ in range(10):
         x.d = x.q + 1
         context.advance(10)
-
-    # for _c in c:
-    #     print(_c.q)

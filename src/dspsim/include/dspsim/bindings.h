@@ -69,7 +69,9 @@ namespace dspsim
             .def(nanobind::init<>())
             .def_prop_ro("context", &Model::context)
             .def("eval_step", &Model::eval_step)
-            .def("eval_end_step", &Model::eval_end_step);
+            .def("eval_end_step", &Model::eval_end_step)
+            .def_prop_ro_static("port_info", [](nanobind::handle _)
+                                { return std::string(""); });
     }
 
     // Signals

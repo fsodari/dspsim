@@ -173,8 +173,11 @@ class Port:
         return f"{direction_fmt} logic{width_fmt} {self.name}{unpacked_fmt}"
 
 
+from dataclass_wizard import JSONSerializable
+
+
 @dataclass
-class ModuleConfig:
+class ModuleConfig(JSONSerializable):
     """
     The basic information about an hdl source module.
     This can be read from a verilog file, a verilated module,
@@ -212,12 +215,19 @@ class ModuleConfig:
             include_dirs=include_dirs,
             verilator_args=verilator_args.copy(),
         )
-        return cls(
-            tree.name,
-            tree.source,
-            tree.parameters,
-            tree.ports,
-            trace,
-            include_dirs,
-            verilator_args,
+        # raise Exception(source)
+        obj = cls(
+            name=tree.name,
+            source=source,
+            parameters=tree.parameters,
+            ports=tree.ports,
+            trace=trace,
+            include_dirs=include_dirs,
+            verilator_args=verilator_args,
         )
+        return obj
+
+    def port_info(self) -> str:
+        dictinfo = {k: vars(v) for k, v in self.ports.items()}
+        return str(dictinfo)
+        # return self.to_json()

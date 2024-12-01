@@ -1,4 +1,4 @@
-module Food #(
+module Foo #(
     parameter DW = 32,
     parameter AW = 8
     // parameter COEFW = 18

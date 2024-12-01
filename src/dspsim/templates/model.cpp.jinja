@@ -52,6 +52,8 @@ public:
                 nanobind::arg("{{port}}"){{", " if not loop.last else ""}}{%endfor%})
             {%for param in model.parameters%}
             .def_ro_static("{{param}}", &{{model.name}}::{{param}}){%endfor%}
+
+            .def_prop_ro_static("port_info", [](nanobind::handle _){return std::string("{{model.port_info()}}");})
             .def("trace", &{{model.name}}::trace, nanobind::arg("trace_path"), nanobind::arg("levels")=99, nanobind::arg("options") = 0);
     }
 };

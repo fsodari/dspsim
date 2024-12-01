@@ -39,7 +39,7 @@ dspsim = "dspsim.main:main"
 
 [tool.dspsim]
 sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
-# sources = ["src/dspsim/hdl/SomeModel.sv"]
+# sources = ["src/dspsim/hdl/FifoAsync.sv"]
 trace = "vcd"
 
 # include_dirs = ["src/dspsim/hdl"] # this is already included.
@@ -49,8 +49,9 @@ AW = 32
 COEFW = 18
 COEFQ = 16
 
-# [tool.dspsim.models]
-# # SomeModel = { parameters = { DW = 24 } }
+[tool.dspsim.models]
+AsyncSync8 = { name = "AsyncSync8", source = "AsyncSync.sv", parameters = { DW = 8 } }
+FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW = 8 } }
 # AnotherModel = { source = "Foo.sv", parameters = { COEFW = 16, BAERR = 22 } }
 # # ###
 
