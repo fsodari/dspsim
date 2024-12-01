@@ -13,7 +13,7 @@ def include_dir() -> Path:
 
 
 def hdl_dir() -> Path:
-    return Path(__file__).parent / "hdl"
+    return Path(Path(__file__).parent / "hdl").absolute()
 
 
 def lib_dir() -> Path:

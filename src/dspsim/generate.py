@@ -116,8 +116,10 @@ class Config(JSONWizard):
             for k, v in dspsim_tool_config.get("parameters", {}).items()
         }
         global_includes = [
-            Path(p) for p in dspsim_tool_config.get("include_dirs", [util.hdl_dir()])
+            _get_abs_path(Path(p), pyproject_path)
+            for p in dspsim_tool_config.get("include_dirs", [])
         ]
+        global_includes.append(util.hdl_dir())
 
         global_trace = dspsim_tool_config.get("trace", None)
         global_vargs = dspsim_tool_config.get("verilator_args", [])

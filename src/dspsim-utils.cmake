@@ -1,5 +1,7 @@
 include_guard(GLOBAL)
 
+set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
+
 function(dspsim_run_generate pyproject_path tool_cfg outdir)
     message("dspsim_run_generate()...")
     
@@ -56,7 +58,7 @@ function(dspsim_add_module name)
         NB_DOMAIN dspsim
         STABLE_ABI
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
-    target_link_libraries(${name} PRIVATE dspsim-core)
+    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
     # Library stubs
     nanobind_add_stub(${name}_stub
         MODULE ${name}
@@ -156,5 +158,20 @@ function(dspsim_add_module name)
 
         # Generate the model bindings.
     endforeach()
+
+    # Install extension
+    install(TARGETS ${name}
+        LIBRARY DESTINATION ".")
+
+    # Install stubs
+    install(FILES 
+        ${CMAKE_CURRENT_BINARY_DIR}/${name}.pyi
+        DESTINATION ".")
+
+    # Install stubs in a local directory to help vscode fine type info with editable installs.
+    install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/_library.pyi
+        DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
+
 
 endfunction()

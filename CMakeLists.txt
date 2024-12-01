@@ -55,7 +55,7 @@ set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
 # Need to use a slightly different command when building the package than when it has been installed.
 # SelfBuild: python -m dspsim.generate when called from the dir containing dspsim
 # Installed: python -m dspsim generate, or dspsim generate
-set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
+# set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
 # # Installation
 # if(USING_SKBUILD)
 #   set(INSTALL_PKGDIR "${CMAKE_INSTALL_PREFIX}/dspsim")
@@ -109,19 +109,17 @@ install(EXPORT dspsim-core-targets
 
 
 # Install extension
-install(TARGETS _framework _library
+install(TARGETS _framework
     LIBRARY DESTINATION ".")
 
 # Install stubs
 install(FILES 
   ${CMAKE_BINARY_DIR}/src/_framework.pyi
-  ${CMAKE_BINARY_DIR}/src/_library.pyi
     DESTINATION ".")
 
 # Install stubs in a local directory to help vscode fine type info with editable installs.
 install(FILES
   ${CMAKE_BINARY_DIR}/src/_framework.pyi
-  ${CMAKE_BINARY_DIR}/src/_library.pyi
   DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
 
 # Package config.

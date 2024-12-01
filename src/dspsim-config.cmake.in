@@ -6,6 +6,6 @@ set_and_check(DSPSIM_CMAKE_DIR "@PACKAGE_INSTALL_CMAKEDIR@")
 set_and_check(DSPSIM_LIB_DIR "@PACKAGE_INSTALL_LIBDIR@")
 set_and_check(DSPSIM_INCLUDE_DIR "@PACKAGE_INSTALL_INCLUDEDIR@")
 set_and_check(DSPSIM_HDL_DIR "@PACKAGE_INSTALL_HDLDIR@")
-set_and_check(DSPSIM_PKG_DIR "@PACKAGE_PREFIX_DIR")
-set_and_check(DSPSIM_GENERATE_CMD "@${Python_EXECUTABLE} -m dspsim generate")
+set_and_check(DSPSIM_PKG_DIR "${PACKAGE_PREFIX_DIR}")
+
 include(${CMAKE_CURRENT_LIST_DIR}/dspsim-utils.cmake)
