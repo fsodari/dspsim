@@ -6,7 +6,7 @@
 namespace dspsim
 {
     template <typename T, size_t N = 1>
-    class Input : Model
+    class Input : public Model
     {
     protected:
         Signal<T> &sig;
@@ -103,7 +103,7 @@ namespace dspsim
         T *top_sig[N];
 
     public:
-        Output(std::array<SignalPtr<T>, N> &sig, T (&_top_sig)[N]) : Model(), sig(sig)
+        Output(std::array<SignalPtr<T>, N> &sig, T (&_top_sig)[N]) : sig(sig)
         {
             for (size_t i = 0; i < N; i++)
             {

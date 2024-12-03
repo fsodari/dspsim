@@ -1,6 +1,7 @@
 #include "dspsim/context.h"
 #include "dspsim/model.h"
-#include <fmt/format.h>
+// #include <fmt/format.h>
+// #include <format>
 #include <cmath>
 #include <iostream>
 
@@ -98,8 +99,18 @@ namespace dspsim
 
     std::string Context::print_info()
     {
-        return fmt::format("Context(id={}, time={}, n_models={}, n_registered={}, time_unit={}, time_precision={}, time_step={}, this={})",
-                           m_id, m_time, m_models.size(), m_owned_models.size(), m_time_unit, m_time_precision, m_time_step, (intptr_t)this);
+        auto s = std::string("Context(");
+        s += "id=" + std::to_string(m_id) + ", ";
+        s += "time=" + std::to_string(m_time) + ", ";
+        s += "n_models=" + std::to_string(m_models.size()) + ", ";
+        s += "n_registered=" + std::to_string(m_owned_models.size()) + ", ";
+        s += "n_time_unit=" + std::to_string(m_time_unit) + ", ";
+        s += "n_time_precision=" + std::to_string(m_time_precision) + ", ";
+        s += "n_time_step=" + std::to_string(m_time_step) + ", ";
+        s += "this=" + std::to_string((intptr_t)this) + ", ";
+        return s;
+        // return fmt::format("Context(id={}, time={}, n_models={}, n_registered={}, time_unit={}, time_precision={}, time_step={}, this={})",
+        //                    m_id, m_time, m_models.size(), m_owned_models.size(), m_time_unit, m_time_precision, m_time_step, (intptr_t)this);
     }
 
     ///////////

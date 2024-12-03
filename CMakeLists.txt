@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.26)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
 set(CMAKE_POSITION_INDEPENDENT_CODE On)
 
 # Required packages.
@@ -9,14 +10,14 @@ find_package(Python COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COM
 find_package(nanobind CONFIG REQUIRED)
 find_package(VERILATOR CONFIG REQUIRED HINTS $ENV{VERILATOR_ROOT})
 
-include(FetchContent)
-FetchContent_Declare(
-  fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt
-  GIT_TAG        e69e5f977d458f2650bb346dadf2ad30c5320281 # 10.2.1
-  EXCLUDE_FROM_ALL) 
+# include(FetchContent)
+# FetchContent_Declare(
+#   fmt
+#   GIT_REPOSITORY https://github.com/fmtlib/fmt
+#   GIT_TAG        e69e5f977d458f2650bb346dadf2ad30c5320281 # 10.2.1
+#   EXCLUDE_FROM_ALL) 
   
-FetchContent_MakeAvailable(fmt)
+# FetchContent_MakeAvailable(fmt)
 
 message("Found Python: ${Python_EXECUTABLE}")
 message("Python Include: ${Python_INCLUDE_DIRS}")
@@ -32,14 +33,15 @@ set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/include)
 set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
 
-set(INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
-set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
-set(INSTALL_DATADIR ${CMAKE_INSTALL_DATADIR})
-set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_DATADIR}/cmake/dspsim)
-set(INSTALL_HDLDIR hdl)
+set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR})
+set(INSTALL_INCLUDEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_INCLUDEDIR})
+set(INSTALL_DATADIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR})
+set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR}/cmake/dspsim)
+set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
 
 # Doing this makes shared libaries work. Libraries are installed at dspsim/lib in site-packages.
 set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
+# set(CMAKE_BUILD_WITH_INSTALL_RPATH On)
 
 add_subdirectory(src)
 
@@ -59,19 +61,6 @@ install(EXPORT dspsim-core-targets
     DESTINATION ${INSTALL_CMAKEDIR})
 
 
-# Install extension
-install(TARGETS _framework
-    LIBRARY DESTINATION ".")
-
-# Install stubs
-install(FILES 
-  ${CMAKE_BINARY_DIR}/src/_framework.pyi
-    DESTINATION ".")
-
-# Install stubs in a local directory to help vscode fine type info with editable installs.
-install(FILES
-  ${CMAKE_BINARY_DIR}/src/_framework.pyi
-  DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
 
 # Package config.
 include(CMakePackageConfigHelpers)

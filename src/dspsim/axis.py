@@ -27,6 +27,9 @@ class Axis:
     def __str__(self) -> str:
         return f"Axis(width={self.width}, tid={self.tid}, tlast={self.tlast})"
 
+    def __iter__(self):
+        return iter((self.tdata, self.tvalid, self.tready))
+
     @property
     def width(self):
         return self._width

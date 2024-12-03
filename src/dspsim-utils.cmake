@@ -18,30 +18,30 @@ function(dspsim_run_generate pyproject_path tool_cfg outdir)
     endif()
 endfunction(dspsim_run_generate)
 
-function(dspsim_basic_module name)
-    # set(options SHARED TRACE TRACE_FST)
-    # set(oneValueArgs CONFIG)
-    # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
-    cmake_parse_arguments(PARSE_ARGV 1 arg
-        "${options}" "${oneValueArgs}" "${multiValueArgs}")
-    message("${name}: ${arg_UNPARSED_ARGUMENTS}")
+# function(dspsim_basic_module name)
+#     # set(options SHARED TRACE TRACE_FST)
+#     # set(oneValueArgs CONFIG)
+#     # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
+#     cmake_parse_arguments(PARSE_ARGV 1 arg
+#         "${options}" "${oneValueArgs}" "${multiValueArgs}")
+#     message("${name}: ${arg_UNPARSED_ARGUMENTS}")
 
-    # Create framework module
-    nanobind_add_module(${name}
-        STABLE_ABI
-        ${arg_UNPARSED_ARGUMENTS})
+#     # Create framework module
+#     nanobind_add_module(${name}
+#         STABLE_ABI
+#         ${arg_UNPARSED_ARGUMENTS})
 
-    # Link to dspsim-core library
-    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+#     # Link to dspsim-core library
+#     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
 
-    # Stub generation
-    nanobind_add_stub(${name}_stub
-        MODULE ${name}
-        OUTPUT ${name}.pyi
-        PYTHON_PATH $<TARGET_FILE_DIR:${name}>
-        MARKER_FILE py.typed
-        DEPENDS ${name})
-endfunction()
+#     # Stub generation
+#     nanobind_add_stub(${name}_stub
+#         MODULE ${name}
+#         OUTPUT ${name}.pyi
+#         PYTHON_PATH $<TARGET_FILE_DIR:${name}>
+#         MARKER_FILE py.typed
+#         DEPENDS ${name})
+# endfunction()
 
 function(dspsim_add_module name)
     message("dspsim_add_module()...")
@@ -54,9 +54,11 @@ function(dspsim_add_module name)
         "${options}" "${oneValueArgs}" "${multiValueArgs}")
 
     message("${name}: ${arg_UNPARSED_ARGUMENTS}")
+
     nanobind_add_module(${name} 
         NB_DOMAIN dspsim
         STABLE_ABI
+        # NB_SHARED
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
     # Library stubs
@@ -158,20 +160,5 @@ function(dspsim_add_module name)
 
         # Generate the model bindings.
     endforeach()
-
-    # Install extension
-    install(TARGETS ${name}
-        LIBRARY DESTINATION ".")
-
-    # Install stubs
-    install(FILES 
-        ${CMAKE_CURRENT_BINARY_DIR}/${name}.pyi
-        DESTINATION ".")
-
-    # Install stubs in a local directory to help vscode fine type info with editable installs.
-    install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/_library.pyi
-        DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
-
-
+    
 endfunction()
