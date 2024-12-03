@@ -108,7 +108,7 @@ build = ["cp312-*"]
 skip = ["*-win_arm64", "*musllinux*"]
 # manylinux-x86_64-image = "quay.io/pypa/manylinux2010_x86_64:latest"
 # manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
-# manylinux-x86_64-image = "manylinux_2_34"
+# manylinux-x86_64-image = "manylinux_2_28"
 # # manylinux builds
 [tool.cibuildwheel.linux]
 before-all = [

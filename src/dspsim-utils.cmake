@@ -60,7 +60,7 @@ function(dspsim_add_module name)
         STABLE_ABI
         # NB_SHARED
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
-    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+    target_link_libraries(${name} PUBLIC dspsim::dspsim-core)
     # Library stubs
     nanobind_add_stub(${name}_stub
         MODULE ${name}
