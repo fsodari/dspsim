@@ -79,8 +79,9 @@ class VModelTree:
 
         with open(self.tree_file) as fp:
             self._content = json.load(fp)
-        with open(self.tree_meta_file) as fp:
-            self._meta_content = json.load(fp)
+            # raise Exception(self._content)
+        # with open(self.tree_meta_file) as fp:
+        #     self._meta_content = json.load(fp)
 
         self._miscsp = self._content["miscsp"][0]
         self._modulesp = self._content["modulesp"][0]

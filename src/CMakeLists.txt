@@ -28,7 +28,7 @@ nanobind_add_module(_framework
     _framework.cpp)
 # Link to dspsim-core library
 target_link_libraries(_framework
-    PRIVATE dspsim-core)
+    PRIVATE dspsim::dspsim-core)
 
 # Stub generation
 nanobind_add_stub(_framework_stub

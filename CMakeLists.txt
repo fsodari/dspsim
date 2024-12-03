@@ -36,7 +36,7 @@ set(INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
 set(INSTALL_DATADIR ${CMAKE_INSTALL_DATADIR})
 set(INSTALL_CMAKEDIR ${CMAKE_INSTALL_DATADIR}/cmake/dspsim)
-
+set(INSTALL_HDLDIR hdl)
 
 # Doing this makes shared libaries work. Libraries are installed at dspsim/lib in site-packages.
 set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
@@ -44,24 +44,6 @@ set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
 add_subdirectory(src)
 
 # add_subdirectory(tests/cpp EXCLUDE_FROM_ALL)
-
-
-# # C++-only installs.
-# if (NOT USING_SKBUILD)
-
-#   set(INSTALL_HDLDIR ${INSTALL_DATADIR}/dspsim/hdl)
-
-#   # Install headers.
-#   install(DIRECTORY ${DSPSIM_INCLUDE_DIR}/dspsim
-#       DESTINATION ${INSTALL_INCLUDEDIR})
-#   # Install HDL Sources
-#   install(DIRECTORY ${DSPSIM_HDL_DIR}/
-#       DESTINATION ${INSTALL_HDLDIR})
-# elseif(SKBUILD_STATE STREQUAL "editable")
-#   set(INSTALL_HDLDIR ${CMAKE_INSTALL_DATADIR}/dspsim/hdl)
-# else()
-#   set(INSTALL_HDLDIR hdl)
-# endif()
 
 # Install core library targets.
 install(TARGETS dspsim-core
