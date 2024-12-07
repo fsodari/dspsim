@@ -3,7 +3,7 @@ import dspsim.framework
 from dspsim.framework import Signal8, SignalT
 
 # Some components have additional wrappers.
-from dspsim.axis import Axis, AxisTx, AxisRx
+from dspsim.axis import Axis
 from dspsim.fifo import FifoSync, FifoAsync, FifoAsync8
 from dspsim.i2s import I2S, I2SClkGen, I2STx, I2SRx
 

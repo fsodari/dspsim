@@ -1,4 +1,8 @@
 from dspsim.framework import Model, Signal8, SignalT, signal, port_info
+
+from dspsim._framework import AxisTx8, AxisTx16, AxisTx32, AxisTx64
+from dspsim._framework import AxisRx8, AxisRx16, AxisRx32, AxisRx64
+
 import numpy as _np
 from numpy.typing import ArrayLike as _ArrayLike
 
@@ -84,184 +88,43 @@ def init_stream_model[
     )
 
 
-class AxisTx(Model):
-    """
-    Python framework model for simple data streaming on an AXI-Stream bus.
-    This should be replaced with a C++ model with proper bindings.
-    """
+AxisTxT = AxisTx8 | AxisTx16 | AxisTx32 | AxisTx64
+AxisRxT = AxisRx8 | AxisRx16 | AxisRx32 | AxisRx64
 
-    clk: Signal8
-    rst: Signal8
-    m_axis_tdata: SignalT
-    m_axis_tvalid: Signal8
-    m_axis_tready: Signal8
-    m_axis_tid: Signal8 = None
-
-    _buf: list[int]
-    _tid_pattern: list[int] = [0]
-    _id_iter: itertools.cycle
-
-    def __init__(
-        self,
-        clk: Signal8,
-        rst: Signal8,
-        m_axis_tdata: SignalT,
-        m_axis_tvalid: Signal8,
-        m_axis_tready: Signal8,
-        m_axis_tid: Signal8 = None,
-        tid_pattern: list[int] = [0],
-    ):
-        """"""
-        # Initialize the Model base class.
-        super().__init__()
-        # Python creates shared ptrs. Register this model with the context.
-        self.context.own_model(self)
-
-        self.clk = clk
-        self.rst = rst
-        self.m_axis_tdata = m_axis_tdata
-        self.m_axis_tvalid = m_axis_tvalid
-        self.m_axis_tready = m_axis_tready
-        self.m_axis_tid = m_axis_tid
-        self._tid_pattern = tid_pattern
-        self._id_iter = itertools.cycle(tid_pattern)
-        self._buf = []
-
-    @classmethod
-    def init_bus(
-        cls, clk: Signal8, rst: Signal8, m_axis: Axis, tid_pattern: list[int] = [0]
-    ):
-        """"""
-        return cls(
-            clk=clk,
-            rst=rst,
-            m_axis_tdata=m_axis.tdata,
-            m_axis_tvalid=m_axis.tvalid,
-            m_axis_tready=m_axis.tready,
-            m_axis_tid=m_axis.tid,
-            tid_pattern=tid_pattern,
-        )
-
-    # @property
-    # def tid_pattern(self) -> list[int]:
-    #     return self._tid_pattern
-
-    # @tid_pattern.setter
-    # def tid_pattern(self, pattern: list[int]):
-    #     self._tid_pattern = pattern
-
-    def eval_step(self) -> None:
-        if self.clk.posedge():
-            if self.m_axis_tvalid.q and self.m_axis_tready.q:
-                self.m_axis_tvalid.d = 0
-
-            if self.rst.q:
-                self.m_axis_tvalid.d = 0
-            elif len(self._buf):
-                # Send new data if the output stream is not stalled.
-                if not self.m_axis_tvalid.q or self.m_axis_tready.q:
-                    self.m_axis_tdata.d = self._buf.pop(0)
-                    if self.m_axis_tid:
-                        self.m_axis_tid.d = next(self._id_iter)
-                    self.m_axis_tvalid.d = 1
-
-    def write(self, x, float_q: int = None, sign_extend: int = None):
-        """"""
-        if float_q:
-            qm = 2**float_q
-        else:
-            qm = 1
-        try:
-            _xiter = iter(x)
-            if isinstance(x, _np.ndarray):
-                tx_data = x * qm
-                self._buf.extend(tx_data.astype(_np.int_))
-            else:
-                tx_data = [int(qm * _x) for _x in x]
-                self._buf.extend(tx_data)
-
-        except TypeError:
-            self._buf.append(int(x * qm))
+from dspsim import util
 
 
-class AxisRx(Model):
-    clk: Signal8
-    rst: Signal8
-    s_axis_tdata: SignalT
-    s_axis_tvalid: Signal8
-    s_axis_tready: Signal8
-    tid: Signal8 = None
+def AxisTx(
+    clk: Signal8,
+    rst: Signal8,
+    m_axis: Axis,
+    tid_pattern: list[int] = [0],
+    *,
+    width: int = 32,
+) -> AxisTxT:
+    """"""
 
-    _buf: list[int]
-    _tid_buf: list[int]
-    _next_ready: int
+    _models = {8: AxisTx8, 16: AxisTx16, 32: AxisTx32, 64: AxisTx64}
+    cls = _models[util.uint_width(width)]
+    return cls(
+        clk=clk,
+        rst=rst,
+        m_axis_tdata=m_axis.tdata,
+        m_axis_tvalid=m_axis.tvalid,
+        m_axis_tready=m_axis.tready,
+        m_axis_tid=m_axis.tid,
+        tid_pattern=tid_pattern,
+    )
 
-    def __init__(
-        self,
-        clk: Signal8,
-        rst: Signal8,
-        s_axis_tdata: SignalT,
-        s_axis_tvalid: Signal8,
-        s_axis_tready: Signal8,
-        s_axis_tid: Signal8 = None,
-    ):
-        """"""
-        # Initialize the Model base class.
-        super().__init__()
-        # Python creates shared ptrs. Register this model with the context.
-        self.context.own_model(self)
 
-        self.clk = clk
-        self.rst = rst
-        self.s_axis_tdata = s_axis_tdata
-        self.s_axis_tvalid = s_axis_tvalid
-        self.s_axis_tready = s_axis_tready
-        self.s_axis_tid = s_axis_tid
-        self._buf = []
-        self._tid_buf = []
-        self._next_ready = 0
-
-    @classmethod
-    def init_bus(cls, clk: Signal8, rst: Signal8, s_axis: Axis):
-        """"""
-        return cls(clk, rst, s_axis.tdata, s_axis.tvalid, s_axis.tready, s_axis.tid)
-
-    @property
-    def ready(self):
-        return self._next_ready
-
-    @ready.setter
-    def ready(self, value: int):
-        self._next_ready = value
-
-    def eval_step(self) -> None:
-        """Save data into a buf when it arrives."""
-        if self.clk.posedge():
-            self.s_axis_tready.d = self._next_ready
-            if self.s_axis_tvalid.q and self.s_axis_tready.q:
-                self._buf.append(self.s_axis_tdata.q)
-                if self.tid:
-                    self._tid_buf.append(self.tid.q)
-
-    def read(
-        self,
-        clear: bool = True,
-        float_q: int = None,
-        sign_extend: int = None,
-        tid: bool = False,
-    ) -> _ArrayLike:
-        """"""
-        _dt = _np.double if float_q else _np.int64
-        res = _np.array(self._buf.copy()).astype(_dt)
-        tid_res = self._tid_buf.copy()
-        if clear:
-            self._buf.clear()
-            self._tid_buf.clear()
-
-        if float_q:
-            qm = 1.0 / (2**float_q)
-            res *= qm
-
-        if tid:
-            return (res, tid_res)
-        return res
+def AxisRx(
+    clk: Signal8,
+    rst: Signal8,
+    s_axis: Axis,
+    *,
+    width: int = 32,
+) -> AxisRxT:
+    """"""
+    _models = {8: AxisRx8, 16: AxisRx16, 32: AxisRx32, 64: AxisRx64}
+    cls = _models[util.uint_width(width)]
+    return cls(clk, rst, s_axis.tdata, s_axis.tvalid, s_axis.tready, s_axis.tid)

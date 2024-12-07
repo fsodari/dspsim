@@ -1,6 +1,7 @@
 from dspsim.framework import Context, Clock, signal, dff, SignalT, Signal8, Model
 from dspsim.axis import Axis, AxisTx, AxisRx
 from dspsim.library import Skid
+import numpy as np
 
 
 def test_skid_basic():
@@ -18,8 +19,8 @@ def test_skid_basic():
     skid1 = Skid.init_bus(clk, rst, b1, b2)
 
     print(context.print_info())
-    axis_tx = AxisTx.init_bus(clk, rst, b0)
-    axis_rx = AxisRx.init_bus(clk, rst, b2)
+    axis_tx = AxisTx(clk, rst, b0)
+    axis_rx = AxisRx(clk, rst, b2)
 
     print(context.print_info())
 
@@ -33,10 +34,12 @@ def test_skid_basic():
     rst.d = 0
     context.advance(100)
 
-    axis_tx.write([1, 2, 3, 4, 5])
+    tx_data = list(range(1, 6))
+    axis_tx.write(tx_data)
     context.advance(100)
-    axis_rx.ready = 1
+    axis_rx.tready = 1
     context.advance(100)
 
     rx_data = axis_rx.read()
-    print(rx_data)
+
+    assert np.all(tx_data == rx_data)

@@ -7,6 +7,7 @@ add_library(dspsim-core SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/signal.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/clock.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/axis.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dspsim.cpp)
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 
