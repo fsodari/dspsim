@@ -1,0 +1,1 @@
+uvx cibuildwheel --output-dir ./dist

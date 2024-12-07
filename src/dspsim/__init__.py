@@ -1,7 +1,9 @@
-from dspsim._core import hello_from_bin
+# from dspsim._framework import hello_from_bin
+from .util import cmake_dir, include_dir, hdl_dir
 
-__version__ = "0.1.0"
+__version__ = "0.1.27"
 
 
 def main() -> None:
-    print(hello_from_bin())
+    print("init....")
+    # print(hello_from_bin())

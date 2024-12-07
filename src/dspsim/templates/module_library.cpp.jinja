@@ -1,0 +1,13 @@
+#include <dspsim/dspsim.h>
+#include <dspsim/bindings.h>
+{%for model in models%}
+#include "{{model}}.h"
+{%-endfor%}
+
+
+NB_MODULE({{libname}}, m)
+{
+    {% for model in models %}
+    {{model}}::bind_model(m, "{{model}}");
+    {%-endfor%}
+}

@@ -1,1 +1,1 @@
-uv pip install --no-build-isolation -Cbuild-dir=build --config-settings=editable.rebuild=true -v -e .
+uv pip install --reinstall dspsim --no-build-isolation -Cbuild-dir=build --config-settings=editable.rebuild=true -v -e .

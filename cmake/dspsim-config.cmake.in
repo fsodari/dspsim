@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(nanobind)
+find_dependency(VERILATOR)
+
+include(${CMAKE_CURRENT_LIST_DIR}/dspsim-core-targets.cmake)
+
+set_and_check(DSPSIM_CMAKE_DIR "@PACKAGE_INSTALL_CMAKEDIR@")
+set_and_check(DSPSIM_LIB_DIR "@PACKAGE_INSTALL_LIBDIR@")
+set_and_check(DSPSIM_INCLUDE_DIR "@PACKAGE_INSTALL_INCLUDEDIR@")
+set_and_check(DSPSIM_HDL_DIR "@PACKAGE_INSTALL_HDLDIR@")
+set_and_check(DSPSIM_PKG_DIR "${PACKAGE_PREFIX_DIR}")
+
+include(${CMAKE_CURRENT_LIST_DIR}/dspsim-utils.cmake)

@@ -1,0 +1,59 @@
+#pragma once
+#include "dspsim/bindings.h"
+#include "dspsim/vmodel.h"
+#include "V{{model.name}}.h"
+{%if trace == "fst"%}#include <verilated_fst_c.h>{%else%}#include <verilated_vcd_c.h>{%endif%}
+
+class {{model.name}} : public dspsim::VModel<V{{model.name}}, {%if trace == "fst"%}VerilatedFstC{%else%}VerilatedVcdC{%endif%}>
+{
+public:
+    // Parameters
+    {%-for param_name, param in model.parameters.items() %}
+    inline static const {{param.ctype}} {{param_name}} = {{""}}{{param.cvalue}}{{""}};
+    {%-endfor %}
+
+protected:
+    // Ports
+    {%-for port_name, port in model.ports.items() %}
+    {{port.vm_port_decl}};
+    {%-endfor %}
+
+public:
+    {{model.name}}(
+        {%-for port in model.ports.values() %}
+        {{port.vm_ctor_arg}}{{", " if not loop.last else ""}}
+        {%-endfor%})
+        : VModel<V{{model.name}}, {%if trace == "fst"%}VerilatedFstC{%else%}VerilatedVcdC{%endif%}>()
+        {%-for port in model.ports.values() %}{{", " if loop.first else ""}}
+        _{{port.name}}({{port.name}}, top->{{port.name}}){{", " if not loop.last else ""}}{%endfor%}
+    {
+        {# {%-for port in model.ports.values() %}
+        _{{port.name}}.connect({{port.name}}, top->{{port.name}});
+        {%-endfor%} #}
+    }
+
+    // Factory 
+    static std::shared_ptr<{{model.name}}> create(
+        {%-for port in model.ports.values() %}
+        {{port.vm_ctor_arg}}{{", " if not loop.last else ""}}
+        {%-endfor%})        
+    {
+        auto m = std::make_shared<{{model.name}}>({%for port in model.ports%}{{port}}{{", " if not loop.last else ""}}{%endfor%});
+        // Context will have shared ownership of this model when it is created.
+        m->context()->own_model(m);
+        return m;
+    }
+
+    // Nanobind module
+    static inline nanobind::class_<{{model.name}}> bind_model(nanobind::module_ &m, const char *name)
+    {
+        return nanobind::class_<{{model.name}}>(m, name)
+            .def(nanobind::new_(&{{model.name}}::create){%for port in model.ports%}{{", " if loop.first else ""}}
+                nanobind::arg("{{port}}"){{", " if not loop.last else ""}}{%endfor%})
+            {%for param in model.parameters%}
+            .def_ro_static("{{param}}", &{{model.name}}::{{param}}){%endfor%}
+
+            .def_prop_ro_static("port_info", [](nanobind::handle _){return std::string("{{model.port_info()}}");})
+            .def("trace", &{{model.name}}::trace, nanobind::arg("trace_path"), nanobind::arg("levels")=99, nanobind::arg("options") = 0);
+    }
+};
