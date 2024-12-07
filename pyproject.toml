@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "scikit-build-core>=0.10.7",
-    "nanobind==2.1.0",
+    "nanobind>=2.4.0",
     "verilator-dspsim==5.30.0",
     "numpy>=2.1.3",
     "jinja2>=3.1.4",
@@ -28,7 +28,7 @@ classifiers = [
 
 dependencies = [
     "scikit-build-core>=0.10.7",
-    "nanobind==2.1.0",
+    "nanobind>=2.4.0",
     "jinja2>=3.1.4",
     "numpy>=2.1.3",
     "dataclass-wizard[toml]>=0.30.1",
@@ -69,10 +69,10 @@ FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW =
 [tool.scikit-build]
 # Use the package's package config when building.
 cmake.args = ["-Wno-dev"]
+cmake.build-type = "Release"
 
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-cmake.build-type = "Release"
 
 wheel.packages = ["src/dspsim"]
 # wheel.install-dir = "dspsim"
@@ -83,7 +83,7 @@ wheel.py-api = "cp312"
 dev = [
     "pytest>=8.3.3",
     "scikit-build-core>=0.10.7",
-    "nanobind==2.1.0",
+    "nanobind>=2.4.0",
     "numpy>=2.1.3",
     "dataclass-wizard[toml]>=0.30.1",
 ]
@@ -96,8 +96,8 @@ verilator = ["verilator-dspsim==5.30.0"]
 
 [tool.cibuildwheel]
 # # Run pytest to ensure that the package was correctly built
-# test-command = "pytest {project}/tests"
-# test-requires = "pytest"
+test-command = "pytest {project}/tests/test_framework.py"
+test-requires = "pytest"
 build-verbosity = 1
 # 64 bit builds
 archs = ["auto64"]
@@ -108,7 +108,7 @@ build = ["cp312-*"]
 skip = ["*-win_arm64", "*musllinux*"]
 # manylinux-x86_64-image = "quay.io/pypa/manylinux2010_x86_64:latest"
 # manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
-# manylinux-x86_64-image = "manylinux_2_28"
+# manylinux-x86_64-image = "manylinux_2_24"
 # # manylinux builds
 [tool.cibuildwheel.linux]
 before-all = [

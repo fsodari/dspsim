@@ -40,13 +40,14 @@ set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR}/cmake/dsps
 set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
 
 # Doing this makes shared libaries work. Libraries are installed at dspsim/lib in site-packages.
-set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
+# set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
 # set(CMAKE_BUILD_WITH_INSTALL_RPATH On)
 
+include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 add_subdirectory(src)
 
 # add_subdirectory(tests/cpp EXCLUDE_FROM_ALL)
-
+# message(FATAL_ERROR ${CMAKE_PREFIX_PATH})
 # Install core library targets.
 install(TARGETS dspsim-core
     EXPORT dspsim-core-targets
@@ -64,7 +65,7 @@ install(EXPORT dspsim-core-targets
 
 # Package config.
 include(CMakePackageConfigHelpers)
-configure_package_config_file(src/dspsim-config.cmake.in
+configure_package_config_file(cmake/dspsim-config.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
   INSTALL_DESTINATION ${INSTALL_CMAKEDIR}
   PATH_VARS INSTALL_CMAKEDIR INSTALL_LIBDIR INSTALL_INCLUDEDIR INSTALL_HDLDIR)
@@ -75,5 +76,5 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config-version.cmake
-              ${CMAKE_CURRENT_SOURCE_DIR}/src/dspsim-utils.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dspsim-utils.cmake
         DESTINATION ${INSTALL_CMAKEDIR})

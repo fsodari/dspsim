@@ -7,6 +7,10 @@
 
 namespace dspsim
 {
+    // static ContextFactory _global_context_factory;
+    // static ContextFactoryPtr global_context_factory = &_global_context_factory;
+    // static ContextFactoryPtr global_context_factory = nullptr;
+
     Context::Context()
     {
         m_time = 0;
@@ -15,6 +19,7 @@ namespace dspsim
         static int global_id = 0;
         m_id = global_id++;
     }
+
     Context::~Context()
     {
         // std::cout << fmt::format("Clearing Context: {}", (intptr_t)this) << std::endl;
@@ -43,9 +48,7 @@ namespace dspsim
     {
         // m_models = std::vector<ModelBase *>(m_owned_models.begin(), m_owned_models.end());
         m_elaborate_done = true;
-        this->detach();
-
-        // eval();
+        // global_context_factory->reset_context();
     }
 
     void Context::clear()
@@ -86,16 +89,16 @@ namespace dspsim
         return m_models;
     }
 
-    // Used as a context manager in python
-    void Context::enter_context(double time_unit, double time_precision)
-    {
-        set_timescale(time_unit, time_precision);
-    }
-    void Context::exit_context()
-    {
-        clear();
-        Context::detach();
-    }
+    // // Used as a context manager in python
+    // void Context::enter_context(double time_unit, double time_precision)
+    // {
+    //     set_timescale(time_unit, time_precision);
+    // }
+    // void Context::exit_context()
+    // {
+    //     clear();
+    //     // Context::detach();
+    // }
 
     std::string Context::print_info()
     {
@@ -113,17 +116,30 @@ namespace dspsim
         //                    m_id, m_time, m_models.size(), m_owned_models.size(), m_time_unit, m_time_precision, m_time_step, (intptr_t)this);
     }
 
-    ///////////
-    std::shared_ptr<Context> Context::context(std::shared_ptr<Context> new_context, bool detach)
-    {
-        // static std::shared_ptr<Context> global_context{new Context};
-        static std::shared_ptr<Context> global_context = nullptr;
+    // ///////////
+    // std::shared_ptr<Context> Context::context(std::shared_ptr<Context> new_context, bool detach)
+    // {
+    //     // static std::shared_ptr<Context> global_context{new Context};
+    //     static std::shared_ptr<Context> global_context = nullptr;
 
-        if (detach)
-        {
-            global_context = nullptr;
-            return global_context;
-        }
+    //     if (detach)
+    //     {
+    //         global_context = nullptr;
+    //         return global_context;
+    //     }
+    //     if (new_context)
+    //     {
+    //         global_context = new_context;
+    //     }
+    //     if (global_context == nullptr)
+    //     {
+    //         global_context = std::shared_ptr<Context>{new Context};
+    //     }
+    //     return global_context;
+    // }
+    ContextPtr Context::context(std::shared_ptr<Context> new_context)
+    {
+        static ContextPtr global_context = nullptr;
         if (new_context)
         {
             global_context = new_context;
@@ -134,19 +150,67 @@ namespace dspsim
         }
         return global_context;
     }
-    std::shared_ptr<Context> Context::create(double time_unit, double time_precision)
+    ContextPtr Context::create(double time_unit, double time_precision)
     {
         std::shared_ptr<Context> new_context{new Context};
-        new_context->enter_context(time_unit, time_precision);
+        new_context->set_timescale(time_unit, time_precision);
         return Context::context(new_context);
     }
+    // ContextPtr Context::create(double time_unit, double time_precision)
+    // {
+    //     ContextPtr context = get_global_context_factory()->get_context();
+    //     // context->configure(time_unit, time_precision);
+    //     context->set_timescale(time_unit, time_precision);
+    //     return context;
+    // }
+    Context *Context::obtain()
+    {
+        return Context::context().get();
+    }
 
-    std::shared_ptr<Context> Context::get_global_context()
-    {
-        return Context::context();
-    }
-    void Context::set_global_context(std::shared_ptr<Context> new_context)
-    {
-        Context::context(new_context);
-    }
+    //     ContextFactory::ContextFactory()
+    //     {
+    //         reset_context();
+    //     }
+
+    //     ContextPtr ContextFactory::get_context() const
+    //     {
+    //         return m_active_context;
+    //     }
+
+    //     /*
+    //     Create a new context, replacing the active context.
+    //     When context->elaborate() is called, it will call reset_context() at the end of the function call.
+    //  */
+    //     void ContextFactory::reset_context()
+    //     {
+    //         m_active_context = std::make_shared<Context>();
+    //     }
+
+    //     /*
+    //         Get an unowned ptr to the active context. The model base class uses this when registering to the context.
+    //     */
+    //     Context *ContextFactory::context() const
+    //     {
+    //         return m_active_context.get();
+    //     }
+
+    //     ContextFactoryPtr get_global_context_factory()
+    //     {
+    //         if (global_context_factory == nullptr)
+    //         {
+    //             global_context_factory = std::make_shared<ContextFactory>();
+    //             // global_context_factory = &_global_context_factory;
+    //         }
+    //         return global_context_factory;
+    //     }
+
+    //     void set_global_context_factory(ContextFactoryPtr context_factory)
+    //     {
+    //         global_context_factory = context_factory;
+    //     }
+    //     void reset_global_context_factory()
+    //     {
+    //         global_context_factory = nullptr;
+    //     }
 } // namespace dspsim

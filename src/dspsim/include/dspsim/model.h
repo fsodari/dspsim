@@ -10,7 +10,7 @@ namespace dspsim
         virtual void eval_step() = 0;
         virtual void eval_end_step() {}
 
-        Context *context() { return m_context; }
+        Context *context() const { return m_context; }
 
     protected:
         Context *m_context;

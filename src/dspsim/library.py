@@ -1,5 +1,5 @@
 # from dspsim._library import *
-
+import dspsim.framework
 from dspsim.framework import Signal8, SignalT
 
 # Some components have additional wrappers.
@@ -12,6 +12,11 @@ from dspsim._library import AsyncSync8, AsyncSync
 
 from dspsim._library import Skid as _Skid
 from dspsim._library import Gain as _Gain
+
+# # Sync to the framework context factory.
+# from dspsim._library import set_context_factory
+
+# set_context_factory(dspsim.framework.get_context_factory())
 
 
 class Skid(_Skid):

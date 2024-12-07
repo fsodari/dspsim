@@ -1,4 +1,3 @@
-include(${CMAKE_CURRENT_LIST_DIR}/dspsim-utils.cmake)
 
 # nanobind_build_library(nanobind-static-abi3)
 
@@ -10,6 +9,11 @@ add_library(dspsim-core SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/clock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/dspsim.cpp)
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
+
+
+
+# set_target_properties(dspsim-core PROPERTIES INSTALL_RPATH "$ORIGIN/lib;$ORIGIN/lib64")
+
 # target_link_libraries(dspsim-core PUBLIC fmt)
 
 
@@ -22,13 +26,20 @@ target_include_directories(dspsim-core PUBLIC
     "$<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>")
 
 # Create framework module
+nanobind_build_library(nanobind-abi3-dspsim)
 nanobind_add_module(_framework
+    NB_SHARED
     NB_DOMAIN dspsim
     STABLE_ABI
     _framework.cpp)
 # Link to dspsim-core library
 target_link_libraries(_framework
     PUBLIC dspsim::dspsim-core)
+
+# RPath?
+set_property(TARGET _framework APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim-core>")
+set_property(TARGET _framework APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
+set_property(TARGET _framework APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")
 
 # Stub generation
 nanobind_add_stub(_framework_stub
@@ -52,16 +63,15 @@ install(FILES
   DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
 
 
-# Install nanobind library
-
+# # Install nanobind library
 # install(TARGETS nanobind-abi3-dspsim
 #     LIBRARY DESTINATION ${INSTALL_LIBDIR})
-# install(TARGETS nanobind-static-abi3
-#     EXPORT nanobind-static-abi3
-#     ARCHIVE DESTINATION ${INSTALL_LIBDIR}
-#     LIBRARY DESTINATION ${INSTALL_LIBDIR}
-#     RUNTIME DESTINATION ${INSTALL_BINDIR}
-#     INCLUDES DESTINATION ${INSTALL_INCLUDEDIR})
+install(TARGETS nanobind-abi3-dspsim
+    EXPORT nanobind-abi3-dspsim
+    ARCHIVE DESTINATION ${INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${INSTALL_BINDIR}
+    INCLUDES DESTINATION ${INSTALL_INCLUDEDIR})
 
 ### Library Module ###
 # Read the tool config from pyproject.toml

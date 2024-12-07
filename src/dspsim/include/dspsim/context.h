@@ -21,15 +21,17 @@ namespace dspsim
         /*
             Context is a singleton class, when initialized
         */
-
-        Context(Context const &) = delete;
-        Context &operator=(Context const &) = delete;
         Context();
+        Context(Context const &);        // Don't Implement
+        void operator=(Context const &); // Don't implement
 
     public:
         ~Context();
+
         // Register a model with the context. The context will own the model.
         void own_model(std::shared_ptr<Model> model);
+
+        // Register a model with the context. Registered models will be evaluated in the eval loop.
         void register_model(Model *model);
 
         // time_unit must be an integer multiple of time_precision.
@@ -46,6 +48,20 @@ namespace dspsim
         // return the time_step. Clocks and other real-time sensitive models will need to know this.
         int time_step() const { return m_time_step; }
 
+        /*
+            Once elaboration is finished, no more models are allowed to be instantiated.
+            At this point, the context may be 'detached' from the active global context.
+
+            At this step in the process, we can also perform DRC/ERC to ensure signals are
+            connected properly, there are no multiply driven signals, etc. The model list
+            can be compiled into a vector, or other optimizations can be made.
+
+            The application cannot advance the simulation until elaborate has been completed.
+
+            Applications using Runners in multiple threads will need to have a mutex
+            to allow only one Runner to set up at a time, once elaboration is complete, the
+            mutex is released and the context detached. Other context's
+        */
         void elaborate();
 
         // Indicates that elaboration has been run.
@@ -65,22 +81,21 @@ namespace dspsim
         // Return a reference to the list of all registered models.
         std::vector<Model *> &models();
 
-        // Used as a context manager in python
-        void enter_context(double time_unit = units::ns(1.0), double time_precision = units::ns(1.0));
-        void exit_context();
+        // // Used as a context manager in python
+        // void enter_context(double time_unit = units::ns(1.0), double time_precision = units::ns(1.0));
+        // void exit_context();
 
     public:
-        // Context factory functions.
-        // Get the current global context. If a context is given, set the global context to new_context.
-        static std::shared_ptr<Context> context(std::shared_ptr<Context> new_context = nullptr, bool detach = false);
-        // Create a new global context and return it.
-        static std::shared_ptr<Context> create(double time_unit = units::ns(1.0), double time_precision = units::ns(1.0));
+        // // Context factory functions.
+        // // Get the current global context. If a context is given, set the global context to new_context.
+        // static std::shared_ptr<Context> context(std::shared_ptr<Context> new_context = nullptr, bool detach = false);
+        // // Create a new global context and return it.
+        // static std::shared_ptr<Context> create(double time_unit = units::ns(1.0), double time_precision = units::ns(1.0));
 
-        static void detach() { context(nullptr, true); }
-        // Helpers for python properties.
-        // Get the global context.
-        static std::shared_ptr<Context> get_global_context();
-        static void set_global_context(std::shared_ptr<Context> new_context);
+        // Create and configure a new context and reset the global active_context.
+        static ContextPtr create(double time_unit = 1e-9, double time_precision = 1e-9);
+        static Context *obtain();
+        static ContextPtr context(std::shared_ptr<Context> new_context = nullptr);
 
         std::string print_info();
 
@@ -105,5 +120,60 @@ namespace dspsim
         bool m_elaborate_done = false;
         int m_id = 0;
     };
+
+    // /*
+    //     If separate modules statically link to dspsim-core, then they will have independent global variables and/or
+    //     static state. We will use a ContextFactory to create or obtain the context.
+    //     Modules can then set their global_context_factory to the dspsim.framework's ContextFactory.
+
+    //     A python module's __init__.py should contain these lines:
+
+    //         import dspsim
+    //         from my_module._my_library import set_context_factory
+    //         set_context_factory(dspsim.context_factory())
+
+    //     When the library is imported, it will sync its global_context_factory, and nothing more needs to be done.
+
+    //     The ContextFactory will have methods to either obtain the current context, or reset the active Context.
+    //     The ContextFactory contains a shared_ptr to the active Context. When Models are constructed from the factory,
+    //     they will be registered with the factory's active_context.
+
+    //     When a new context is created, the active_context is replaced. Models created under the old context
+    //     will still have a reference to the context they were created with. Any application that still has a
+    //     reference to the old Context will keep the Context and its Models alive as long as it is in scope.
+    // */
+    // class ContextFactory
+    // {
+    // public:
+    //     ContextFactory();
+
+    //     /*
+    //         Obtain a shared_ptr to the active Context. This is used when initializing a Context variable in an application.
+    //     */
+    //     ContextPtr get_context() const;
+
+    //     /*
+    //         Create a new context, replacing the active context.
+    //         When context->elaborate() is called, it will call reset_context() at the end of the function call.
+    //      */
+    //     void reset_context();
+
+    //     /*
+    //         Get an unowned ptr to the active context. The model base class uses this when registering to the context.
+    //     */
+    //     Context *context() const;
+
+    // private:
+    //     ContextPtr m_active_context = nullptr;
+    // };
+
+    // // Does this need to be shared?
+    // // using ContextFactoryPtr = ContextFactory *;
+    // using ContextFactoryPtr = std::shared_ptr<ContextFactory>;
+
+    // // The global context factory. Library modules will set their global_context_factories to the framework factory.
+    // ContextFactoryPtr get_global_context_factory();
+    // void set_global_context_factory(ContextFactoryPtr context);
+    // void reset_global_context_factory();
 
 } // namespace dspsim

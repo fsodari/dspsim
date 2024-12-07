@@ -11,7 +11,8 @@ NB_MODULE(_framework, m)
   m.def("foo42", []()
         { return 42; });
 
-  bind_module_context(m);
+  // auto cf = nanobind::class_<ContextFactory>(m, "ContextFactory");
+  // bind_module_context(m);
   bind_context(m, "Context");
   bind_base_model(m, "Model");
   bind_signal<uint8_t>(m, "Signal8");
@@ -28,4 +29,6 @@ NB_MODULE(_framework, m)
   bind_dff<uint32_t>(m, "Dff32");
   bind_dff<uint64_t>(m, "Dff64");
   bind_clock(m, "Clock");
+
+  // nanobind::set_leak_warnings(false);
 }

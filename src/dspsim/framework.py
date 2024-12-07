@@ -1,6 +1,8 @@
 # from dspsim._framework import *
 
-from dspsim._framework import Context, Model, Clock
+# from dspsim._framework import get_context_factory
+from dspsim._framework import Context
+from dspsim._framework import Model, Clock
 from dspsim._framework import Signal8, Signal16, Signal32, Signal64
 from dspsim._framework import Dff8, Dff16, Dff32, Dff64
 
@@ -66,7 +68,7 @@ def enter_context(time_unit: float = 1e-9, time_precision: float = 1e-9):
     try:
         yield context
     finally:
-        context.exit_context()
+        context.clear()
 
 
 def runner(time_unit: float = 1e-9, time_precision: float = 1e-9):
@@ -77,7 +79,7 @@ def runner(time_unit: float = 1e-9, time_precision: float = 1e-9):
         def wrapped():
             context = Context(time_unit, time_precision)
             result = func(context)
-            context.exit_context()
+            context.clear()
             return result
 
         return wrapped
