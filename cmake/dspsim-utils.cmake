@@ -61,12 +61,6 @@ function(dspsim_add_module name)
         NB_SHARED
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
     target_link_libraries(${name} PUBLIC dspsim::dspsim-core)
-    # Library stubs
-    nanobind_add_stub(${name}_stub
-        MODULE ${name}
-        OUTPUT ${name}.pyi
-        PYTHON_PATH $<TARGET_FILE_DIR:${name}>
-        DEPENDS ${name})
 
     ### If CONFIG is specified, read in the pyproject.toml config information when building.
     ### This is used when building a dspsim package. Use NO_CONFIG to specify settings in cmake.
@@ -161,4 +155,8 @@ function(dspsim_add_module name)
         # Generate the model bindings.
     endforeach()
     
+    set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim::dspsim-core>")
+    set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
+    set_property(TARGET ${name} APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")    
+
 endfunction()

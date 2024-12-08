@@ -2,6 +2,11 @@
 Generate 
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 import argparse
@@ -195,6 +200,9 @@ class Config(JSONWizard):
 
 def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Path):
     """"""
+    logger.debug(
+        f"run_generate_model. pyproject={pyproject_path}, tool_cfg={json_tool_cfg}, output_dir={output_dir}"
+    )
     from dspsim.util import render_template
 
     config = Config.from_pyproject(pyproject_path)
@@ -231,7 +239,6 @@ def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Pa
 
 @dataclass
 class ArgsGenerate:
-    # generate_models: tuple[Path, Path, Path]
     pyproject: Path
     tool_cfg: Path
     output_dir: Path
@@ -262,33 +269,34 @@ class ArgsGenerate:
         parser.set_defaults(func=ArgsGenerate.parse_args)
         return parser
 
-    # @classmethod
-    # def parse_argparse_args(cls, args: dict[str]):
-    #     """"""
-    #     field_names = [f.name for f in fields(cls)]
-    #     filtered_args = {k: a for k, a in args.items() if k in field_names}
-    #     return cls(**filtered_args)
-
     @classmethod
     def parse_args(cls, cli_args: list[str] = None):
         parser = cls.create_parser()
         cargs = parser.parse_args(cli_args)
-        # raise Exception(f"{cargs}")
         return cls(**vars(cargs))
-
-    def exec(self):
-        """"""
-        run_generate_model(self.pyproject, self.tool_cfg, self.output_dir)
 
 
 def main(cli_args: list[str] = None):
     """"""
     args = ArgsGenerate.parse_args(cli_args)
-    args.exec()
+    # create console handler and set level to debug
+    log_file = args.output_dir / "generate.log"
+    args.output_dir.mkdir(exist_ok=True)
+    ch = logging.FileHandler(log_file, mode="w")
+    ch.setLevel(logging.DEBUG)
 
+    # create formatter
+    formatter = logging.Formatter("%(levelname)s - %(message)s")
 
-def foo():
-    raise Exception("Foo")
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logging.getLogger(__name__).addHandler(ch)
+
+    logger.debug(f"generate.main args: {args}")
+
+    run_generate_model(args.pyproject, args.tool_cfg, args.output_dir)
 
 
 if __name__ == "__main__":

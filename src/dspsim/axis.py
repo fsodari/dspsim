@@ -5,6 +5,7 @@ from dspsim._framework import AxisRx8, AxisRx16, AxisRx32, AxisRx64
 
 import numpy as _np
 from numpy.typing import ArrayLike as _ArrayLike
+from typing import TypeVar, Literal
 
 TIDW = 8
 
@@ -90,7 +91,6 @@ def init_stream_model[
 
 AxisTxT = AxisTx8 | AxisTx16 | AxisTx32 | AxisTx64
 AxisRxT = AxisRx8 | AxisRx16 | AxisRx32 | AxisRx64
-
 from dspsim import util
 
 

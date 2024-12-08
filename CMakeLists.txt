@@ -39,15 +39,12 @@ set(INSTALL_DATADIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR})
 set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR}/cmake/dspsim)
 set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
 
-# Doing this makes shared libaries work. Libraries are installed at dspsim/lib in site-packages.
-# set(CMAKE_INSTALL_RPATH $ORIGIN/lib;$ORIGIN/lib64)
-# set(CMAKE_BUILD_WITH_INSTALL_RPATH On)
-
+# Include dspsim utilities
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
+
+# dspsim-core, _framework, and _library modules.
 add_subdirectory(src)
 
-# add_subdirectory(tests/cpp EXCLUDE_FROM_ALL)
-# message(FATAL_ERROR ${CMAKE_PREFIX_PATH})
 # Install core library targets.
 install(TARGETS dspsim-core
     EXPORT dspsim-core-targets
