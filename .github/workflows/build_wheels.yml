@@ -17,7 +17,7 @@ jobs:
           python-version: '3.12'
 
       - name: Build sdist
-        run: pipx run build --sdist --python 3.12
+        run: pipx run build --sdist --skip-dependency-check
 
       - uses: actions/upload-artifact@v4
         with:
