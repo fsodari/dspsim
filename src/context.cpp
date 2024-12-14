@@ -137,24 +137,28 @@ namespace dspsim
     //     }
     //     return global_context;
     // }
-    ContextPtr Context::context(std::shared_ptr<Context> new_context)
-    {
-        static ContextPtr global_context = nullptr;
-        if (new_context)
-        {
-            global_context = new_context;
-        }
-        if (global_context == nullptr)
-        {
-            global_context = std::shared_ptr<Context>{new Context};
-        }
-        return global_context;
-    }
+    // ContextPtr Context::context(std::shared_ptr<Context> new_context)
+    // {
+    //     static ContextPtr global_context = nullptr;
+    //     if (new_context)
+    //     {
+    //         global_context = new_context;
+    //     }
+    //     if (global_context == nullptr)
+    //     {
+    //         global_context = std::shared_ptr<Context>{new Context};
+    //     }
+    //     return global_context;
+    // }
     ContextPtr Context::create(double time_unit, double time_precision)
     {
-        std::shared_ptr<Context> new_context{new Context};
+        // std::shared_ptr<Context> new_context{new Context};
+        // new_context->set_timescale(time_unit, time_precision);
+        // return Context::context(new_context);
+
+        auto new_context = global_context_factory()->create();
         new_context->set_timescale(time_unit, time_precision);
-        return Context::context(new_context);
+        return new_context;
     }
     // ContextPtr Context::create(double time_unit, double time_precision)
     // {
@@ -163,54 +167,49 @@ namespace dspsim
     //     context->set_timescale(time_unit, time_precision);
     //     return context;
     // }
-    Context *Context::obtain()
+    ContextPtr Context::obtain()
     {
-        return Context::context().get();
+        // return Context::context();
+        return global_context_factory()->obtain();
     }
 
-    //     ContextFactory::ContextFactory()
-    //     {
-    //         reset_context();
-    //     }
+    ContextFactory::ContextFactory()
+    {
+    }
 
-    //     ContextPtr ContextFactory::get_context() const
-    //     {
-    //         return m_active_context;
-    //     }
+    ContextPtr ContextFactory::create()
+    {
+        _active_context = std::make_shared<Context>();
+        return _active_context;
+    }
+    ContextPtr ContextFactory::obtain()
+    {
+        // If a context hasn't been created yet, create a context.
+        if (_active_context == nullptr)
+        {
+            _active_context = create();
+        }
+        return _active_context;
+    }
 
-    //     /*
-    //     Create a new context, replacing the active context.
-    //     When context->elaborate() is called, it will call reset_context() at the end of the function call.
-    //  */
-    //     void ContextFactory::reset_context()
-    //     {
-    //         m_active_context = std::make_shared<Context>();
-    //     }
+    ContextFactory *global_context_factory(ContextFactory *new_context_factory = nullptr)
+    {
+        static ContextFactory _default_context_factory;
+        static ContextFactory *static_context_factory = &_default_context_factory;
 
-    //     /*
-    //         Get an unowned ptr to the active context. The model base class uses this when registering to the context.
-    //     */
-    //     Context *ContextFactory::context() const
-    //     {
-    //         return m_active_context.get();
-    //     }
+        if (new_context_factory)
+        {
+            static_context_factory = new_context_factory;
+        }
 
-    //     ContextFactoryPtr get_global_context_factory()
-    //     {
-    //         if (global_context_factory == nullptr)
-    //         {
-    //             global_context_factory = std::make_shared<ContextFactory>();
-    //             // global_context_factory = &_global_context_factory;
-    //         }
-    //         return global_context_factory;
-    //     }
-
-    //     void set_global_context_factory(ContextFactoryPtr context_factory)
-    //     {
-    //         global_context_factory = context_factory;
-    //     }
-    //     void reset_global_context_factory()
-    //     {
-    //         global_context_factory = nullptr;
-    //     }
+        return static_context_factory;
+    }
+    void set_global_context_factory(ContextFactory *new_context_factory)
+    {
+        global_context_factory(new_context_factory);
+    }
+    ContextFactory *get_global_context_factory()
+    {
+        return global_context_factory();
+    }
 } // namespace dspsim

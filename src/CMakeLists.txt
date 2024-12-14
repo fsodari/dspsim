@@ -52,12 +52,6 @@ nanobind_add_stub(_framework_stub
     PYTHON_PATH $<TARGET_FILE_DIR:_framework>
     INSTALL_TIME)
 
-# # Install stubs in a local directory to help vscode fine type info with editable installs.
-# install(FILES
-#   ${CMAKE_CURRENT_BINARY_DIR}/_framework.pyi
-#   DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
-
-
 ### Library Module ###
 # Read the tool config from pyproject.toml
 # Create library module.
@@ -74,9 +68,3 @@ nanobind_add_stub(_library_stub
     OUTPUT ${SKBUILD_PROJECT_NAME}/_library.pyi
     PYTHON_PATH $<TARGET_FILE_DIR:_library>
     INSTALL_TIME)
-
-# # Install stubs in a local directory to help vscode fine type info with editable installs.
-# install(FILES
-#     ${CMAKE_CURRENT_BINARY_DIR}/_library.pyi
-#     DESTINATION ${CMAKE_BINARY_DIR}/stubs/dspsim)
-    

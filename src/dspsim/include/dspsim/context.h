@@ -18,17 +18,11 @@ namespace dspsim
 
     class Context
     {
-        /*
-            Context is a singleton class, when initialized
-        */
-        Context();
-        Context(Context const &);        // Don't Implement
-        void operator=(Context const &); // Don't implement
-
     public:
+        Context();
         ~Context();
 
-        // Register a model with the context. The context will own the model.
+        // Give ownership of a model to the context. The model will stay alive as long as the context is alive.
         void own_model(std::shared_ptr<Model> model);
 
         // Register a model with the context. Registered models will be evaluated in the eval loop.
@@ -93,9 +87,11 @@ namespace dspsim
         // static std::shared_ptr<Context> create(double time_unit = units::ns(1.0), double time_precision = units::ns(1.0));
 
         // Create and configure a new context and reset the global active_context.
+        // This uses the global_context_factory to create a context
         static ContextPtr create(double time_unit = 1e-9, double time_precision = 1e-9);
-        static Context *obtain();
-        static ContextPtr context(std::shared_ptr<Context> new_context = nullptr);
+        // Obtain the active context from the global context factory.
+        static ContextPtr obtain();
+        // static ContextPtr context(std::shared_ptr<Context> new_context = nullptr);
 
         std::string print_info();
 
@@ -120,6 +116,26 @@ namespace dspsim
         bool m_elaborate_done = false;
         int m_id = 0;
     };
+
+    /*
+
+    */
+    class ContextFactory
+    {
+    public:
+        ContextFactory();
+
+        ContextPtr create();
+        ContextPtr obtain();
+        void reset() { _active_context.reset(); }
+
+    private:
+        ContextPtr _active_context;
+    };
+
+    ContextFactory *global_context_factory(ContextFactory *new_context_factory = nullptr);
+    void set_global_context_factory(ContextFactory *new_context_factory);
+    ContextFactory *get_global_context_factory();
 
     // /*
     //     If separate modules statically link to dspsim-core, then they will have independent global variables and/or
