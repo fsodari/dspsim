@@ -1,4 +1,5 @@
 # from dspsim._library import *
+import dspsim._framework
 import dspsim.framework
 from dspsim.framework import Signal8, SignalT
 
@@ -6,6 +7,10 @@ from dspsim.framework import Signal8, SignalT
 from dspsim.axis import Axis
 from dspsim.fifo import FifoSync, FifoAsync, FifoAsync8
 from dspsim.i2s import I2S, I2SClkGen, I2STx, I2SRx
+
+from dspsim._library import link_context as _link_context
+
+_link_context(dspsim.framework.global_context())
 
 from dspsim._library import Foo, SomeModel, X
 from dspsim._library import AsyncSync8, AsyncSync

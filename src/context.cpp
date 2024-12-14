@@ -192,7 +192,7 @@ namespace dspsim
         return _active_context;
     }
 
-    ContextFactory *global_context_factory(ContextFactory *new_context_factory = nullptr)
+    ContextFactory *global_context_factory(ContextFactory *new_context_factory)
     {
         static ContextFactory _default_context_factory;
         static ContextFactory *static_context_factory = &_default_context_factory;

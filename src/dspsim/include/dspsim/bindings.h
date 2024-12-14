@@ -57,6 +57,20 @@ namespace dspsim
             .def("print_info", &Context::print_info);
     }
 
+    // Bind global context.
+    static inline auto _bind_context_factory(nb::handle &scope, const char *name)
+    {
+        return nb::class_<ContextFactory>(scope, name)
+            .def("create", &ContextFactory::create)
+            .def("obtain", &ContextFactory::obtain)
+            .def("reset", &ContextFactory::reset);
+    }
+    static inline auto bind_global_context(nb::module_ &m)
+    {
+        m.def("link_context", &set_global_context_factory, nb::arg("global_context"));
+        m.def("global_context", &get_global_context_factory, nb::rv_policy::reference);
+    }
+
     // Bind Model.
     static inline auto bind_base_model(nb::handle &scope, const char *name)
     {

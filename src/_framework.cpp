@@ -40,5 +40,8 @@ NB_MODULE(_framework, m)
   bind_axis_rx<uint32_t>(m, "AxisRx32");
   bind_axis_rx<uint64_t>(m, "AxisRx64");
 
+  _bind_context_factory(m, "ContextFactory");
+  bind_global_context(m);
+
   // nanobind::set_leak_warnings(false);
 }

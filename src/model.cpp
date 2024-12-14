@@ -2,7 +2,7 @@
 
 namespace dspsim
 {
-    Model::Model() : m_context(Context::obtain())
+    Model::Model() : m_context(Context::obtain().get())
     {
         m_context->register_model(this);
     }

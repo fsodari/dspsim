@@ -58,7 +58,7 @@ function(dspsim_add_module name)
     nanobind_add_module(${name} 
         NB_DOMAIN dspsim
         STABLE_ABI
-        NB_SHARED
+        # NB_SHARED
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
     target_link_libraries(${name} PUBLIC dspsim::dspsim-core)
 
@@ -155,8 +155,8 @@ function(dspsim_add_module name)
         # Generate the model bindings.
     endforeach()
     
-    set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim::dspsim-core>")
-    set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
-    set_property(TARGET ${name} APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")    
+    # set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim::dspsim-core>")
+    # set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
+    # set_property(TARGET ${name} APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")    
 
 endfunction()
