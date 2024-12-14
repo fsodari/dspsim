@@ -30,17 +30,14 @@ target_link_libraries(_framework
 # Install extension
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-# Stub generation
+
+# Install stubs.
 dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 
 ### Library Module ###
-# Read the tool config from pyproject.toml
+
 # Create library module.
 dspsim_add_module(_library
     CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml
-    STUB_DIR ${SKBUILD_PROJECT_NAME})
-
-# Install extension
-install(TARGETS _library
-    LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-# dspsim_add_stub(_library ${SKBUILD_PROJECT_NAME})
+    STUB_DIR ${SKBUILD_PROJECT_NAME}
+    INSTALL_DIR ${SKBUILD_PROJECT_NAME})

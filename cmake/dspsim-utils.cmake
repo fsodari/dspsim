@@ -22,7 +22,7 @@ function(dspsim_add_module name)
     message(DEBUG "dspsim_add_module()...")
 
     # set(options STUBS)
-    set(oneValueArgs CONFIG STUB_DIR)
+    set(oneValueArgs CONFIG STUB_DIR INSTALL_DIR)
     # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
 
     cmake_parse_arguments(PARSE_ARGV 1 arg
@@ -126,6 +126,13 @@ function(dspsim_add_module name)
             VERILATOR_ARGS ${model_vargs})
     endforeach()
 
+    # Optionally install
+    if (arg_INSTALL_DIR)
+        # Install extension
+        install(TARGETS ${name}
+            LIBRARY DESTINATION ${arg_INSTALL_DIR})
+    endif()
+    
     # Optionally generate stubs
     if (arg_STUB_DIR)
         dspsim_add_stub(${name} ${arg_STUB_DIR})
