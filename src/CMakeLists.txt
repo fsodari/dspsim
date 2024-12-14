@@ -27,44 +27,20 @@ nanobind_add_module(_framework
 target_link_libraries(_framework
     PUBLIC dspsim::dspsim-core)
 
-# # RPath?
-# set_property(TARGET _framework APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim-core>")
-# set_property(TARGET _framework APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
-# set_property(TARGET _framework APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")
-
 # Install extension
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-
-# # Install nanobind library
-# install(TARGETS nanobind-abi3-dspsim
-#     EXPORT nanobind-abi3-dspsim
-#     ARCHIVE DESTINATION ${INSTALL_LIBDIR}
-#     LIBRARY DESTINATION ${INSTALL_LIBDIR}
-#     RUNTIME DESTINATION ${INSTALL_BINDIR}
-#     INCLUDES DESTINATION ${INSTALL_INCLUDEDIR})
-
 # Stub generation
-nanobind_add_stub(_framework_stub
-    MODULE _framework
-    OUTPUT ${SKBUILD_PROJECT_NAME}-stubs/_framework.pyi
-    PYTHON_PATH $<TARGET_FILE_DIR:_framework>
-    MARKER_FILE ${SKBUILD_PROJECT_NAME}-stubs/py.typed
-    INSTALL_TIME)
+dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 
 ### Library Module ###
 # Read the tool config from pyproject.toml
 # Create library module.
 dspsim_add_module(_library
-    CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml)
+    CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml
+    STUB_DIR ${SKBUILD_PROJECT_NAME})
 
 # Install extension
 install(TARGETS _library
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-
-# Library stubs
-nanobind_add_stub(_library_stub
-    MODULE _library
-    OUTPUT ${SKBUILD_PROJECT_NAME}-stubs/_library.pyi
-    PYTHON_PATH $<TARGET_FILE_DIR:_library>
-    INSTALL_TIME)
+# dspsim_add_stub(_library ${SKBUILD_PROJECT_NAME})

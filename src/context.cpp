@@ -112,7 +112,7 @@ namespace dspsim
         s += "n_time_step=" + std::to_string(m_time_step) + ", ";
         s += "this=" + std::to_string((intptr_t)this) + ", ";
         return s;
-        // return fmt::format("Context(id={}, time={}, n_models={}, n_registered={}, time_unit={}, time_precision={}, time_step={}, this={})",
+        // return std::format("Context(id={}, time={}, n_models={}, n_registered={}, time_unit={}, time_precision={}, time_step={}, this={})",
         //                    m_id, m_time, m_models.size(), m_owned_models.size(), m_time_unit, m_time_precision, m_time_step, (intptr_t)this);
     }
 

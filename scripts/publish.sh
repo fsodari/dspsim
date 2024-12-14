@@ -1,1 +1,1 @@
-uv publish --check-url $UV_PUBLISH_URL
+uv publish
