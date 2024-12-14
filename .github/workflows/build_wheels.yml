@@ -51,9 +51,31 @@ jobs:
           name: cibw-wheels-linux
           path: ./dist/*.whl
 
+  build_windows_wheels:
+    name: Python cibuildwheel Windows
+    runs-on: ["windows-latest"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Build Windows wheels
+        run: uvx cibuildwheel --output-dir ./dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-windows
+          path: ./dist/*.whl
+
   upload_pypi:
     if: startsWith(github.event.ref, 'refs/tags/v')
-    needs: [build_linux_wheels, build_sdist]
+    needs: [build_sdist, build_linux_wheels, build_windows_wheels, ]
     runs-on: ubuntu-latest
     environment:
       name: pypi

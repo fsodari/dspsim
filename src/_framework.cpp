@@ -3,6 +3,11 @@
 namespace nb = nanobind;
 using namespace dspsim;
 
+double sc_time_stamp(void)
+{
+  return 0;
+}
+
 NB_MODULE(_framework, m)
 {
   m.doc() = "DSPSim Framework Module";

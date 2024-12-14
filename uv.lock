@@ -26,7 +26,7 @@ toml = [
 
 [[package]]
 name = "dspsim"
-version = "0.2.3"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "dataclass-wizard", extra = ["toml"] },
@@ -59,9 +59,9 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.8.3" },
-    { name = "verilator-dspsim", specifier = ">=5.30.5" },
+    { name = "verilator-dspsim", specifier = ">=5.30.9" },
 ]
-verilator = [{ name = "verilator-dspsim", specifier = ">=5.30.5" }]
+verilator = [{ name = "verilator-dspsim", specifier = ">=5.30.9" }]
 
 [[package]]
 name = "iniconfig"
@@ -260,9 +260,10 @@ wheels = [
 
 [[package]]
 name = "verilator-dspsim"
-version = "5.30.5"
+version = "5.30.9"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8d/69/47931f402f8ce43e6c0c062eb66563ece580d75339e9e6f56bfd58c4bb9a/verilator_dspsim-5.30.5.tar.gz", hash = "sha256:78a3e24c87ce34641332d65c003fbe639dfb6bf518c52430dffc1cd730c75d97", size = 9955 }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/e9/abd897085929dae7516ccf0bc38967166f0a103d58f3ad1dcd01878e551a/verilator_dspsim-5.30.9.tar.gz", hash = "sha256:fb09edad3ddd63452d0e0e1cf563f399f464d5d471d354d06b749f2dea17727a", size = 10236 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/44/95efb11a8402db28c9d4219275ddc7e95fcb9d1148517731976e9943a166/verilator_dspsim-5.30.5-cp312-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:85d81979a027a377364e779c72965112400a96ea26eb40fc12e152348d1fade6", size = 3980406 },
+    { url = "https://files.pythonhosted.org/packages/14/79/6182f3f73db55dd8dab8ee937f9afa42ae35940f83321712cbc7501ba47f/verilator_dspsim-5.30.9-cp312-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d14643e3d76831d0f65e3a2422f826b8b4ad208810e89cc3479a7f503305c9ec", size = 3980406 },
+    { url = "https://files.pythonhosted.org/packages/c3/c3/1a88d0f2e4be4f6359ff40d7d31c138e090c256e8b16cff30b2de43fed27/verilator_dspsim-5.30.9-cp312-abi3-win_amd64.whl", hash = "sha256:93fa2fbad680f4912ec5459d17eb61f0b8a56255e7de7f6b93ad146cceafc93d", size = 3506270 },
 ]
