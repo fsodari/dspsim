@@ -18,3 +18,5 @@ install
 *.so
 traces
 archive
+logs
+

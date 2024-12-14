@@ -103,7 +103,7 @@ namespace dspsim
         T *top_sig[N];
 
     public:
-        Output(std::array<SignalPtr<T>, N> &sig, T (&_top_sig)[N]) : sig(sig)
+        Output(std::array<Signal<T> *, N> &sig, T (&_top_sig)[N]) : sig(sig)
         {
             for (size_t i = 0; i < N; i++)
             {

@@ -1,7 +1,7 @@
 # from dspsim._framework import *
 
 # from dspsim._framework import get_context_factory
-from dspsim._framework import Context
+from dspsim._framework import Context, global_context
 from dspsim._framework import Model, Clock
 from dspsim._framework import Signal8, Signal16, Signal32, Signal64
 from dspsim._framework import Dff8, Dff16, Dff32, Dff64
@@ -9,7 +9,7 @@ from dspsim._framework import Dff8, Dff16, Dff32, Dff64
 import contextlib as _contextlib
 import functools as _functools
 from dspsim import util as _util
-from typing import TypeVar
+from typing import TypeVar, Literal
 
 SignalT = Signal8 | Signal16 | Signal32 | Signal64
 DffT = Dff8 | Dff16 | Dff32 | Dff64

@@ -4,9 +4,14 @@
 #include "{{model}}.h"
 {%-endfor%}
 
+namespace nb = nanobind;
+using namespace dspsim;
 
 NB_MODULE({{libname}}, m)
 {
+    nb::module_ _f = nb::module_::import_("dspsim._framework");
+    
+    bind_global_context(m);
     {% for model in models %}
     {{model}}::bind_model(m, "{{model}}");
     {%-endfor%}

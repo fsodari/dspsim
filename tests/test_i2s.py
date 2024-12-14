@@ -11,7 +11,7 @@ import numpy as np
 def test_i2s_loopback():
     with Context(1e-9, 1e-9) as context:
         fs = 48e3
-        fs_mclk = 18.432e6
+        fs_mclk = fs * 384
         T_mclk = 1 / fs_mclk  # About 54ns
 
         # Main bus clock.

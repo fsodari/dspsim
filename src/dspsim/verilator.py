@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import subprocess
 from pathlib import Path
 from functools import cache, cached_property
@@ -114,7 +118,7 @@ class VModelTree:
                 ]
                 verilator_args.extend(param_args)
 
-            verilator_args.extend(["--json-only", "--Mdir", tmpdir])
+            verilator_args.extend(["--quiet", "--json-only", "--Mdir", tmpdir])
             inc_dirs = [f"-I{d.absolute()}" for d in include_dirs]
             verilator_args.extend(inc_dirs)
             verilator([source] + verilator_args)

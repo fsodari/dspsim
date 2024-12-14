@@ -4,7 +4,10 @@
 #include "V{{model.name}}.h"
 {%if trace == "fst"%}#include <verilated_fst_c.h>{%else%}#include <verilated_vcd_c.h>{%endif%}
 
-class {{model.name}} : public dspsim::VModel<V{{model.name}}, {%if trace == "fst"%}VerilatedFstC{%else%}VerilatedVcdC{%endif%}>
+namespace nb = nanobind;
+using namespace dspsim;
+
+class {{model.name}} : public VModel<V{{model.name}}, {%if trace == "fst"%}VerilatedFstC{%else%}VerilatedVcdC{%endif%}>
 {
 public:
     // Parameters
@@ -45,15 +48,15 @@ public:
     }
 
     // Nanobind module
-    static inline nanobind::class_<{{model.name}}> bind_model(nanobind::module_ &m, const char *name)
+    static inline nb::class_<{{model.name}}> bind_model(nb::module_ &m, const char *name)
     {
-        return nanobind::class_<{{model.name}}>(m, name)
-            .def(nanobind::new_(&{{model.name}}::create){%for port in model.ports%}{{", " if loop.first else ""}}
-                nanobind::arg("{{port}}"){{", " if not loop.last else ""}}{%endfor%})
+        return nb::class_<{{model.name}}>(m, name)
+            .def(nb::new_(&{{model.name}}::create){%for port in model.ports%}{{", " if loop.first else ""}}
+                nb::arg("{{port}}"){{", " if not loop.last else ""}}{%endfor%})
             {%for param in model.parameters%}
             .def_ro_static("{{param}}", &{{model.name}}::{{param}}){%endfor%}
 
-            .def_prop_ro_static("port_info", [](nanobind::handle _){return std::string("{{model.port_info()}}");})
-            .def("trace", &{{model.name}}::trace, nanobind::arg("trace_path"), nanobind::arg("levels")=99, nanobind::arg("options") = 0);
+            .def_prop_ro_static("port_info", [](nb::handle _){return std::string("{{model.port_info()}}");})
+            .def("trace", &{{model.name}}::trace, nb::arg("trace_path"), nb::arg("levels")=99, nb::arg("options") = 0);
     }
 };

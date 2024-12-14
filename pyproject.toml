@@ -1,31 +1,24 @@
-[build-system]
-requires = [
-    "scikit-build-core>=0.10.7",
-    "nanobind>=2.4.0",
-    "verilator-dspsim==5.30.0",
-    "numpy>=2.1.3",
-    "jinja2>=3.1.4",
-    "dataclass-wizard[toml]>=0.30.1",
-]
-build-backend = "scikit_build_core.build"
 
 [project]
 name = "dspsim"
 dynamic = ["version"]
-description = "Add your description here"
+description = "Simulate Verilog modules using Python bindings for Verilator models."
 readme = "README.md"
-authors = [{ name = "Frank" }]
+authors = [{ name = "Frank Sodari" }]
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
 
+# Supporting Stable ABI 3.12 wheels.
+requires-python = ">=3.12"
+
+# Needed for code generation and building modules.
 dependencies = [
     "scikit-build-core>=0.10.7",
     "nanobind>=2.4.0",
@@ -33,97 +26,96 @@ dependencies = [
     "numpy>=2.1.3",
     "dataclass-wizard[toml]>=0.30.1",
 ]
-requires-python = ">=3.12"
 
+# Optional dependencies
+[dependency-groups]
+# Install verilator-dspsim with this package. Optionally, you can use verilator already installed.
+verilator = ["verilator-dspsim>=5.30.4"]
+dev = ["pytest>=8.3.3", "verilator-dspsim>=5.30.4", "ruff>=0.8.3"]
+
+# Available on github. Wheels and sdist published to pypi.org
 [project.urls]
 Homepage = "https://github.com/fsodari/dspsim"
 
-[tool.scikit-build.metadata.version]
-provider = "scikit_build_core.metadata.regex"
-input = "src/dspsim/__init__.py"
-
-# Scripts.
+# Project scripts.
 [project.scripts]
+# Main command line interface.
 dspsim = "dspsim.main:main"
+# Generate binding code for modules.
 
-### dspsim tool configuration ###
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#
 
+# dspsim tool configuration for the library module.
 [tool.dspsim]
+# Use all sources in the dspsim/hdl directory.
 sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
-# sources = ["src/dspsim/hdl/FifoAsync.sv"]
+# Can use fst on linux.
 trace = "vcd"
 
-# include_dirs = ["src/dspsim/hdl"] # this is already included.
+# Global parameter defaults. Applied to all models. Models can override this value.
 [tool.dspsim.parameters]
 DW = 24
 AW = 32
 COEFW = 18
 COEFQ = 16
 
+# Configure one of the default models or create models with different parameters.
 [tool.dspsim.models]
 AsyncSync8 = { name = "AsyncSync8", source = "AsyncSync.sv", parameters = { DW = 8 } }
 FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW = 8 } }
-# AnotherModel = { source = "Foo.sv", parameters = { COEFW = 16, BAERR = 22 } }
-# # ###
 
-[tool.scikit-build]
-# Use the package's package config when building.
-cmake.args = ["-Wno-dev"]
-cmake.build-type = "Release"
-
-minimum-version = "build-system.requires"
-build-dir = "build/{wheel_tag}"
-
-wheel.packages = ["src/dspsim"]
-# wheel.install-dir = "dspsim"
-wheel.py-api = "cp312"
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#
 
 
-[dependency-groups]
-dev = [
-    "pytest>=8.3.3",
+###
+### Build System Config
+###
+[build-system]
+requires = [
     "scikit-build-core>=0.10.7",
     "nanobind>=2.4.0",
+    "verilator-dspsim>=5.30.4",
     "numpy>=2.1.3",
+    "jinja2>=3.1.4",
     "dataclass-wizard[toml]>=0.30.1",
 ]
-verilator = ["verilator-dspsim==5.30.0"]
+build-backend = "scikit_build_core.build"
 
-### cibuildwheel configuration
-# [tool.cibuildwheel]
-# test-requires = "pytest"
-# test-command = "pytest {project}/tests"
+[tool.scikit-build]
+cmake.args = ["-Wno-dev"]                 # silence cmake warning about verilator package name.
+cmake.build-type = "Release"
+minimum-version = "build-system.requires"
+wheel.packages = ["src/dspsim"]
+# Stable ABI for Python3.12+
+wheel.py-api = "cp312"
 
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/dspsim/__init__.py"
+
+###
+###
+###
+
+###
+### Cibuildwheel config
+###
 [tool.cibuildwheel]
-# # Run pytest to ensure that the package was correctly built
-test-command = "pytest {project}/tests/test_framework.py"
-test-requires = "pytest"
-build-verbosity = 1
+# This version seems to work...
+manylinux-x86_64-image = "manylinux_2_28"
 # 64 bit builds
 archs = ["auto64"]
-
-
+# Python3.12+. Older versions should work?
 build = ["cp312-*"]
 # Don't build arm. Use only > cp39, no PyPy. Not using musl anywhere so no musl (it works though?)
 skip = ["*-win_arm64", "*musllinux*"]
-# manylinux-x86_64-image = "quay.io/pypa/manylinux2010_x86_64:latest"
-# manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
-# manylinux-x86_64-image = "manylinux_2_24"
-# # manylinux builds
-[tool.cibuildwheel.linux]
-before-all = [
-    # "yum install perl",
-    # "yum install -y flex",
-    # "yum install -y bison",
-    # "yum install -y ccache",
-]
 
-# # musllinux builds
-# [[tool.cibuildwheel.overrides]]
-# select = "*-musllinux*"
-# before-all = [
-#     "apk add flex",
-#     "apk add flex-dev",
-#     "apk add bison",
-#     "apk add ccache",
-# ]
+# Run pytest to ensure that the package was build correctly
+test-command = "pytest {project}/tests/test_framework.py"
+test-requires = "pytest"
+build-verbosity = 1
+###
+###
+###
