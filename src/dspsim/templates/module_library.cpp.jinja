@@ -7,6 +7,11 @@
 namespace nb = nanobind;
 using namespace dspsim;
 
+double sc_time_stamp(void)
+{
+  return 0;
+}
+
 NB_MODULE({{libname}}, m)
 {
     nb::module_ _f = nb::module_::import_("dspsim._framework");
