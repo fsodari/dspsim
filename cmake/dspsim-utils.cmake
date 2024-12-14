@@ -3,7 +3,7 @@ include_guard(GLOBAL)
 set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
 
 function(dspsim_run_generate pyproject_path tool_cfg outdir)
-    message("dspsim_run_generate()...")
+    message(DEBUG "dspsim_run_generate()...")
     
     cmake_path(GET DSPSIM_PKG_DIR PARENT_PATH dspsim_parent)
 
@@ -18,36 +18,11 @@ function(dspsim_run_generate pyproject_path tool_cfg outdir)
     endif()
 endfunction(dspsim_run_generate)
 
-# function(dspsim_basic_module name)
-#     # set(options SHARED TRACE TRACE_FST)
-#     # set(oneValueArgs CONFIG)
-#     # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
-#     cmake_parse_arguments(PARSE_ARGV 1 arg
-#         "${options}" "${oneValueArgs}" "${multiValueArgs}")
-#     message("${name}: ${arg_UNPARSED_ARGUMENTS}")
-
-#     # Create framework module
-#     nanobind_add_module(${name}
-#         STABLE_ABI
-#         ${arg_UNPARSED_ARGUMENTS})
-
-#     # Link to dspsim-core library
-#     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
-
-#     # Stub generation
-#     nanobind_add_stub(${name}_stub
-#         MODULE ${name}
-#         OUTPUT ${name}.pyi
-#         PYTHON_PATH $<TARGET_FILE_DIR:${name}>
-#         MARKER_FILE py.typed
-#         DEPENDS ${name})
-# endfunction()
-
 function(dspsim_add_module name)
-    message("dspsim_add_module()...")
+    message(DEBUG "dspsim_add_module()...")
 
-    # set(options SHARED TRACE TRACE_FST)
-    set(oneValueArgs CONFIG)
+    # set(options STUBS)
+    set(oneValueArgs CONFIG STUB_DIR)
     # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
 
     cmake_parse_arguments(PARSE_ARGV 1 arg
@@ -58,9 +33,10 @@ function(dspsim_add_module name)
     nanobind_add_module(${name} 
         NB_DOMAIN dspsim
         STABLE_ABI
-        # NB_SHARED
         ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${name}.cpp)
     target_link_libraries(${name} PUBLIC dspsim::dspsim-core)
+    set_target_properties(${name} PROPERTIES POSITION_INDEPENDENT_CODE On)
+
 
     ### If CONFIG is specified, read in the pyproject.toml config information when building.
     ### This is used when building a dspsim package. Use NO_CONFIG to specify settings in cmake.
@@ -76,7 +52,6 @@ function(dspsim_add_module name)
     dspsim_run_generate(${pyproject_path} ${cfg_path} ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir)
     target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir)
 
-    message("Use dspsim_tool_cfg.json")
     # Read the JSON file.
     file(READ ${cfg_path} cfg_json)
     string(JSON lib_type GET ${cfg_json} "libraryType")
@@ -120,18 +95,16 @@ function(dspsim_add_module name)
 
         # Add parameters to vargs
         string(JSON n_params LENGTH ${model_parameters})
-        # message(FATAL_ERROR ${model_parameters})
         if (${n_params})
             math(EXPR count "${n_params}-1")            
-            foreach(IDX RANGE ${count})
-                string(JSON param_id MEMBER ${model_parameters} ${IDX})
+            foreach(idx RANGE ${count})
+                string(JSON param_id MEMBER ${model_parameters} ${idx})
                 string(JSON param GET ${model_parameters} ${param_id})
-                # string(JSON param_name GET ${param} "name")
-                # string(JSON param_value GET ${param} "value")
                 list(APPEND model_vargs "-G${param_id}=${param}")
             endforeach()
         endif()
         
+        # Trace types. vcd or fst.
         if (model_trace STREQUAL "fst")
             set(trace_type TRACE_FST)
         elseif(model_trace STREQUAL "vcd")
@@ -140,10 +113,10 @@ function(dspsim_add_module name)
             set(trace_type "")
         endif()
 
+        # Run verilator to generate the C++ model.
         set(prefix "V${model_name}")
         set(mdir ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${name}.dir/${model_name}.dir)
-
-        message("Verilating ${model_source}, inc: ${model_include_dirs}, trace: ${trace_type}, prefix ${prefix}, vargs: ${model_vargs}")
+        message(VERBOSE "Verilating ${model_source}, inc: ${model_include_dirs}, trace: ${trace_type}, prefix ${prefix}, vargs: ${model_vargs}")
         verilate(${name}
             ${trace_type}
             SOURCES ${model_source}
@@ -151,12 +124,31 @@ function(dspsim_add_module name)
             PREFIX "V${model_name}"
             DIRECTORY ${mdir}
             VERILATOR_ARGS ${model_vargs})
-
-        # Generate the model bindings.
     endforeach()
-    
-    # set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:dspsim::dspsim-core>")
-    # set_property(TARGET ${name} APPEND PROPERTY BUILD_RPATH "$<TARGET_FILE_DIR:nanobind-abi3-dspsim>")
-    # set_property(TARGET ${name} APPEND PROPERTY INSTALL_RPATH "$ORIGIN/lib")    
 
+    # Optionally generate stubs
+    if (arg_STUB_DIR)
+        dspsim_add_stub(${name} ${arg_STUB_DIR})
+    endif()
+endfunction()
+
+function(dspsim_add_stub name output_dir)
+    # Install stubs differently for editable installs.
+    if (SKBUILD_STATE STREQUAL "editable")
+        # VSCode typing in editable mode works with this.
+        set(stubs_dir ${output_dir}-stubs)
+        set(marker_file ${stubs_dir}/__init__.pyi)
+    else()
+        # Otherwise, install stubs into the package
+        set(stubs_dir ${output_dir})
+        set(marker_file ${stubs_dir}/py.typed)
+    endif()
+
+    # 
+    nanobind_add_stub(${name}_stub
+        MODULE ${name}
+        OUTPUT ${stubs_dir}/${name}.pyi
+        PYTHON_PATH $<TARGET_FILE_DIR:${name}>
+        MARKER_FILE ${marker_file}
+        INSTALL_TIME)
 endfunction()
