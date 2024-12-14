@@ -21,7 +21,7 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Build sdist
-        run: uv build
+        run: uv build --sdist
 
       - uses: actions/upload-artifact@v4
         with:
