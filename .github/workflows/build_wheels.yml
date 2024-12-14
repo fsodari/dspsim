@@ -35,7 +35,7 @@ jobs:
           python-version: '3.12'
 
       - name: Build Linux wheels
-        run: pipx run cibuildwheel --platform linux --output-dir ./dist
+        run: pipx run cibuildwheel --output-dir ./dist
 
       - uses: actions/upload-artifact@v4
         with:
