@@ -56,15 +56,19 @@ trace = "vcd"
 
 # Global parameter defaults. Applied to all models. Models can override this value.
 [tool.dspsim.parameters]
-DW = 24
-AW = 32
-COEFW = 18
-COEFQ = 16
+DW = 24    # Stream data width
+CFGAW = 32 # Config address width
+CFGDW = 32 # Config data width
+COEFW = 18 # Coefficient width
+COEFQ = 16 # Coefficient fixed-point q
 
 # Configure one of the default models or create models with different parameters.
 [tool.dspsim.models]
 AsyncSync8 = { name = "AsyncSync8", source = "AsyncSync.sv", parameters = { DW = 8 } }
 FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW = 8 } }
+WbRegs64 = { name = "WbRegs64", source = "WbRegs.sv", parameters = { N_CTL = 64, N_STS = 64 } }
+WbRegs256 = { name = "WbRegs256", source = "WbRegs.sv", parameters = { N_CTL = 256, N_STS = 256 } }
+WbRegs1024 = { name = "WbRegs1024", source = "WbRegs.sv", parameters = { N_CTL = 1024, N_STS = 1024 } }
 
 #---------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------#

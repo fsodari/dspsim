@@ -6,6 +6,7 @@
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/list.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/map.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/trampoline.h>
@@ -151,5 +152,45 @@ namespace dspsim
             .def_prop_rw("tready", &AxisRx<T>::get_tready, &AxisRx<T>::set_tready, nb::arg("value"))
             .def("read", &AxisRx<T>::read, nb::arg("clear") = true)
             .def("read_tid", &AxisRx<T>::read_tid, nb::arg("clear") = true);
+    }
+
+    template <typename AT, typename DT>
+    static inline auto bind_wisbone_m(nb::handle &scope, const char *name)
+    {
+        using WBM = WishboneM<AT, DT>;
+        return nb::class_<WBM>(scope, name)
+            .def(nb::new_(&WBM::create),
+                 nb::arg("clk"),
+                 nb::arg("rst"),
+                 nb::arg("cyc_o"),
+                 nb::arg("stb_o"),
+                 nb::arg("we_o"),
+                 nb::arg("ack_i"),
+                 nb::arg("stall_i"),
+                 nb::arg("addr_o"),
+                 nb::arg("data_o"),
+                 nb::arg("data_i"))
+            .def_prop_ro("busy", &WBM::busy)
+            .def("clear", &WBM::clear)
+            .def("write", &WBM::writei,
+                 nb::arg("address"), nb::arg("data"))
+            .def("write", &WBM::writel,
+                 nb::arg("start_address"), nb::arg("data"))
+            .def("write", &WBM::writem,
+                 nb::arg("data"))
+            .def("read_command", &WBM::read_commandn,
+                 nb::arg("start_address"), nb::arg("n") = 1)
+            .def("read_command", &WBM::read_commandl,
+                 nb::arg("addresses"))
+            .def_prop_ro("rx_size", &WBM::rx_size)
+            .def("rx_data", &WBM::rx_data, nb::arg("clear") = true)
+            .def("read", &WBM::read_blocks,
+                 nb::arg("address"), nb::arg("timeout") = 1000)
+            .def("read", &WBM::read_blockn,
+                 nb::arg("start_address"), nb::arg("n"), nb::arg("timeout") = 10000)
+            .def("read", &WBM::read_blockl,
+                 nb::arg("addresses"), nb::arg("timeout") = 10000)
+            .def("__getitem__", &WBM::_getitem, nb::arg("address"))
+            .def("__setitem__", &WBM::_setitem, nb::arg("address"), nb::arg("data"));
     }
 } // namespace dspsim

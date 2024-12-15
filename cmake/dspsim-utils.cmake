@@ -26,7 +26,7 @@ function(dspsim_add_module name)
     message(DEBUG "dspsim_add_module()...")
 
     # set(options STUBS)
-    set(oneValueArgs CONFIG STUB_DIR INSTALL_DIR)
+    set(oneValueArgs CONFIG STUBS_DIR INSTALL_DIR)
     # set(multiValueArgs INCLUDE_DIRS CONFIGURATIONS)
 
     cmake_parse_arguments(PARSE_ARGV 1 arg
@@ -130,8 +130,8 @@ function(dspsim_add_module name)
     endif()
     
     # Optionally generate stubs.
-    if (arg_STUB_DIR)
-        dspsim_add_stub(${name} ${arg_STUB_DIR})
+    if (arg_STUBS_DIR)
+        dspsim_add_stub(${name} ${arg_STUBS_DIR})
     endif()
 endfunction()
 

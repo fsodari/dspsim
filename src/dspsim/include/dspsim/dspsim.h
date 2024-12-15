@@ -5,6 +5,7 @@
 #include <dspsim/clock.h>
 #include <dspsim/port.h>
 #include <dspsim/axis.h>
+#include <dspsim/wishbone.h>
 
 #include <string>
 

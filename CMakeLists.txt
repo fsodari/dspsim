@@ -56,7 +56,7 @@ dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 # Create library module using dspsim utilities.
 dspsim_add_module(_library
     CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml
-    STUB_DIR ${SKBUILD_PROJECT_NAME}
+    STUBS_DIR ${SKBUILD_PROJECT_NAME}
     INSTALL_DIR ${SKBUILD_PROJECT_NAME})
 
 # Install core library and export targets.

@@ -22,7 +22,7 @@ include(${dspsim_DIR}/dspsim-utils.cmake)
 # Build a dspsim library module and generate stub files.
 dspsim_add_module(_library
     CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml
-    STUB_DIR ${SKBUILD_PROJECT_NAME}
+    STUBS_DIR ${SKBUILD_PROJECT_NAME}
     INSTALL_DIR ${SKBUILD_PROJECT_NAME})
 
 # Install extension
