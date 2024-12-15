@@ -1,32 +1,28 @@
 """
-Generate 
+Generate
 """
 
 import logging
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 import argparse
 from typing import Callable
-import sys
 import os
 import tomllib
-import json
-import shutil
 import glob
 import numpy as np
-import subprocess
-from tempfile import TemporaryDirectory
-from typing import Literal, TypeAlias
 
-from dataclass_wizard import TOMLWizard, JSONWizard
-from functools import cache
+from dataclass_wizard import JSONWizard
 
-from dspsim.config import Parameter, Port, ModuleConfig
+from dspsim.config import Parameter, ModuleConfig
 from dspsim import util
+
+from typing import Literal
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def _get_abs_path(source: Path, pyproject_path: Path) -> Path:
@@ -84,9 +80,6 @@ def _find_source(
 
 @dataclass
 class Config(JSONWizard):
-    # Build config
-    library_type: Literal["static", "shared"] = "static"
-
     # Global parameters
     parameters: dict[str, Parameter] = field(default_factory=dict)
 
@@ -115,7 +108,6 @@ class Config(JSONWizard):
             pyproject = tomllib.load(fp)
         dspsim_tool_config: dict = pyproject["tool"]["dspsim"]
 
-        library_type = dspsim_tool_config.get("library_type", "static")
         global_parameters = {
             k: Parameter(k, np.array(v))
             for k, v in dspsim_tool_config.get("parameters", {}).items()
@@ -188,7 +180,6 @@ class Config(JSONWizard):
             all_modules[name].name = name
         # raise Exception(_errors)
         return cls(
-            library_type=library_type,
             parameters=global_parameters,
             include_dirs=global_includes,
             sources=global_sources,
