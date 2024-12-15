@@ -8,15 +8,11 @@ namespace dspsim
     {
     public:
         Clock(double period);
-
         void eval_step();
-
-        int period() const
-        {
-            return m_half_period * 2;
-        }
+        int period() const { return m_period; }
 
     protected:
+        int m_period;
         int m_half_period;
         int m_checkpoint;
     };

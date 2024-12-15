@@ -100,12 +100,13 @@ namespace dspsim
     }
 
     template <typename T>
-    AxisRx<T>::AxisRx(Signal<uint8_t> &clk,
-                      Signal<uint8_t> &rst,
-                      Signal<T> &s_axis_tdata,
-                      Signal<uint8_t> &s_axis_tvalid,
-                      Signal<uint8_t> &s_axis_tready,
-                      Signal<uint8_t> *s_axis_tid)
+    AxisRx<T>::AxisRx(
+        Signal<uint8_t> &clk,
+        Signal<uint8_t> &rst,
+        Signal<T> &s_axis_tdata,
+        Signal<uint8_t> &s_axis_tvalid,
+        Signal<uint8_t> &s_axis_tready,
+        Signal<uint8_t> *s_axis_tid)
         : clk(clk),
           rst(rst),
           s_axis_tdata(s_axis_tdata),

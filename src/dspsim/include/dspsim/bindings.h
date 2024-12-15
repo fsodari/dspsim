@@ -89,8 +89,7 @@ namespace dspsim
      static inline auto bind_signal(nb::handle &scope, const char *name)
      {
           return nb::class_<Signal<T>>(scope, name)
-              .def(nb::new_([](int initial)
-                            { return create<Signal<T>>(initial); }),
+              .def(nb::new_(&Signal<T>::create),
                    nb::arg("initial") = 0)
               .def("posedge", &Signal<T>::posedge)
               .def("negedge", &Signal<T>::negedge)
@@ -104,8 +103,7 @@ namespace dspsim
      static inline auto bind_dff(nb::handle &scope, const char *name)
      {
           return nb::class_<Dff<T>, Signal<T>>(scope, name)
-              .def(nb::new_([](Signal<uint8_t> &clk, int initial)
-                            { return create<Dff<T>>(clk, initial); }),
+              .def(nb::new_(&Dff<T>::create),
                    nb::arg("clk"),
                    nb::arg("initial") = 0);
      }
