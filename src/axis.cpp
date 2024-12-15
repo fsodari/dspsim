@@ -57,6 +57,49 @@ namespace dspsim
     }
 
     template <typename T>
+    void AxisTx<T>::write(T data)
+    {
+        buf.push_back(data);
+    }
+
+    template <typename T>
+    void AxisTx<T>::write(std::vector<T> &data)
+    {
+        buf.insert(buf.end(), data.begin(), data.end());
+    }
+
+    template <typename T>
+    void AxisTx<T>::writef(double data, int q)
+    {
+        int64_t fixed = data * std::pow(2, q);
+        write(fixed);
+    }
+
+    template <typename T>
+    void AxisTx<T>::writef(std::vector<double> &data, int q)
+    {
+        for (const auto &d : data)
+        {
+            writef(d, q);
+        }
+    }
+
+    template <typename T>
+    std::shared_ptr<AxisTx<T>> AxisTx<T>::create(
+        Signal<uint8_t> &clk,
+        Signal<uint8_t> &rst,
+        Signal<T> &m_axis_tdata,
+        Signal<uint8_t> &m_axis_tvalid,
+        Signal<uint8_t> &m_axis_tready,
+        Signal<uint8_t> *m_axis_tid,
+        std::list<uint8_t> tid_pattern)
+    {
+        auto axis_tx = std::make_shared<AxisTx>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, tid_pattern);
+        axis_tx->context()->own_model(axis_tx);
+        return axis_tx;
+    }
+
+    template <typename T>
     AxisRx<T>::AxisRx(Signal<uint8_t> &clk,
                       Signal<uint8_t> &rst,
                       Signal<T> &s_axis_tdata,
@@ -77,7 +120,7 @@ namespace dspsim
     {
         if (clk.posedge())
         {
-            s_axis_tready = next_tready;
+            s_axis_tready = _next_tready;
 
             if (rst)
             {
@@ -114,6 +157,20 @@ namespace dspsim
             tid_buf.clear();
         }
         return result;
+    }
+
+    template <typename T>
+    std::shared_ptr<AxisRx<T>> AxisRx<T>::create(
+        Signal<uint8_t> &clk,
+        Signal<uint8_t> &rst,
+        Signal<T> &s_axis_tdata,
+        Signal<uint8_t> &s_axis_tvalid,
+        Signal<uint8_t> &s_axis_tready,
+        Signal<uint8_t> *s_axis_tid)
+    {
+        auto axis_rx = std::make_shared<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
+        axis_rx->context()->own_model(axis_rx);
+        return axis_rx;
     }
 
     template class AxisTx<uint8_t>;

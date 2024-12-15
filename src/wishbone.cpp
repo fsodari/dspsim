@@ -118,6 +118,48 @@ namespace dspsim
         return result;
     }
 
+    // Send a read command and wait for a response. Advances the context sim automatically.
+    template <typename AT, typename DT>
+    DT WishboneM<AT, DT>::read_block(AT address, int timeout)
+    {
+        read_command(address);
+
+        for (int i = 0; i < timeout; ++i)
+        {
+            // Advance the simulation
+            context()->advance(1);
+            // Once the simulation is not busy and we have rx_data, read out the buffer and return.
+            if (!busy() && rx_size() >= 1)
+            {
+                auto result = rx_data(true);
+                return result[0];
+            }
+        }
+        // Raise exception?
+        return 0;
+    }
+
+    template <typename AT, typename DT>
+    std::vector<DT> WishboneM<AT, DT>::read_block(std::list<AT> &addresses, int timeout)
+    {
+        size_t n_expected = addresses.size();
+
+        read_command(addresses);
+
+        for (int i = 0; i < timeout; ++i)
+        {
+            // Advance the simulation
+            context()->advance(1);
+            // Once the simulation is not busy and we have rx_data, read out the buffer and return.
+            if (!busy() && rx_size() >= n_expected)
+            {
+                return rx_data(true);
+            }
+        }
+        // Raise exception?
+        return std::vector<DT>();
+    }
+
     template <typename AT, typename DT>
     void WishboneM<AT, DT>::write(AT address, DT data)
     {
@@ -139,89 +181,6 @@ namespace dspsim
         {
             write(address, value);
         }
-    }
-
-    // template <typename AT, typename DT>
-    // void WishboneM<AT, DT>::
-    // template <typename AT, typename DT>
-    // void WishboneM<AT, DT>::
-
-    template <typename AT, typename DT>
-    std::shared_ptr<WishboneM<AT, DT>> WishboneM<AT, DT>::create(
-        Signal<uint8_t> &clk,
-        Signal<uint8_t> &rst,
-        Signal<uint8_t> &cyc_o,
-        Signal<uint8_t> &stb_o,
-        Signal<uint8_t> &we_o,
-        Signal<uint8_t> &ack_i,
-        Signal<uint8_t> &stall_i,
-        Signal<AT> &addr_o,
-        Signal<DT> &data_o,
-        Signal<DT> &data_i)
-    {
-        auto wbm = std::make_shared<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
-        wbm->context()->own_model(wbm);
-        return wbm;
-    }
-
-    // Send a read command and wait for a response. Advances the context sim automatically.
-    template <typename AT, typename DT>
-    DT WishboneM<AT, DT>::read_block(AT address, int timeout)
-    {
-        read_command(address);
-
-        for (int i = 0; i < timeout; ++i)
-        {
-            // Advance the simulation
-            context()->advance(1);
-            // Once the simulation is not busy and we have rx_data, read out the buffer and return.
-            if (!busy() && rx_size() >= 1)
-            {
-                auto result = rx_data(true);
-                return result[0];
-            }
-        }
-        // Raise exception?
-        return 0;
-    }
-    // //
-    // template <typename AT, typename DT>
-    // std::vector<DT> WishboneM<AT, DT>::read_block(AT start_address, size_t n, int timeout)
-    // {
-    //     read_command(start_address, n);
-
-    //     for (int i = 0; i < timeout; ++i)
-    //     {
-    //         // Advance the simulation
-    //         context()->advance(1);
-    //         // Once the simulation is not busy and we have rx_data, read out the buffer and return.
-    //         if (!busy() && rx_size() >= n)
-    //         {
-    //             return rx_data(true);
-    //         }
-    //     }
-    //     // Raise exception?
-    //     return std::vector<DT>();
-    // }
-    template <typename AT, typename DT>
-    std::vector<DT> WishboneM<AT, DT>::read_block(std::list<AT> &addresses, int timeout)
-    {
-        size_t n_expected = addresses.size();
-
-        read_command(addresses);
-
-        for (int i = 0; i < timeout; ++i)
-        {
-            // Advance the simulation
-            context()->advance(1);
-            // Once the simulation is not busy and we have rx_data, read out the buffer and return.
-            if (!busy() && rx_size() >= n_expected)
-            {
-                return rx_data(true);
-            }
-        }
-        // Raise exception?
-        return std::vector<DT>();
     }
 
     // Send a write command and wait until it's done.
@@ -267,6 +226,24 @@ namespace dspsim
                 return;
             }
         }
+    }
+
+    template <typename AT, typename DT>
+    std::shared_ptr<WishboneM<AT, DT>> WishboneM<AT, DT>::create(
+        Signal<uint8_t> &clk,
+        Signal<uint8_t> &rst,
+        Signal<uint8_t> &cyc_o,
+        Signal<uint8_t> &stb_o,
+        Signal<uint8_t> &we_o,
+        Signal<uint8_t> &ack_i,
+        Signal<uint8_t> &stall_i,
+        Signal<AT> &addr_o,
+        Signal<DT> &data_o,
+        Signal<DT> &data_i)
+    {
+        auto wbm = std::make_shared<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
+        wbm->context()->own_model(wbm);
+        return wbm;
     }
 
     template class WishboneM<uint32_t, uint8_t>;

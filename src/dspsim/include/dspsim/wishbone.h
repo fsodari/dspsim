@@ -3,7 +3,6 @@
 #include <deque>
 #include <tuple>
 #include <map>
-#include <ranges>
 
 namespace dspsim
 {
@@ -71,19 +70,21 @@ namespace dspsim
         void read_command(AT start_address, size_t n = 1);
         // Read a list of addresses
         void read_command(std::list<AT> &addresses);
+
+        // Rx buffer size.
+        size_t rx_size() const { return _rx_buf.size(); }
         // Read out the rx buffer.
         std::vector<DT> rx_data(bool clear = true);
-        size_t rx_size() const { return _rx_buf.size(); }
+
+        // Send a read command and wait for a response. Advances the context sim automatically.
+        DT read_block(AT address, int timeout = 1000);
+        std::vector<DT> read_block(std::list<AT> &addresses, int timeout = 10000);
 
         // Append a single write command to the buffer.
         void write(AT address, DT data);
         void write(AT start_address, std::list<DT> &data);
         // Write a map/dict of addresses and data.
         void write(std::map<AT, DT> &data);
-
-        // Send a read command and wait for a response. Advances the context sim automatically.
-        DT read_block(AT address, int timeout = 1000);
-        std::vector<DT> read_block(std::list<AT> &addresses, int timeout = 10000);
 
         // Send a write command and wait until it's done.
         void write_block(AT address, DT data, int timeout = 1000);

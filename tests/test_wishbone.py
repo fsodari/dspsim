@@ -1,7 +1,6 @@
-from dspsim.framework import Context, Clock, signal, dff, SignalT, Signal8, Model
+from dspsim.framework import Context, Clock, signal, dff
 from dspsim.wishbone import Wishbone, WishboneM32
 from dspsim.library import WbRegs32
-
 import numpy as np
 
 
@@ -29,10 +28,19 @@ def test_wishbone_regs():
     rst.d = 0
     context.advance(100)
 
-    wbm.write(0, range(32))
+    # Send tx data as dict.
+    tx_data = {i: i for i in range(WbRegs32.N_CTL)}
+    # Blocking write.
+    wbm.write(tx_data)
+    # Blocking read.
+    rx_data = wbm.read(list(tx_data.keys()))
+    assert np.all(rx_data == list(tx_data.values()))
 
-    context.advance(1000)
+    # Check that the registers match.
+    ctl_vals = [s.q for s in ctl_regs]
+    assert np.all(ctl_vals == list(tx_data.values()))
 
+    # __getitem__, __setitem__ interfaace. blocking.
     wbm[12] = 42
     x = wbm[12]
     assert x == 42
