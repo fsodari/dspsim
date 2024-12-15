@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.10.7",
+    "nanobind>=2.4.0",
+    "dspsim>=0.3.3",
+    "verilator-dspsim>=5.30.9",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "some_example"
+version = "0.0.3"
+description = "Add your description here"
+
+dependencies = [
+    "scikit-build-core>=0.10.7",
+    "nanobind>=2.4.0",
+    "dspsim>=0.3.3",
+    "verilator-dspsim>=5.30.9",
+]
+requires-python = ">=3.12"
+
+[project.scripts]
+some_example = "some_example.__main__:main"
+
+### dspsim tool configuration ###
+[tool.dspsim]
+sources = ["src/some_example/hdl/*.sv"]
+trace = "vcd"
+
+[tool.dspsim.parameters]
+DW = 24
+
+[tool.scikit-build]
+# Use the package's package config when building.
+cmake.args = ["-Wno-dev"]
+cmake.build-type = "Release"
+
+minimum-version = "build-system.requires"
+# build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/some_example"]
+wheel.py-api = "cp312"
+
+[dependency-groups]
+dev = ["pytest>=8.3.4"]

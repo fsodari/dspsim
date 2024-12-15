@@ -12,11 +12,14 @@ from dspsim._library import link_context as _link_context
 
 _link_context(dspsim.framework.global_context())
 
-from dspsim._library import Foo, SomeModel, X
+from dspsim._library import SomeModel
 from dspsim._library import AsyncSync8, AsyncSync
 
 from dspsim._library import Skid as _Skid
 from dspsim._library import Gain as _Gain
+
+from dspsim._library import WbRegs as WbRegs32
+from dspsim._library import WbRegs64, WbRegs256, WbRegs1024
 
 # # Sync to the framework context factory.
 # from dspsim._library import set_context_factory

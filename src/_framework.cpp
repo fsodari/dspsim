@@ -45,6 +45,11 @@ NB_MODULE(_framework, m)
   bind_axis_rx<uint32_t>(m, "AxisRx32");
   bind_axis_rx<uint64_t>(m, "AxisRx64");
 
+  // Wishbone Master
+  bind_wisbone_m<uint32_t, uint8_t>(m, "WishboneM8");
+  bind_wisbone_m<uint32_t, uint16_t>(m, "WishboneM16");
+  bind_wisbone_m<uint32_t, uint32_t>(m, "WishboneM32");
+  bind_wisbone_m<uint32_t, uint64_t>(m, "WishboneM64");
   _bind_context_factory(m, "ContextFactory");
   bind_global_context(m);
 

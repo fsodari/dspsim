@@ -4,7 +4,7 @@ It can be used to test code generation and bus connection.
 """
 
 from dspsim.framework import Context, Clock, signal, dff
-from dspsim.library import SomeModel, Foo, X
+from dspsim.library import SomeModel
 
 
 def test_context_basic():
@@ -21,13 +21,9 @@ def test_context_basic():
 
         print(context.print_info())
         some_model = SomeModel(clk, rst, x, y, c, d, e)
-
-        xmodel = X()
-        foo = Foo(clk, rst, x, z)
         print(context.print_info())
 
         some_model.trace("traces/some_model.vcd")
-        foo.trace("traces/foo.vcd")
 
         context.elaborate()
 
