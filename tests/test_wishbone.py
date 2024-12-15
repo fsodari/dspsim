@@ -17,7 +17,7 @@ def test_wishbone_regs():
     sts_regs = signal(width=WbRegs32.CFGDW, shape=(WbRegs32.N_STS,))
 
     wbm = WishboneM32(clk, rst, *wb)
-    wb_regs = WbRegs32(clk, rst, *wb, ctl_regs=ctl_regs, sts_regs=sts_regs)
+    wb_regs = WbRegs32(clk, rst, *wb, ctl_regs, sts_regs)
 
     wb_regs.trace("traces/wb_regs.vcd")
 
@@ -36,5 +36,6 @@ def test_wishbone_regs():
     wbm[12] = 42
     x = wbm[12]
     assert x == 42
+    assert ctl_regs[12].q == 42
 
     context.advance(100)

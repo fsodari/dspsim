@@ -84,7 +84,8 @@ namespace dspsim
                 write(start_address++, d);
             }
         }
-        void writel(AT start_address, std::list<DT> &data) { write(start_address, data.begin(), data.end()); }
+        void write(AT start_address, std::list<DT> &data) { write(start_address, data.begin(), data.end()); }
+        void writel(AT start_address, std::list<DT> &data) { write(start_address, data); }
 
         // Write a map/dict of addresses and data.
         void write(std::map<AT, DT> &data)
