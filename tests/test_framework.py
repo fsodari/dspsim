@@ -1,6 +1,6 @@
 """Tests to check if the package was built properly and works."""
 
-from dspsim.framework import Context, Clock, signal, dff, SignalT, Signal8, Model
+from dspsim.framework import Context, Clock, dff
 from dspsim.axis import Axis, AxisTx, AxisRx
 from dspsim.library import Skid
 import numpy as np
@@ -14,7 +14,7 @@ def test_skid_basic():
         b0 = Axis(width=Skid.DW)
         b1 = Axis(width=Skid.DW)
 
-        skid = Skid(clk, rst, *b0, *b1)
+        Skid(clk, rst, *b0, *b1)
 
         axis_tx = AxisTx(clk, rst, b0)
         axis_rx = AxisRx(clk, rst, b1)

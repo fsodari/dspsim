@@ -2,11 +2,8 @@
 Test the verilator utilities in the dspsim package.
 """
 
-from dspsim.config import Parameter, Port, ModuleConfig
-from dspsim.verilator import VModelTree
-
+from dspsim.config import ModuleConfig
 from pathlib import Path
-
 from dspsim.util import render_template
 
 

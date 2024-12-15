@@ -1,8 +1,13 @@
-from dspsim.framework import Context, Clock, signal, dff, SignalT, Signal8, Model
-from dspsim.axis import Axis, AxisTx, AxisRx, init_stream_model
+from dspsim.framework import Context, Clock, signal, dff
+from dspsim.axis import Axis, AxisTx, AxisRx
 from dspsim.library import Gain, FifoSync
-import numpy as np
 from dspsim.util import to_fixed, to_float
+
+import numpy as np
+from pathlib import Path
+
+trace_dir = Path("traces")
+trace_dir.mkdir(exist_ok=True)
 
 
 def test_gain_basic():
@@ -26,7 +31,8 @@ def test_gain_basic():
 
         print(context.print_info())
 
-        gain.trace("traces/gain.vcd")
+        fifo.trace(trace_dir / "gain_fifo.vcd")
+        gain.trace(trace_dir / "gain.vcd")
 
         context.elaborate()
 

@@ -3,6 +3,9 @@
 #include "dspsim/signal.h"
 // #include "dspsim/axis.h"
 #include <verilated.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace dspsim
 {
@@ -46,7 +49,8 @@ namespace dspsim
             // }
         }
 
-        void trace(const std::string &trace_path, int levels = 99, int options = 0)
+        // void trace(const std::string &trace_path, int levels = 99, int options = 0)
+        void trace(const fs::path &trace_path, int levels = 99, int options = 0)
         {
             // Verilated::traceEverOn(true);
             vcontext->traceEverOn(true);
