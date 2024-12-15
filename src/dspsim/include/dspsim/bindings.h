@@ -172,25 +172,25 @@ namespace dspsim
                  nb::arg("data_i"))
             .def_prop_ro("busy", &WBM::busy)
             .def("clear", &WBM::clear)
-            .def("write", &WBM::writei,
+            .def("write", nb::overload_cast<AT, DT>(&WBM::write),
                  nb::arg("address"), nb::arg("data"))
-            .def("write", &WBM::writel,
+            .def("write", nb::overload_cast<AT, std::list<DT> &>(&WBM::write),
                  nb::arg("start_address"), nb::arg("data"))
-            .def("write", &WBM::writem,
+            .def("write", nb::overload_cast<std::map<AT, DT> &>(&WBM::write),
                  nb::arg("data"))
-            .def("read_command", &WBM::read_commandn,
+            .def("read_command", nb::overload_cast<AT, size_t>(&WBM::read_command),
                  nb::arg("start_address"), nb::arg("n") = 1)
-            .def("read_command", &WBM::read_commandl,
+            .def("read_command", nb::overload_cast<std::list<AT> &>(&WBM::read_command),
                  nb::arg("addresses"))
             .def_prop_ro("rx_size", &WBM::rx_size)
             .def("rx_data", &WBM::rx_data, nb::arg("clear") = true)
-            .def("read", &WBM::read_blocks,
+            .def("read", nb::overload_cast<AT, int>(&WBM::read_block),
                  nb::arg("address"), nb::arg("timeout") = 1000)
-            .def("read", &WBM::read_blockn,
-                 nb::arg("start_address"), nb::arg("n"), nb::arg("timeout") = 10000)
-            .def("read", &WBM::read_blockl,
+            .def("read", nb::overload_cast<std::list<AT> &, int>(&WBM::read_block),
                  nb::arg("addresses"), nb::arg("timeout") = 10000)
-            .def("__getitem__", &WBM::_getitem, nb::arg("address"))
-            .def("__setitem__", &WBM::_setitem, nb::arg("address"), nb::arg("data"));
+            .def("__getitem__", [](WBM &wbm, AT address)
+                 { return wbm.read_block(address, 1000); }, nb::arg("address"))
+            .def("__setitem__", [](WBM &wbm, AT address, DT data)
+                 { wbm.write_block(address, data, 1000); }, nb::arg("address"), nb::arg("data"));
     }
 } // namespace dspsim
