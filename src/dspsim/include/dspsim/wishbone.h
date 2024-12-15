@@ -64,7 +64,7 @@ namespace dspsim
         // Send a command to the interface. If it's a read command, data is ignored.
         void command(bool mode, AT address, DT data = 0);
         void clear();
-        bool busy() const { return cyc_o; }
+        bool busy() const { return cyc_o || !_cmd_buf.empty(); }
 
         // Command to read a sequence of addresses starting with start address and incrementing.
         void read_command(AT start_address, size_t n = 1);
