@@ -68,7 +68,7 @@ def test_i2s_loopback():
 
         tx_data = np.linspace(1, 42, 47, dtype=np.int32)
         print(tx_data)
-        axis_tx.write(tx_data)
+        axis_tx.write_command(tx_data)
 
         rst.d = 1
         context.advance(500)
@@ -78,7 +78,7 @@ def test_i2s_loopback():
 
         context.advance(1000000)
 
-        rx_data = axis_rx.read()
+        rx_data = axis_rx.read_rx_buf()
         print(rx_data)
         # print(rx_tid)
         # assert all(rx_data == tx_data)

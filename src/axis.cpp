@@ -9,9 +9,16 @@ namespace dspsim
                       Signal<uint8_t> &m_axis_tvalid,
                       Signal<uint8_t> &m_axis_tready,
                       Signal<uint8_t> *m_axis_tid,
+                      Signal<uint8_t> *m_axis_tlast,
                       std::list<uint8_t> tid_pattern)
         : clk(clk),
-          rst(rst), m_axis_tdata(m_axis_tdata), m_axis_tvalid(m_axis_tvalid), m_axis_tready(m_axis_tready), m_axis_tid(m_axis_tid), tid_pattern(tid_pattern)
+          rst(rst),
+          m_axis_tdata(m_axis_tdata),
+          m_axis_tvalid(m_axis_tvalid),
+          m_axis_tready(m_axis_tready),
+          m_axis_tid(m_axis_tid),
+          m_axis_tlast(m_axis_tlast),
+          tid_pattern(tid_pattern)
     {
         this->tid_it = this->tid_pattern.begin();
     }
@@ -52,35 +59,110 @@ namespace dspsim
                 m_axis_tvalid = 1;
 
                 buf.pop_front();
+                if (m_axis_tlast)
+                {
+                    *m_axis_tlast = buf.empty();
+                }
             }
         }
     }
 
     template <typename T>
-    void AxisTx<T>::write(T data)
+    void AxisTx<T>::write_command(T data)
     {
         buf.push_back(data);
     }
 
     template <typename T>
-    void AxisTx<T>::write(std::vector<T> &data)
+    void AxisTx<T>::write_command(std::vector<T> &data)
     {
         buf.insert(buf.end(), data.begin(), data.end());
     }
 
     template <typename T>
-    void AxisTx<T>::writef(double data, int q)
+    void AxisTx<T>::writef_command(double data, int q)
     {
         int64_t fixed = data * std::pow(2, q);
-        write(fixed);
+        write_command(fixed);
     }
 
     template <typename T>
-    void AxisTx<T>::writef(std::vector<double> &data, int q)
+    void AxisTx<T>::writef_command(std::vector<double> &data, int q)
     {
         for (const auto &d : data)
         {
-            writef(d, q);
+            writef_command(d, q);
+        }
+    }
+
+    template <typename T>
+    int AxisTx<T>::block_wait(int timeout) const
+    {
+        for (int i = 0; i < timeout; i++)
+        {
+            context()->advance(1);
+            if (!busy())
+            {
+                return 0;
+            }
+        }
+
+        return 1; // timed out.
+    }
+
+    template <typename T>
+    void AxisTx<T>::write_block(T data, int timeout)
+    {
+        write_command(data);
+        if (block_wait())
+        {
+            // Success
+        }
+        else
+        {
+            // timed out
+        }
+    }
+
+    template <typename T>
+    void AxisTx<T>::write_block(std::vector<T> &data, int timeout)
+    {
+        write_command(data);
+        if (block_wait())
+        {
+            // Success
+        }
+        else
+        {
+            // timed out
+        }
+    }
+
+    template <typename T>
+    void AxisTx<T>::writef_block(double data, int q, int timeout)
+    {
+        writef_command(data, q);
+        if (block_wait())
+        {
+            // Success
+        }
+        else
+        {
+            // timed out
+        }
+    }
+
+    template <typename T>
+    void AxisTx<T>::writef_block(std::vector<double> &data, int q, int timeout)
+    {
+        writef_command(data, q);
+        if (block_wait())
+        {
+            // Success
+        }
+        else
+        {
+            // timed out
         }
     }
 
@@ -92,9 +174,10 @@ namespace dspsim
         Signal<uint8_t> &m_axis_tvalid,
         Signal<uint8_t> &m_axis_tready,
         Signal<uint8_t> *m_axis_tid,
+        Signal<uint8_t> *m_axis_tlast,
         std::list<uint8_t> tid_pattern)
     {
-        auto axis_tx = std::make_shared<AxisTx>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, tid_pattern);
+        auto axis_tx = std::make_shared<AxisTx>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, m_axis_tlast, tid_pattern);
         axis_tx->context()->own_model(axis_tx);
         return axis_tx;
     }
@@ -139,7 +222,7 @@ namespace dspsim
     }
 
     template <typename T>
-    std::vector<T> AxisRx<T>::read(bool clear)
+    std::vector<T> AxisRx<T>::read_rx_buf(bool clear)
     {
         std::vector<T> result(rx_buf.begin(), rx_buf.end());
         if (clear)
@@ -158,6 +241,34 @@ namespace dspsim
             tid_buf.clear();
         }
         return result;
+    }
+
+    template <typename T>
+    T AxisRx<T>::read_block(int timeout)
+    {
+        for (int i = 0; i < timeout; i++)
+        {
+            context()->advance(1);
+            if (rx_buf.size() == 1)
+            {
+                break;
+            }
+        }
+        return read_rx_buf(true)[0];
+    }
+
+    template <typename T>
+    std::vector<T> AxisRx<T>::read_block(int n, int timeout)
+    {
+        for (int i = 0; i < timeout; i++)
+        {
+            context()->advance(1);
+            if (rx_buf.size() == n)
+            {
+                break;
+            }
+        }
+        return read_rx_buf(true);
     }
 
     template <typename T>

@@ -43,10 +43,10 @@ def test_gain_basic():
 
         DATAQ = 16
         tx_data = np.linspace(1, 10.0, 10)
-        axis_tx.write(tx_data, DATAQ)
+        axis_tx.write_command(tx_data, DATAQ)
         context.advance(100)
         axis_rx.tready = True
         context.advance(200)
 
-        rx_data = to_float(np.array(axis_rx.read()), DATAQ)
+        rx_data = to_float(np.array(axis_rx.read_rx_buf()), DATAQ)
         assert np.all(np.isclose(rx_data * 10, tx_data, rtol=0.0001))

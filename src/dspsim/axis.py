@@ -33,7 +33,12 @@ class Axis:
         return f"Axis(width={self.width}, tid={self.tid}, tlast={self.tlast})"
 
     def __iter__(self):
-        return iter((self.tdata, self.tvalid, self.tready))
+        i = [self.tdata, self.tvalid, self.tready]
+        if self.tid:
+            i.append(self.tid)
+        if self.tlast:
+            i.append(self.tlast)
+        return iter(i)
 
     @property
     def width(self):
@@ -43,9 +48,7 @@ class Axis:
 import itertools
 
 
-def init_stream_model[
-    ModelT
-](
+def init_stream_model[ModelT](
     cls: type[ModelT],
     clk: Signal8,
     rst: Signal8,
@@ -113,6 +116,7 @@ def AxisTx(
         m_axis_tvalid=m_axis.tvalid,
         m_axis_tready=m_axis.tready,
         m_axis_tid=m_axis.tid,
+        m_axis_tlast=m_axis.tlast,
         tid_pattern=tid_pattern,
     )
 

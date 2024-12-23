@@ -81,10 +81,10 @@ namespace dspsim
         std::vector<DT> read_block(std::list<AT> &addresses, int timeout = 10000);
 
         // Append a single write command to the buffer.
-        void write(AT address, DT data);
-        void write(AT start_address, std::list<DT> &data);
+        void write_command(AT address, DT data);
+        void write_command(AT start_address, std::list<DT> &data);
         // Write a map/dict of addresses and data.
-        void write(std::map<AT, DT> &data);
+        void write_command(std::map<AT, DT> &data);
 
         // Send a write command and wait until it's done.
         void write_block(AT address, DT data, int timeout = 1000);

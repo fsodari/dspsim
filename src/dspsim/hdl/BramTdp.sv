@@ -15,7 +15,7 @@ module BramTdp #(
     parameter DEPTH = 1024,                             // Specify RAM depth (number of entries)
     parameter OREG = HIGH_PERFORMANCE, // Select "HIGH_PERFORMANCE" or "LOW_LATENCY" 
     parameter string INIT_FILE = "",                       // Specify name/location of RAM initialization file if using one (leave blank if not)
-    parameter MODE = NC,                          // NC: No Change, RF: Read First, WF: Write First
+    parameter MODE = RF,                          // NC: No Change, RF: Read First, WF: Write First
     localparam AW = $clog2(DEPTH)
 ) (
     input  logic clka,
@@ -35,6 +35,16 @@ module BramTdp #(
     input  logic [DW-1:0] dinb,     // Port B RAM input data
     output logic [DW-1:0] doutb,    // Port B RAM output data
     input  logic regceb          // Port B output register enable. Set to 1 to always enable.
+
+    /*
+    Alternative interface with port arrays.
+
+    input  logic en[2],
+    input  logic we[2],
+    input  logic [AW-1:0] addr[2],
+    input  logic [DW-1:0] din[2],
+    output logic [DW-1:0] dout[2]
+    */
 );
 
 // TDP can support multiple clocks. Useful with an asynchronous fifo.

@@ -36,11 +36,11 @@ def test_skid_basic():
     context.advance(100)
 
     tx_data = list(range(1, 6))
-    axis_tx.write(tx_data)
+    axis_tx.write_command(tx_data)
     context.advance(100)
     axis_rx.tready = 1
     context.advance(100)
 
-    rx_data = axis_rx.read()
+    rx_data = axis_rx.read_rx_buf()
 
     assert np.all(tx_data == rx_data)

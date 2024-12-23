@@ -11,7 +11,7 @@ module WbBram #(
     parameter CFGDW = 32,
     parameter DW = 18,
     parameter DEPTH = 1024,
-    parameter SIGN_EXTEND = 0,
+    parameter SIGN_EXTEND = 1,
     parameter OREG = HIGH_PERFORMANCE,
 
     localparam BRAMAW = $clog2(DEPTH)
@@ -26,8 +26,8 @@ module WbBram #(
     output logic ack_o,
     output logic stall_o,
     input  logic [CFGAW-1:0] addr_i,
-    input  logic [CFGDW-1:0] data_i,
-    output logic [CFGDW-1:0] data_o,
+    input  logic signed [CFGDW-1:0] data_i,
+    output logic signed [CFGDW-1:0] data_o,
 
 
     // BRAM Interface
@@ -39,10 +39,6 @@ module WbBram #(
     output logic bram_regce
 );
 
-localparam DPAD = CFGDW - DW;
-logic pad_din;
-assign pad_din = SIGN_EXTEND == 0 ? 0 : bram_din[DW-1];
-
 // BRAM can accept requests every clock cycle, so we don't need to stall.
 assign stall_o = 0;
 
@@ -53,7 +49,9 @@ assign bram_addr = addr_i[BRAMAW-1:0];
 assign bram_en = cyc_i & stb_i;
 assign bram_we = cyc_i & stb_i & we_i;
 assign bram_dout = data_i[DW-1:0];
-assign data_o = {{DPAD{pad_din}}, bram_din};
+/* verilator lint_off WIDTHEXPAND */
+assign data_o = SIGN_EXTEND != 0 ? $signed(bram_din) : {{(CFGDW - DW){1'b0}}, bram_din};
+/* verilator lint_on WIDTHEXPAND */
 
 // Handle ack timing. High performance mode will have an extra clock cycle of latency on the ack signal.
 logic [1:0] ack_pipe;

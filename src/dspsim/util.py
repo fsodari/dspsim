@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import functools as _functools
+import numpy as np
 
 
 def cmake_dir() -> Path:
@@ -52,3 +53,17 @@ def to_fixed(flt: float, q: int) -> int:
 def to_float(fxd: int, q: int) -> float:
     """"""
     return fxd / (2**q)
+
+
+def sign_extend(value: int, width: int) -> int:
+    sign_bit = 1 << (width - 1)
+    return (value & (sign_bit - 1)) - (value & sign_bit)
+
+
+def sign_extendv(data: np.ndarray, width: int) -> int:
+    sign_bit = 1 << (width - 1)
+    mask0 = sign_bit - 1
+
+    vxtnd = np.vectorize(lambda x: (x & mask0) - (x & sign_bit))
+
+    return vxtnd(data)

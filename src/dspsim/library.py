@@ -24,6 +24,9 @@ from dspsim._library import WbRegs as WbRegs32
 from dspsim._library import WbRegs64, WbRegs256, WbRegs1024
 from dspsim._library import WbBram
 
+from dspsim._library import macc_core, Macc
+from dspsim._library import iir_core
+
 
 # # Sync to the framework context factory.
 # from dspsim._library import set_context_factory

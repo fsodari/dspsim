@@ -161,25 +161,25 @@ namespace dspsim
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(AT address, DT data)
+    void WishboneM<AT, DT>::write_command(AT address, DT data)
     {
         command(true, address, data);
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(AT start_address, std::list<DT> &data)
+    void WishboneM<AT, DT>::write_command(AT start_address, std::list<DT> &data)
     {
         for (auto &d : data)
         {
-            write(start_address++, d);
+            write_command(start_address++, d);
         }
     }
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(std::map<AT, DT> &data)
+    void WishboneM<AT, DT>::write_command(std::map<AT, DT> &data)
     {
         for (auto &[address, value] : data)
         {
-            write(address, value);
+            write_command(address, value);
         }
     }
 
@@ -187,7 +187,7 @@ namespace dspsim
     template <typename AT, typename DT>
     void WishboneM<AT, DT>::write_block(AT address, DT data, int timeout)
     {
-        write(address, data);
+        write_command(address, data);
         for (int i = 0; i < timeout; ++i)
         {
             context()->advance(1);
@@ -201,7 +201,7 @@ namespace dspsim
     template <typename AT, typename DT>
     void WishboneM<AT, DT>::write_block(AT start_address, std::list<DT> &data, int timeout)
     {
-        write(start_address, data);
+        write_command(start_address, data);
 
         for (int i = 0; i < timeout; ++i)
         {
@@ -216,7 +216,7 @@ namespace dspsim
     template <typename AT, typename DT>
     void WishboneM<AT, DT>::write_block(std::map<AT, DT> &data, int timeout)
     {
-        write(data);
+        write_command(data);
 
         for (int i = 0; i < timeout; ++i)
         {

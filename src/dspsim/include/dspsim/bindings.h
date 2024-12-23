@@ -131,11 +131,24 @@ namespace dspsim
                    nb::arg("m_axis_tvalid"),
                    nb::arg("m_axis_tready"),
                    nb::arg("m_axis_tid") = nb::none(),
+                   nb::arg("m_axis_tlast") = nb::none(),
                    nb::arg("tid_pattern") = std::list<uint8_t>{0})
-              .def("write", nb::overload_cast<T>(&AxisTx<T>::write), nb::arg("data"))
-              .def("write", nb::overload_cast<std::vector<T> &>(&AxisTx<T>::write), nb::arg("data"))
-              .def("write", nb::overload_cast<double, int>(&AxisTx<T>::writef), nb::arg("data"), nb::arg("q") = 0)
-              .def("write", nb::overload_cast<std::vector<double> &, int>(&AxisTx<T>::writef), nb::arg("data"), nb::arg("q") = 0);
+              .def("write_command", nb::overload_cast<T>(&AxisTx<T>::write_command),
+                   nb::arg("data"))
+              .def("write_command", nb::overload_cast<std::vector<T> &>(&AxisTx<T>::write_command),
+                   nb::arg("data"))
+              .def("write_command", nb::overload_cast<double, int>(&AxisTx<T>::writef_command),
+                   nb::arg("data"), nb::arg("q") = 0)
+              .def("write_command", nb::overload_cast<std::vector<double> &, int>(&AxisTx<T>::writef_command),
+                   nb::arg("data"), nb::arg("q") = 0)
+              .def("write", nb::overload_cast<T, int>(&AxisTx<T>::write_block),
+                   nb::arg("data"), nb::arg("timeout") = 1000)
+              .def("write", nb::overload_cast<std::vector<T> &, int>(&AxisTx<T>::write_block),
+                   nb::arg("data"), nb::arg("timeout") = 1000)
+              .def("write", nb::overload_cast<double, int, int>(&AxisTx<T>::writef_block),
+                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = 1000)
+              .def("write", nb::overload_cast<std::vector<double> &, int, int>(&AxisTx<T>::writef_block),
+                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = 1000);
      }
      template <typename T>
      static inline auto bind_axis_rx(nb::handle &scope, const char *name)
@@ -149,8 +162,12 @@ namespace dspsim
                    nb::arg("s_axis_tready"),
                    nb::arg("s_axis_tid") = nb::none())
               .def_prop_rw("tready", &AxisRx<T>::get_tready, &AxisRx<T>::set_tready, nb::arg("value"))
-              .def("read", &AxisRx<T>::read, nb::arg("clear") = true)
-              .def("read_tid", &AxisRx<T>::read_tid, nb::arg("clear") = true);
+              .def("read_rx_buf", &AxisRx<T>::read_rx_buf, nb::arg("clear") = true)
+              .def("read_tid", &AxisRx<T>::read_tid, nb::arg("clear") = true)
+              .def("read", nb::overload_cast<int>(&AxisRx<T>::read_block),
+                   nb::arg("timeout") = 1000)
+              .def("read", nb::overload_cast<int, int>(&AxisRx<T>::read_block),
+                   nb::arg("n"), nb::arg("timeout") = 10000);
      }
 
      template <typename AT, typename DT>
@@ -186,11 +203,11 @@ namespace dspsim
               .def("read", nb::overload_cast<std::list<AT> &, int>(&WBM::read_block),
                    nb::arg("addresses"), nb::arg("timeout") = 10000)
               // Write commands.
-              .def("write_command", nb::overload_cast<AT, DT>(&WBM::write),
+              .def("write_command", nb::overload_cast<AT, DT>(&WBM::write_command),
                    nb::arg("address"), nb::arg("data"))
-              .def("write_command", nb::overload_cast<AT, std::list<DT> &>(&WBM::write),
+              .def("write_command", nb::overload_cast<AT, std::list<DT> &>(&WBM::write_command),
                    nb::arg("start_address"), nb::arg("data"))
-              .def("write_command", nb::overload_cast<std::map<AT, DT> &>(&WBM::write),
+              .def("write_command", nb::overload_cast<std::map<AT, DT> &>(&WBM::write_command),
                    nb::arg("data"))
               // Blocking writes.
               .def("write", nb::overload_cast<AT, DT, int>(&WBM::write_block),
