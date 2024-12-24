@@ -12,17 +12,21 @@ namespace dspsim
 
         Context *context() const { return m_context; }
 
+        // Create a model as a shared ptr and register it with the context.
+        template <typename M, typename... Args>
+        static std::shared_ptr<M> create(Args &&...args)
+        {
+            auto m = std::make_shared<M>(std::forward<Args>(args)...);
+
+            // Add to the owned models.
+            m->context()->m_owned_models.push_back(m);
+            return m;
+        }
+
     protected:
         Context *m_context;
     };
 
     using ModelPtr = std::shared_ptr<Model>;
 
-    template <class M, class... Args>
-    std::shared_ptr<M> create(Args &&...args)
-    {
-        std::shared_ptr<M> new_model = std::make_shared<M>(args...);
-        new_model->context()->own_model(new_model);
-        return new_model;
-    }
 } // namespace dspsim

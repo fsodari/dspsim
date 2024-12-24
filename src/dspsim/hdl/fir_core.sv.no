@@ -1,0 +1,260 @@
+module fir_core #(
+    parameter DW = 24,
+    parameter COEFW = 18,
+    parameter COEFQ = 16,
+    parameter CFGAW = 32,
+    parameter CFGDW = 32,
+    parameter N = 15
+) (
+    input  logic clk,
+    input  logic rst,
+
+    // Input Stream
+    input  logic signed [DW-1:0] s_axis_tdata,
+    input  logic s_axis_tvalid,
+    output logic s_axis_tready,
+
+    // Output stream
+    output logic signed [DW-1:0] m_axis_tdata,
+    output logic m_axis_tvalid,
+    input  logic m_axis_tready,
+
+    // Configure the coefficients with a wishbone controller.
+    // This will use a TDP bram so that coefficients can be read back during testing.
+    // Theoretically, it could use SDP if the config port is write only.
+    input  logic cyc_i,
+    input  logic stb_i,
+    input  logic we_i,
+    output logic ack_o,
+    output logic stall_o,
+    input  logic [CFGAW-1:0] addr_i,
+    input  logic [CFGDW-1:0] data_i,
+    output logic [CFGDW-1:0] data_o
+);
+
+localparam BRAMAW = $clog2(N);
+
+// Bram Tdp for coefficients.
+logic bram_coef_ena, bram_coef_enb, bram_coef_wea, bram_coef_web, bram_coef_regcea, bram_coef_regceb;
+logic [BRAMAW-1:0] bram_coef_addra, bram_coef_addrb;
+logic [COEFW-1:0] bram_coef_dina, bram_coef_dinb, bram_coef_douta, bram_coef_doutb;
+
+BramTdp #(
+    .DW(COEFW),
+    .DEPTH(N)
+) bram_coefs (
+    .clka(clk),
+    .rsta(rst),
+
+    .ena(bram_coef_ena),
+    .wea(bram_coef_wea),
+    .addra(bram_coef_addra),
+    .dina(bram_coef_douta),
+    .douta(bram_coef_dina),
+    .regcea(bram_coef_regcea),
+
+    .clkb(clk),
+    .rstb(rst),
+    .enb(bram_coef_enb),
+    .web(bram_coef_web),
+    .addrb(bram_coef_addrb),
+    .dinb(bram_coef_doutb),
+    .doutb(bram_coef_dinb),
+    .regceb(bram_coef_regceb)
+);
+
+// Bram Sdp for data buffer
+logic bram_data_ena, bram_data_enb, bram_data_wea, bram_data_web, bram_data_regcea, bram_data_regceb;
+logic [BRAMAW-1:0] bram_data_addra, bram_data_addrb;
+logic [DW-1:0] bram_data_dina, bram_data_dinb, bram_data_douta, bram_data_doutb;
+BramSdp #(
+    .DW(DW),
+    .DEPTH(N)
+) bram_data (
+    .clk,
+    .rst,
+
+    .ena(bram_data_ena), // s_axis_tvalid && s_axis_tready
+    .wea(bram_data_wea), // s_axis_tvalid && s_axis_tready
+    .addra(bram_data_addra), // addr++
+    .dina(bram_data_douta), // s_axis_tdata
+    .douta(bram_data_dina),
+    .regcea(bram_data_regcea),
+
+    .enb(bram_data_enb),
+    .web(bram_data_web),
+    .addrb(bram_data_addrb),
+    .dinb(bram_data_doutb),
+    .doutb(bram_data_dinb),
+    .regceb(bram_data_regceb)
+);
+
+// Config bus is connected to port a of the coefficient bram.
+WbBram #(
+    .CFGAW(CFGAW),
+    .CFGDW(CFGDW),
+    .DW(COEFW),
+    .DEPTH(N),
+    .SIGN_EXTEND(1)
+) cfg_bram_coef_ctl (
+    .clk,
+    .rst,
+    .cyc_i,
+    .stb_i,
+    .we_i,
+    .ack_o,
+    .stall_o,
+    .addr_i,
+    .data_i,
+    .data_o,
+    .bram_en(bram_coef_ena),
+    .bram_we(bram_coef_wea),
+    .bram_addr(bram_coef_addra),
+    .bram_dout(bram_coef_douta),
+    .bram_din(bram_coef_dina),
+    .bram_regce(bram_coef_regcea)
+);
+
+// This module accesses port b of the coef bram.
+logic coef_cyc, coef_stb, coef_we, coef_ack, coef_stall;
+logic [BRAMAW-1:0] coef_addr;
+logic [COEFW-1:0] coef_data_o, coef_data_i;
+
+WbBram #(
+    .CFGAW(BRAMAW),
+    .CFGDW(COEFW),
+    .DW(COEFW),
+    .DEPTH(N),
+    .SIGN_EXTEND(0) // Doesn't need to be extended.
+) module_bram_coef_ctl (
+    .clk,
+    .rst,
+    .cyc_i(coef_cyc),
+    .stb_i(coef_stb),
+    .we_i(coef_we),
+    .ack_o(coef_ack),
+    .stall_o(coef_stall),
+    .addr_i(coef_addr),
+    .data_i(coef_data_o),
+    .data_o(coef_data_i),
+    .bram_en(bram_coef_enb),
+    .bram_we(bram_coef_web),
+    .bram_addr(bram_coef_addrb),
+    .bram_dout(bram_coef_doutb),
+    .bram_din(bram_coef_dinb),
+    .bram_regce(bram_coef_regceb)
+);
+
+// Write incoming data stream to the data bram.
+logic stream_in_cyc, stream_in_stb, stream_in_we, stream_in_ack, stream_in_stall;
+logic [BRAMAW-1:0] stream_in_addr;
+logic signed [DW-1:0] stream_in_data_o, stream_in_data_i;
+
+WbBram #(
+    .CFGAW(BRAMAW),
+    .CFGDW(DW),
+    .DW(DW),
+    .DEPTH(N),
+    .SIGN_EXTEND(0) // Width matches, not extension needed.
+) data_bram_in_ctl (
+    .clk,
+    .rst,
+    .cyc_i(stream_in_cyc),
+    .stb_i(stream_in_stb),
+    .we_i(stream_in_we),
+    .ack_o(stream_in_ack),
+    .stall_o(stream_in_stall),
+    .addr_i(stream_in_addr),
+    .data_i(stream_in_data_o),
+    .data_o(stream_in_data_i),
+    .bram_en(bram_data_ena),
+    .bram_we(bram_data_wea),
+    .bram_addr(bram_data_addra),
+    .bram_dout(bram_data_douta),
+    .bram_din(bram_data_dina),
+    .bram_regce(bram_data_regcea)
+);
+
+// Read from the stream bram
+logic stream_out_cyc, stream_out_stb, stream_out_we, stream_out_ack, stream_out_stall;
+logic [BRAMAW-1:0] stream_out_addr;
+logic [DW-1:0] stream_out_data_o, stream_out_data_i;
+
+WbBram #(
+    .CFGAW(BRAMAW),
+    .CFGDW(DW),
+    .DW(DW),
+    .DEPTH(N),
+    .SIGN_EXTEND(0) // width matches.
+) bram_stream_out_ctl (
+    .clk,
+    .rst,
+    .cyc_i(stream_out_cyc),
+    .stb_i(stream_out_stb),
+    .we_i(stream_out_we),
+    .ack_o(stream_out_ack),
+    .stall_o(stream_out_stall),
+    .addr_i(stream_out_addr),
+    .data_i(stream_out_data_o),
+    .data_o(stream_out_data_i),
+    .bram_en(bram_data_enb),
+    .bram_we(bram_data_web),
+    .bram_addr(bram_data_addrb),
+    .bram_dout(bram_data_doutb),
+    .bram_din(bram_data_dinb),
+    .bram_regce(bram_data_regceb)
+);
+
+// Skid buffer for data stream input
+logic signed [DW-1:0] skid_tdata;
+logic skid_tvalid, skid_tready;
+
+Skid #(.DW(DW)) skid_i (
+    .clk,
+    .rst,
+    .s_axis_tdata,
+    .s_axis_tvalid,
+    .s_axis_tready,
+    .m_axis_tdata(skid_tdata),
+    .m_axis_tvalid(skid_tvalid),
+    .m_axis_tready(skid_tready)
+);
+
+// Macc performs the main computation.
+localparam ACCUMW = DW + COEFW + $clog2(N);
+logic signed [ACCUMW-1:0] accum_tdata;
+logic accum_tvalid, accum_tready;
+Macc #(
+    .ADW(DW),
+    .BDW(COEFW),
+    .ODW(ACCUMW)
+) macc_i (
+    .clk,
+    .rst,
+
+    .s_axis_atdata(stream_out_data_i),
+    .s_axis_atvalid(stream_out_ack),
+    .s_axis_atready(),
+    .s_axis_atlast(),
+    
+    .s_axis_btdata(coef_data_i),
+    .s_axis_btvalid(coef_ack),
+    .s_axis_btready(),
+
+    .m_axis_tdata(accum_tdata),
+    .m_axis_tvalid(accum_tvalid),
+    .m_axis_tready(accum_tready)
+);
+
+always @(posedge clk) begin
+    // Output transaction accepted
+    if (m_axis_tvalid && m_axis_tready) begin
+        m_axis_tvalid <= 0;
+    end
+
+    if (rst) begin
+
+    end
+end
+
+endmodule

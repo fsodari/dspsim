@@ -25,6 +25,13 @@ namespace dspsim
     }
 
     template <typename T>
+    Signal<T> &Signal<T>::operator=(const T &other)
+    {
+        this->write(other);
+        return *this;
+    }
+
+    template <typename T>
     Signal<T> &Signal<T>::operator=(const Signal<T> &other)
     {
         this->write(other.read());
@@ -64,9 +71,7 @@ namespace dspsim
     template <typename T>
     std::shared_ptr<Signal<T>> Signal<T>::create(T initial)
     {
-        auto s = std::make_shared<Signal<T>>(initial);
-        s->context()->own_model(s);
-        return s;
+        return Model::create<Signal<T>>(initial);
     }
 
     template <typename T>
@@ -113,10 +118,12 @@ namespace dspsim
     template <typename T>
     std::shared_ptr<Dff<T>> Dff<T>::create(Signal<uint8_t> &clk, T initial)
     {
-        // return create<Dff<T>>(clk, initial);
-        auto dff = std::make_shared<Dff<T>>(clk, initial);
-        dff->context()->own_model(dff);
-        return dff;
+        // // return create<Dff<T>>(clk, initial);
+        // auto dff = std::make_shared<Dff<T>>(clk, initial);
+        // dff->context()->own_model(dff);
+        // return dff;
+        // return Context::create_and_register<Dff<T>>(clk, initial);
+        return Model::create<Dff<T>>(clk, initial);
     }
 
     // Explicit template instantiation

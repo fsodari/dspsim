@@ -8,6 +8,7 @@ namespace dspsim
     {
     public:
         Clock(double period);
+        static std::shared_ptr<Clock> create(double period) { return Model::create<Clock>(period); }
         void eval_step();
         int period() const { return m_period; }
 

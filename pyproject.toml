@@ -31,7 +31,14 @@ dependencies = [
 [dependency-groups]
 # Install verilator-dspsim with this package. Optionally, you can use verilator already installed.
 verilator = ["verilator-dspsim>=5.30.9"]
-dev = ["pytest>=8.3.3", "verilator-dspsim>=5.30.9", "ruff>=0.8.3"]
+dev = [
+    "pytest>=8.3.3",
+    "verilator-dspsim>=5.30.9",
+    "ruff>=0.8.3",
+    "matplotlib>=3.10.0",
+    "seaborn>=0.13.2",
+    "scipy>=1.14.1",
+]
 
 # Available on github. Wheels and sdist published to pypi.org
 [project.urls]
@@ -69,7 +76,10 @@ FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW =
 WbRegs64 = { name = "WbRegs64", source = "WbRegs.sv", parameters = { N_CTL = 64, N_STS = 64 } }
 WbRegs256 = { name = "WbRegs256", source = "WbRegs.sv", parameters = { N_CTL = 256, N_STS = 256 } }
 WbRegs1024 = { name = "WbRegs1024", source = "WbRegs.sv", parameters = { N_CTL = 1024, N_STS = 1024 } }
-
+IIR2 = { source = "IIR.sv", parameters = { ORDER = 2 } }
+IIR4 = { source = "IIR.sv", parameters = { ORDER = 4, COEFQ = 15 } }
+IIR6 = { source = "IIR.sv", parameters = { ORDER = 6, COEFQ = 15 } }
+IIR8 = { source = "IIR.sv", parameters = { ORDER = 8, COEFQ = 15 } }
 #---------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------#
 

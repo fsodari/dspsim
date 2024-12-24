@@ -6,8 +6,12 @@ from dspsim.fifo import FifoAsync
 from dspsim.i2s import I2S, I2SClkGen, I2STx, I2SRx
 import numpy as np
 
+from pathlib import Path
 
-# @framework.runner(time_unit=1e-9, time_precision=1e-9)
+trace_dir = Path("traces")
+trace_dir.mkdir(exist_ok=True)
+
+
 def test_i2s_loopback():
     with Context(1e-9, 1e-9) as context:
         fs = 48e3
@@ -52,29 +56,29 @@ def test_i2s_loopback():
         # Receive axis data.
         axis_rx = AxisRx(bclk, rst, rx_fifo_bus)
 
-        print(context.print_info())
+        print(context)
 
-        i2s_clk_gen.trace("traces/i2s_clk_gen.vcd")
-        i2s_tx.trace("traces/i2s_tx.vcd")
-        i2s_rx.trace("traces/i2s_rx.vcd")
-        fifo_tx.trace("traces/i2s_fifo_tx.vcd")
-        fifo_rx.trace("traces/i2s_fifo_rx.vcd")
+        i2s_clk_gen.trace(trace_dir / "i2s_clk_gen.vcd")
+        i2s_tx.trace(trace_dir / "i2s_tx.vcd")
+        i2s_rx.trace(trace_dir / "i2s_rx.vcd")
+        fifo_tx.trace(trace_dir / "i2s_fifo_tx.vcd")
+        fifo_rx.trace(trace_dir / "i2s_fifo_rx.vcd")
 
         context.elaborate()
 
         tx_data = np.linspace(1, 42, 47, dtype=np.int32)
         print(tx_data)
-        axis_tx.write(tx_data)
+        axis_tx.write_command(tx_data)
 
         rst.d = 1
-        context.advance(500)
+        context.run(500)
         rst.d = 0
-        context.advance(100)
+        context.run(100)
         axis_rx.tready = True
 
-        context.advance(1000000)
+        context.run(1000000)
 
-        rx_data = axis_rx.read()
+        rx_data = axis_rx.read_rx_buf()
         print(rx_data)
         # print(rx_tid)
         # assert all(rx_data == tx_data)

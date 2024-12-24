@@ -127,7 +127,7 @@ namespace dspsim
         for (int i = 0; i < timeout; ++i)
         {
             // Advance the simulation
-            context()->advance(1);
+            context()->run(1);
             // Once the simulation is not busy and we have rx_data, read out the buffer and return.
             if (!busy() && rx_size() >= 1)
             {
@@ -149,7 +149,7 @@ namespace dspsim
         for (int i = 0; i < timeout; ++i)
         {
             // Advance the simulation
-            context()->advance(1);
+            context()->run(1);
             // Once the simulation is not busy and we have rx_data, read out the buffer and return.
             if (!busy() && rx_size() >= n_expected)
             {
@@ -161,36 +161,36 @@ namespace dspsim
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(AT address, DT data)
+    void WishboneM<AT, DT>::write_command(int address, int64_t data)
     {
         command(true, address, data);
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(AT start_address, std::list<DT> &data)
+    void WishboneM<AT, DT>::write_command(int start_address, std::list<int64_t> &data)
     {
         for (auto &d : data)
         {
-            write(start_address++, d);
+            write_command(start_address++, d);
         }
     }
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write(std::map<AT, DT> &data)
+    void WishboneM<AT, DT>::write_command(std::map<int, int64_t> &data)
     {
         for (auto &[address, value] : data)
         {
-            write(address, value);
+            write_command(address, value);
         }
     }
 
     // Send a write command and wait until it's done.
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write_block(AT address, DT data, int timeout)
+    void WishboneM<AT, DT>::write_block(int address, int64_t data, int timeout)
     {
-        write(address, data);
+        write_command(address, data);
         for (int i = 0; i < timeout; ++i)
         {
-            context()->advance(1);
+            context()->run(1);
             if (!busy())
             {
                 return;
@@ -199,13 +199,13 @@ namespace dspsim
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write_block(AT start_address, std::list<DT> &data, int timeout)
+    void WishboneM<AT, DT>::write_block(int start_address, std::list<int64_t> &data, int timeout)
     {
-        write(start_address, data);
+        write_command(start_address, data);
 
         for (int i = 0; i < timeout; ++i)
         {
-            context()->advance(1);
+            context()->run(1);
             if (!busy())
             {
                 return;
@@ -214,13 +214,13 @@ namespace dspsim
     }
 
     template <typename AT, typename DT>
-    void WishboneM<AT, DT>::write_block(std::map<AT, DT> &data, int timeout)
+    void WishboneM<AT, DT>::write_block(std::map<int, int64_t> &data, int timeout)
     {
-        write(data);
+        write_command(data);
 
         for (int i = 0; i < timeout; ++i)
         {
-            context()->advance(1);
+            context()->run(1);
             if (!busy())
             {
                 return;
@@ -241,9 +241,11 @@ namespace dspsim
         Signal<DT> &data_o,
         Signal<DT> &data_i)
     {
-        auto wbm = std::make_shared<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
-        wbm->context()->own_model(wbm);
-        return wbm;
+        // auto wbm = std::make_shared<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
+        // wbm->context()->own_model(wbm);
+        // return wbm;
+        // return Context::create_and_register<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
+        return Model::create<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
     }
 
     template class WishboneM<uint32_t, uint8_t>;

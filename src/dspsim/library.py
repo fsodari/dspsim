@@ -18,8 +18,15 @@ from dspsim._library import AsyncSync8, AsyncSync
 from dspsim._library import Skid as _Skid
 from dspsim._library import Gain as _Gain
 
+from dspsim._library import BramSdp, BramTdp
+
 from dspsim._library import WbRegs as WbRegs32
 from dspsim._library import WbRegs64, WbRegs256, WbRegs1024
+from dspsim._library import WbBram
+
+from dspsim._library import macc_core, Macc
+from dspsim._library import iir_core, IIR2, IIR4, IIR6, IIR8
+
 
 # # Sync to the framework context factory.
 # from dspsim._library import set_context_factory

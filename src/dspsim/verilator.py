@@ -156,6 +156,7 @@ class VModelTree:
         _type_names = {
             "logic": _int_from_str,
             "int": _int_from_str,
+            "integer": _int_from_str,
             "real": float,
             "string": lambda x: str(x)
             .replace("\\", "")

@@ -21,7 +21,7 @@ assign s_axis_tready = !skid_tvalid;
 
 // Skid buffer
 always @(posedge clk) begin
-    // Skid data was read out.
+    // Skid data is getting read out this cycle.
     if (skid_tvalid && (!m_axis_tvalid || m_axis_tready)) begin
         skid_tvalid <= 0;
     end
@@ -34,7 +34,7 @@ always @(posedge clk) begin
     end
 
     if (rst) begin
-        skid_tdata <= 0;
+        // skid_tdata <= 0;
         skid_tvalid <= 0;
     end
 end
@@ -46,7 +46,7 @@ always @(posedge clk) begin
         m_axis_tvalid <= 0;
     end
 
-    // If we have data and the output stream is ready.
+    // If we have data from either source and the output stream is not stalled.
     if ((skid_tvalid || s_axis_tvalid) && (!m_axis_tvalid || m_axis_tready)) begin
         // If the skid has data, read from it, otherwise the input stream data.
         m_axis_tdata <= skid_tvalid ? skid_tdata : s_axis_tdata;
@@ -54,7 +54,7 @@ always @(posedge clk) begin
     end
 
     if (rst) begin
-        m_axis_tdata <= 0;
+        // m_axis_tdata <= 0;
         m_axis_tvalid <= 0;
     end
 end

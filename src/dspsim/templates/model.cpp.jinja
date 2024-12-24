@@ -41,10 +41,7 @@ public:
         {{port.vm_ctor_arg}}{{", " if not loop.last else ""}}
         {%-endfor%})        
     {
-        auto m = std::make_shared<{{model.name}}>({%for port in model.ports%}{{port}}{{", " if not loop.last else ""}}{%endfor%});
-        // Context will have shared ownership of this model when it is created.
-        m->context()->own_model(m);
-        return m;
+        return Model::create<{{model.name}}>({%for port in model.ports.values() %}{{port.name}}{{", " if not loop.last else ""}}{%endfor%});
     }
 
     // Nanobind module

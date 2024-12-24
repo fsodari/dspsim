@@ -19,14 +19,14 @@ namespace dspsim
         SignalPtr<DT> data_i;
 
         Wishbone()
-            : cyc(create<Signal<uint8_t>>()),
-              stb(create<Signal<uint8_t>>()),
-              we(create<Signal<uint8_t>>()),
-              ack(create<Signal<uint8_t>>()),
-              stall(create<Signal<uint8_t>>()),
-              addr(create<Signal<AT>>()),
-              data_o(create<Signal<DT>>()),
-              data_i(create<Signal<DT>>())
+            : cyc(Signal<uint8_t>::create()),
+              stb(Signal<uint8_t>::create()),
+              we(Signal<uint8_t>::create()),
+              ack(Signal<uint8_t>::create()),
+              stall(Signal<uint8_t>::create()),
+              addr(Signal<AT>::create()),
+              data_o(Signal<DT>::create()),
+              data_i(Signal<DT>::create())
         {
         }
     };
@@ -64,7 +64,7 @@ namespace dspsim
         // Send a command to the interface. If it's a read command, data is ignored.
         void command(bool mode, AT address, DT data = 0);
         void clear();
-        bool busy() const { return cyc_o; }
+        bool busy() const { return cyc_o || !_cmd_buf.empty(); }
 
         // Command to read a sequence of addresses starting with start address and incrementing.
         void read_command(AT start_address, size_t n = 1);
@@ -81,15 +81,15 @@ namespace dspsim
         std::vector<DT> read_block(std::list<AT> &addresses, int timeout = 10000);
 
         // Append a single write command to the buffer.
-        void write(AT address, DT data);
-        void write(AT start_address, std::list<DT> &data);
+        void write_command(int address, int64_t data);
+        void write_command(int start_address, std::list<int64_t> &data);
         // Write a map/dict of addresses and data.
-        void write(std::map<AT, DT> &data);
+        void write_command(std::map<int, int64_t> &data);
 
         // Send a write command and wait until it's done.
-        void write_block(AT address, DT data, int timeout = 1000);
-        void write_block(AT start_address, std::list<DT> &data, int timeout = 10000);
-        void write_block(std::map<AT, DT> &data, int timeout = 10000);
+        void write_block(int address, int64_t data, int timeout = 1000);
+        void write_block(int start_address, std::list<int64_t> &data, int timeout = 10000);
+        void write_block(std::map<int, int64_t> &data, int timeout = 10000);
 
         static std::shared_ptr<WishboneM<AT, DT>> create(
             Signal<uint8_t> &clk,

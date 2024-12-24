@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import functools as _functools
+import numpy as np
 
 
 def cmake_dir() -> Path:
@@ -46,9 +47,31 @@ def uint_width(width: int) -> int:
 
 def to_fixed(flt: float, q: int) -> int:
     """"""
-    return flt * (2**q)
+    if isinstance(flt, np.ndarray):
+        res: np.ndarray = flt * (2**q)
+        return res.astype(np.int64)
+    return int(flt * (2**q))
 
 
 def to_float(fxd: int, q: int) -> float:
     """"""
     return fxd / (2**q)
+
+
+def sign_extend(value: int, width: int) -> int:
+    sign_bit = 1 << (width - 1)
+    return (value & (sign_bit - 1)) - (value & sign_bit)
+
+
+def sign_extendv(data: np.ndarray, width: int) -> int:
+    sign_bit = 1 << (width - 1)
+    mask0 = sign_bit - 1
+
+    vxtnd = np.vectorize(lambda x: (x & mask0) - (x & sign_bit))
+
+    return vxtnd(data)
+
+
+def iir_convert(sos: np.ndarray, q: int):
+    """Fixed point conversion and flattening."""
+    return [to_fixed(c, q) for s in sos for c in s]

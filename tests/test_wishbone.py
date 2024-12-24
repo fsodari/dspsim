@@ -2,6 +2,10 @@ from dspsim.framework import Context, Clock, signal, dff
 from dspsim.wishbone import Wishbone, WishboneM32
 from dspsim.library import WbRegs32
 import numpy as np
+from pathlib import Path
+
+trace_dir = Path("traces")
+trace_dir.mkdir(exist_ok=True)
 
 
 def test_wishbone_regs():
@@ -18,15 +22,15 @@ def test_wishbone_regs():
     wbm = WishboneM32(clk, rst, *wb)
     wb_regs = WbRegs32(clk, rst, *wb, ctl_regs, sts_regs)
 
-    wb_regs.trace("traces/wb_regs.vcd")
+    wb_regs.trace(trace_dir / "wb_regs.vcd")
 
     context.elaborate()
-    print(context.print_info())
+    print(context)
 
     rst.d = 1
-    context.advance(100)
+    context.run(100)
     rst.d = 0
-    context.advance(100)
+    context.run(100)
 
     # Send tx data as dict.
     tx_data = {i: i for i in range(WbRegs32.N_CTL)}
@@ -46,4 +50,4 @@ def test_wishbone_regs():
     assert x == 42
     assert ctl_regs[12].q == 42
 
-    context.advance(100)
+    context.run(100)
