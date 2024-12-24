@@ -25,12 +25,12 @@ def test_wishbone_regs():
     wb_regs.trace(trace_dir / "wb_regs.vcd")
 
     context.elaborate()
-    print(context.print_info())
+    print(context)
 
     rst.d = 1
-    context.advance(100)
+    context.run(100)
     rst.d = 0
-    context.advance(100)
+    context.run(100)
 
     # Send tx data as dict.
     tx_data = {i: i for i in range(WbRegs32.N_CTL)}
@@ -50,4 +50,4 @@ def test_wishbone_regs():
     assert x == 42
     assert ctl_regs[12].q == 42
 
-    context.advance(100)
+    context.run(100)

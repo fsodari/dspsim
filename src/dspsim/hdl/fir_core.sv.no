@@ -74,10 +74,10 @@ BramSdp #(
     .clk,
     .rst,
 
-    .ena(bram_data_ena),
-    .wea(bram_data_wea),
-    .addra(bram_data_addra),
-    .dina(bram_data_douta),
+    .ena(bram_data_ena), // s_axis_tvalid && s_axis_tready
+    .wea(bram_data_wea), // s_axis_tvalid && s_axis_tready
+    .addra(bram_data_addra), // addr++
+    .dina(bram_data_douta), // s_axis_tdata
     .douta(bram_data_dina),
     .regcea(bram_data_regcea),
 

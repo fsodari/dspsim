@@ -100,7 +100,7 @@ namespace dspsim
     {
         for (int i = 0; i < timeout; i++)
         {
-            context()->advance(1);
+            context()->run(1);
             if (!busy())
             {
                 return 0;
@@ -177,9 +177,11 @@ namespace dspsim
         Signal<uint8_t> *m_axis_tlast,
         std::list<uint8_t> tid_pattern)
     {
-        auto axis_tx = std::make_shared<AxisTx>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, m_axis_tlast, tid_pattern);
-        axis_tx->context()->own_model(axis_tx);
-        return axis_tx;
+        // auto axis_tx = std::make_shared<AxisTx>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, m_axis_tlast, tid_pattern);
+        // axis_tx->context()->own_model(axis_tx);
+        // return axis_tx;
+        // return Context::create_and_register<AxisTx<T>>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, m_axis_tlast, tid_pattern);
+        return Model::create<AxisTx<T>>(clk, rst, m_axis_tdata, m_axis_tvalid, m_axis_tready, m_axis_tid, m_axis_tlast, tid_pattern);
     }
 
     template <typename T>
@@ -248,7 +250,7 @@ namespace dspsim
     {
         for (int i = 0; i < timeout; i++)
         {
-            context()->advance(1);
+            context()->run(1);
             if (rx_buf.size() == 1)
             {
                 break;
@@ -262,7 +264,7 @@ namespace dspsim
     {
         for (int i = 0; i < timeout; i++)
         {
-            context()->advance(1);
+            context()->run(1);
             if (rx_buf.size() == n)
             {
                 break;
@@ -280,9 +282,11 @@ namespace dspsim
         Signal<uint8_t> &s_axis_tready,
         Signal<uint8_t> *s_axis_tid)
     {
-        auto axis_rx = std::make_shared<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
-        axis_rx->context()->own_model(axis_rx);
-        return axis_rx;
+        // auto axis_rx = std::make_shared<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
+        // axis_rx->context()->own_model(axis_rx);
+        // return axis_rx;
+        // return Context::create_and_register<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
+        return Model::create<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
     }
 
     template class AxisTx<uint8_t>;

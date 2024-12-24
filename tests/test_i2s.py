@@ -56,7 +56,7 @@ def test_i2s_loopback():
         # Receive axis data.
         axis_rx = AxisRx(bclk, rst, rx_fifo_bus)
 
-        print(context.print_info())
+        print(context)
 
         i2s_clk_gen.trace(trace_dir / "i2s_clk_gen.vcd")
         i2s_tx.trace(trace_dir / "i2s_tx.vcd")
@@ -71,12 +71,12 @@ def test_i2s_loopback():
         axis_tx.write_command(tx_data)
 
         rst.d = 1
-        context.advance(500)
+        context.run(500)
         rst.d = 0
-        context.advance(100)
+        context.run(100)
         axis_rx.tready = True
 
-        context.advance(1000000)
+        context.run(1000000)
 
         rx_data = axis_rx.read_rx_buf()
         print(rx_data)

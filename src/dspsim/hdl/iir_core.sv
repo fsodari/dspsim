@@ -4,60 +4,31 @@ module iir_core #(
     parameter COEFQ = 16,
     parameter ORDER = 2,
     localparam N = (ORDER+1)*2
-    // parameter signed [COEFW-1:0] COEF_INIT [N] = '{0,0,0,0,0,0}
 ) (
     input  logic clk,
     input  logic rst,
 
-    // Audio Bus
+    // Input stream
     input  logic signed [DW-1:0] s_axis_tdata,
     input  logic s_axis_tvalid,
     output logic s_axis_tready,
 
+    // Output stream.
     output logic signed [DW-1:0] m_axis_tdata,
     output logic m_axis_tvalid,
     input  logic m_axis_tready,
 
-    // Coefficients
+    // Coefficients. Normalized, fixed-point.
     input  logic signed [COEFW-1:0] coefs [N]
 );
-localparam IDW = $clog2(N);
+
+localparam NX = ORDER + 1;
+
+localparam IDW = $clog2(N + 1);
 localparam MW = DW + COEFW;
 localparam ACCUMW = MW + $clog2(N);
 
-logic signed [ACCUMW-1:0] accum;
-
-logic signed [DW-1:0] state_vars [N];
-logic signed [DW-1:0] accum_o;
-logic [COEFW-1:0] frac_mask;
-// assign frac_mask = COEFW'(COEFQ - 1);
-assign frac_mask = 0;
-
-assign accum_o = DW'(accum >>> COEFQ);
-
-logic [$clog2(N)-1:0] coef_index;
-
-// Multiply accumulate
-logic [N-1:0] mac_s_axis_tvalid = 0;
-logic mac_ce;
-assign mac_ce = |mac_s_axis_tvalid;
-logic [8:0] x_valid;
-logic mac_rst = 0;
-macc_core #(
-    .ADW(DW),
-    .BDW(COEFW),
-    .ODW(ACCUMW)
-) macc_inst (
-    .clk(clk),
-    // .rst(mac_rst | rst), // Reset on first sample
-    .ce(mac_ce),
-    .sload(1),
-    .a(state_vars[coef_index]),
-    .b(coefs[coef_index]),
-    .accum_o(accum)
-);
-
-logic [DW-1:0] skid_tdata;
+logic signed [DW-1:0] skid_tdata;
 logic skid_tvalid, skid_tready;
 
 Skid #(.DW(DW)) skid_i (
@@ -71,61 +42,133 @@ Skid #(.DW(DW)) skid_i (
     .m_axis_tready(skid_tready)
 );
 
-// logic done;
-// assign done = coef_index == IDW'(N-1);
+logic signed [DW-1:0] macc_atdata;
+logic macc_atvalid, macc_atready, macc_atlast;
+logic signed [COEFW-1:0] macc_btdata;
+logic macc_btvalid, macc_btready;
+logic signed [ACCUMW-1:0] accum_tdata;
+
+
+// Fraction saving and output. The fraction is always positive, so add 0 at the beginning so it's not negative.
+logic signed [COEFW-1:0] fraction_save;
+assign fraction_save = {{(COEFW-COEFQ){1'b0}}, accum_tdata[COEFQ-1:0]};
+
+// Signed fraction. This is wrong?
+/* verilator lint_off WIDTHEXPAND */
+// assign fraction_save = $signed(accum_tdata[COEFQ-1:0]);
+/* verilator lint_on WIDTHEXPAND */
+
+// No fraction saving
+// assign fraction_save = 0;
+
+/*
+    Store the saved fraction in the coefficient register.
+    Set state_vars[NX] to 1.
+*/
+/* verilator lint_off WIDTHTRUNC */
+assign m_axis_tdata = $signed(accum_tdata >> COEFQ);
+/* verilator lint_on WIDTHTRUNC */
+
+Macc #(
+    .ADW(DW),
+    .BDW(COEFW),
+    .ODW(ACCUMW)
+) macc_i (
+    .clk,
+    .rst,
+
+    .s_axis_atdata(macc_atdata),
+    .s_axis_atvalid(macc_atvalid),
+    .s_axis_atready(macc_atready),
+    .s_axis_atlast(macc_atlast),
+    
+    .s_axis_btdata(macc_btdata),
+    .s_axis_btvalid(macc_btvalid),
+    .s_axis_btready(macc_btready),
+
+    .m_axis_tdata(accum_tdata),
+    .m_axis_tvalid(m_axis_tvalid),
+    .m_axis_tready(m_axis_tready)
+);
+
+logic signed [DW-1:0] state_vars [N];
+logic signed [COEFW-1:0] coefs_adj [N];
+generate
+    for (genvar i = 0; i < N; i = i + 1) begin : adjusted_coefficients
+        if (i < NX) begin : x_coefs
+            assign coefs_adj[i] = coefs[i];
+        end else if (i == NX) begin : fraction_save_coefficient
+            assign coefs_adj[i] = fraction_save;
+        end else begin : y_coefs
+            // Negate these coefficients.
+            assign coefs_adj[i] = -coefs[i];
+        end
+    end
+endgenerate
+
+
+logic [IDW-1:0] state_id = 0, coef_id = 0;
 logic busy = 0;
 assign skid_tready = !busy && (!m_axis_tvalid || m_axis_tready);
 
 always @(posedge clk) begin
-    mac_s_axis_tvalid <= {mac_s_axis_tvalid[N-2:0], skid_tvalid && skid_tready};
-    mac_rst <= 0;
-    x_valid <= {x_valid[7:0], skid_tvalid && skid_tready};
 
+    // Output was accepted, we're not busy anymore
     if (m_axis_tvalid && m_axis_tready) begin
-        m_axis_tvalid <= 0;
-    end
-
-    if (x_valid[8]) begin
-        m_axis_tvalid <= 1;
-        m_axis_tdata <= accum_o;
         busy <= 0;
-        /* verilator lint_off WIDTH */
-        state_vars[ORDER+1] <= accum[COEFW-1:0] & frac_mask;
-        /* verilator lint_on WIDTH */
-        // frac_save <= accum[COEFW-1:0] & frac_mask;
-        state_vars[ORDER+2] <= accum_o;
-        for (int yz = 2; yz <= ORDER; yz++) begin
-            state_vars[ORDER+1+yz] <= state_vars[ORDER+yz]; // y
+        state_vars[NX] <= m_axis_tdata; // Save the output into the state vars.
+    end
+
+    // Send data through macc
+    if (macc_atvalid && macc_atready) begin
+        macc_atvalid <= 0;
+        macc_atlast <= 0;
+
+        if (state_id < IDW'(N)) begin
+            state_id <= state_id + 1;
+            macc_atdata <= state_vars[state_id];
+            macc_atvalid <= 1;
+            macc_atlast <= state_id == IDW'(N-1);
+        end
+    end
+    // Send coefs through macc
+    if (macc_btvalid && macc_btready) begin
+        macc_btvalid <= 0;
+
+        if (coef_id < IDW'(N)) begin
+            coef_id <= coef_id + 1;
+            macc_btdata <= coefs_adj[coef_id];
+            macc_btvalid <= 1;
         end
     end
 
-    
-
-    // Busy. Increment the coef index.
-    if (coef_index != IDW'(N)) begin
-        coef_index <= coef_index + 1;
-        if(coef_index == IDW'(N-1)) begin
-            // busy <= 0;
-        end
-    end
-
-    // if (!)
-
-    // New input sample.
+    // New data
     if (skid_tvalid && skid_tready) begin
-        mac_rst <= 1;
-        coef_index <= 0;
-        busy <= 1;
+        busy <= 1; // Set busy until we're done.
+        
+        // Load and shift state variables.
         state_vars[0] <= skid_tdata;
-
-        // Shift data in buffer. More efficient implementation?
-        for (int z = 1; z <= ORDER; z++) begin
-            state_vars[z] <= state_vars[z-1]; // X
+        for (int i = 1; i < N; i = i + 1) begin
+            state_vars[i] <= state_vars[i-1];
+            if (i == NX) begin
+                state_vars[i] <= 1; // fraction saving.
+            end
         end
+
+        // Send the first computation.
+        macc_atdata <= skid_tdata;
+        macc_atvalid <= 1;
+
+        macc_btdata <= coefs_adj[0];
+        macc_btvalid <= 1;
+        // Set the next state_id, coef_id
+        state_id <= 1;
+        coef_id <= 1;
     end
 
     if (rst) begin
-        busy <= 0;
+        state_id <= 0;
+        coef_id <= 0;
     end
 end
 

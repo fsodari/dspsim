@@ -33,12 +33,12 @@ def test_macc_basic():
         macc.trace(trace_dir / "Macc.vcd")
 
         context.elaborate()
-        print(context.print_info())
+        print(context)
 
         rst.d = 1
-        context.advance(100)
+        context.run(100)
         rst.d = 0
-        context.advance(100)
+        context.run(100)
 
         DATAQ = 22
         COEFQ = 16
@@ -62,4 +62,4 @@ def test_macc_basic():
         rx_data = axis_rx.read(timeout=10000) >> OUTPUTQ
         assert rx_data == 10
 
-        context.advance(100)
+        context.run(100)

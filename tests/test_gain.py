@@ -22,31 +22,31 @@ def test_gain_basic():
         _k = to_fixed(0.1, Gain.COEFQ)
         k = signal(int(_k), width=Gain.COEFW)
 
-        print(context.print_info())
+        print(context)
 
         fifo = FifoSync.init_bus(clk, rst, b0, b1)
         gain = Gain.init_bus(clk, rst, b1, b2, gain=k)
         axis_tx = AxisTx(clk, rst, b0)
         axis_rx = AxisRx(clk, rst, b2)
 
-        print(context.print_info())
+        print(context)
 
         fifo.trace(trace_dir / "gain_fifo.vcd")
         gain.trace(trace_dir / "gain.vcd")
 
         context.elaborate()
 
-        context.advance(100)
+        context.run(100)
 
         rst.d = 0
-        context.advance(100)
+        context.run(100)
 
         DATAQ = 16
         tx_data = np.linspace(1, 10.0, 10)
         axis_tx.write_command(tx_data, DATAQ)
-        context.advance(100)
+        context.run(100)
         axis_rx.tready = True
-        context.advance(200)
+        context.run(200)
 
         rx_data = to_float(np.array(axis_rx.read_rx_buf()), DATAQ)
         assert np.all(np.isclose(rx_data * 10, tx_data, rtol=0.0001))

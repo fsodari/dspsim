@@ -27,13 +27,13 @@ def test_context_basic():
         some_model.trace(trace_dir / "some_model.vcd")
 
         context.elaborate()
-        print(context.print_info())
+        print(context)
 
         rst.d = 1
-        context.advance(100)
+        context.run(100)
         rst.d = 0
-        context.advance(100)
+        context.run(100)
 
         for _ in range(10):
             x.d = x.q + 1
-            context.advance(10)
+            context.run(10)

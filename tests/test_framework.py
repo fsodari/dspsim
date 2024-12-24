@@ -22,15 +22,15 @@ def test_skid_basic():
         context.elaborate()
 
         rst.d = 1
-        context.advance(100)
+        context.run(100)
         rst.d = 0
-        context.advance(100)
+        context.run(100)
 
         tx_data = list(range(1, 42))
         axis_tx.write_command(tx_data)
-        context.advance(100)
+        context.run(100)
         axis_rx.tready = 1
-        context.advance(1000)
+        context.run(1000)
 
         rx_data = axis_rx.read_rx_buf()
         assert np.all(rx_data == tx_data)

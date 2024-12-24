@@ -42,12 +42,12 @@ def test_bram_sdp():
     bram.trace(trace_dir / "bram_sdp.vcd")
 
     context.elaborate()
-    print(context.print_info())
+    print(context)
 
     rst.d = 1
-    context.advance(100)
+    context.run(100)
     rst.d = 0
-    context.advance(100)
+    context.run(100)
 
     # Blocking write.
     write_data = [randint(1, int(1e6)) for _ in range(BramSdp.DEPTH)]
@@ -55,7 +55,7 @@ def test_bram_sdp():
 
     # Blocking read.
     read_data = wbm1.read(list(range(BramSdp.DEPTH)), timeout=100000)
-    context.advance(100)
+    context.run(100)
 
     assert np.all(read_data == write_data)
 
@@ -96,29 +96,29 @@ def test_bram_tdp():
     bram.trace(trace_dir / "bram_tdp.vcd")
 
     context.elaborate()
-    print(context.print_info())
+    print(context)
 
     rstb.d = 1
-    context.advance(1000)
+    context.run(1000)
     rstb.d = 0
-    context.advance(100)
+    context.run(100)
 
     # Write to wbm0 and read from wbm1
     write_data = [randint(0, int(1e6)) for _ in range(BramTdp.DEPTH)]
     wbm0.write(0, write_data, timeout=100000)
 
     read_data = wbm1.read(list(range(BramTdp.DEPTH)), timeout=100000)
-    context.advance(100)
+    context.run(100)
 
     assert np.all(read_data == write_data)
 
-    context.advance(100)
+    context.run(100)
 
     # Write to wbm1 and read from wbm0
     write_data = [randint(0, int(1e6)) for _ in range(BramTdp.DEPTH)]
     wbm1.write(0, write_data, timeout=10000000)
 
     read_data = wbm0.read(list(range(BramTdp.DEPTH)), timeout=100000)
-    context.advance(100)
+    context.run(100)
 
     assert np.all(read_data == write_data)

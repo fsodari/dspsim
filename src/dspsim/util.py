@@ -47,7 +47,10 @@ def uint_width(width: int) -> int:
 
 def to_fixed(flt: float, q: int) -> int:
     """"""
-    return flt * (2**q)
+    if isinstance(flt, np.ndarray):
+        res: np.ndarray = flt * (2**q)
+        return res.astype(np.int64)
+    return int(flt * (2**q))
 
 
 def to_float(fxd: int, q: int) -> float:
@@ -67,3 +70,8 @@ def sign_extendv(data: np.ndarray, width: int) -> int:
     vxtnd = np.vectorize(lambda x: (x & mask0) - (x & sign_bit))
 
     return vxtnd(data)
+
+
+def iir_convert(sos: np.ndarray, q: int):
+    """Fixed point conversion and flattening."""
+    return [to_fixed(c, q) for s in sos for c in s]

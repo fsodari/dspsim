@@ -12,7 +12,7 @@ namespace dspsim
         SignalPtr<uint8_t> tvalid;
         SignalPtr<uint8_t> tready;
 
-        Axis() : tdata(create<Signal<T>>()), tvalid(create<Signal<uint8_t>>()), tready(create<Signal<uint8_t>>())
+        Axis() : tdata(Signal<T>::create()), tvalid(Signal<T>::create()), tready(Signal<T>::create())
         {
         }
     };
