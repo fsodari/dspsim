@@ -39,11 +39,6 @@ namespace dspsim
                 _cmd_buf.pop_front();
                 stb_o = 0;
                 we_o = 0;
-
-                if (_ack_buf.empty())
-                {
-                    cyc_o = 0;
-                }
             }
 
             // Can send more data.
@@ -91,8 +86,11 @@ namespace dspsim
         // amount = (amount < 0 || amount > _ack_buf.size()) ? _ack_buf.size() : amount;
         // _ack_buf.erase(_ack_buf.begin(), _ack_buf.begin() + amount);
 
-        amount = (amount < 0 || amount > _cmd_buf.size()) ? _cmd_buf.size() : amount;
-        _cmd_buf.erase(_cmd_buf.begin(), _cmd_buf.begin() + amount);
+        // amount = (amount < 0 || amount > _cmd_buf.size()) ? _cmd_buf.size() : amount;
+        // _cmd_buf.erase(_cmd_buf.begin(), _cmd_buf.begin() + amount);
+
+        amount = (amount < 0 || amount > _rx_buf.size()) ? _rx_buf.size() : amount;
+        _rx_buf.erase(_rx_buf.begin(), _rx_buf.begin() + amount);
     }
 
     template <typename AT, typename DT>

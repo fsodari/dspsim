@@ -1,5 +1,5 @@
 from dspsim.framework import Context, Clock, signal, dff, Signal32
-from dspsim.axis import Axis, AxisTx, AxisRx
+from dspsim.axis import Axis, AxisTx32, AxisRx32
 from dspsim.wishbone import Wishbone, WishboneM32
 from dspsim.library import iir_core, IIR2, IIR4, IIR6, IIR8
 from dspsim.util import to_fixed, to_float, sign_extendv, iir_convert
@@ -31,16 +31,16 @@ def test_iir_basic():
         clk = Clock(10e-9)
         rst = dff(clk, 1)
 
-        b0 = Axis(width=iir_core.DW)
-        b1 = Axis(width=iir_core.DW)
+        b0 = Axis(width=iir_core.DW, signed=True)
+        b1 = Axis(width=iir_core.DW, signed=True)
 
         NCOEF = int(2 * (iir_core.ORDER + 1))
-        coefs = signal(width=iir_core.COEFW, shape=(NCOEF,))
+        coefs = signal(width=iir_core.COEFW, signed=True, shape=(NCOEF,))
 
         iir = iir_core(clk, rst, *b0, *b1, coefs)
 
-        axis_tx = AxisTx(clk, rst, b0)
-        axis_rx = AxisRx(clk, rst, b1)
+        axis_tx = AxisTx32(clk, rst, *b0)
+        axis_rx = AxisRx32(clk, rst, *b1)
 
         iir.trace(trace_dir / "iir_core.vcd")
 
@@ -77,11 +77,12 @@ def test_iir_basic():
         axis_rx.tready = False
         context.run(800)
         axis_rx.tready = True
-        # Blocking read.
-        _rx_data = axis_rx.read(len(tx_data), timeout=8000000)
+        # # Blocking read.
+        # _rx_data = axis_rx.read(len(tx_data), timeout=8000000)
 
-        # print(_rx_data)
-        rx_data = to_float(sign_extendv(_rx_data, iir_core.DW), DATAQ)
+        # # print(_rx_data)
+        # rx_data = to_float(sign_extendv(_rx_data, iir_core.DW), DATAQ)
+        rx_data = axis_rx.read(len(tx_data), q=DATAQ)
 
         assert np.all(np.isclose(rx_data[1:], tx_data[:-1], rtol=0.00001))
 
@@ -96,16 +97,16 @@ def test_iir_chirp():
         clk = Clock(10e-9)
         rst = dff(clk, 1)
 
-        IIR = IIR8
+        IIR = IIR4
 
-        b0 = Axis(width=IIR.DW)
-        b1 = Axis(width=IIR.DW)
-        wb0 = Wishbone()
+        b0 = Axis(width=IIR.DW, signed=True)
+        b1 = Axis(width=IIR.DW, signed=True)
+        wb0 = Wishbone(signed=True)
 
         fs = 48e3
         fc = [5e3, 10e3]
 
-        sos = iirfilter(
+        sos: np.ndarray = iirfilter(
             IIR.ORDER // 2,
             fc,
             btype="bandpass",
@@ -114,9 +115,9 @@ def test_iir_chirp():
             fs=fs,
         )
 
-        sosi = iir_convert(sos, IIR.COEFQ)
-        print(sos)
-        print(sosi)
+        # sosi = iir_convert(sos, IIR.COEFQ)
+        # print(sos)
+        # print(sosi)
 
         NS = 100000
         DATAQ = 22
@@ -132,8 +133,8 @@ def test_iir_chirp():
 
         iir = IIR(clk, rst, *b0, *b1, *wb0)
 
-        axis_tx = AxisTx(clk, rst, b0)
-        axis_rx = AxisRx(clk, rst, b1)
+        axis_tx = AxisTx32(clk, rst, *b0)
+        axis_rx = AxisRx32(clk, rst, *b1)
 
         wbm = WishboneM32(clk, rst, *wb0)
 
@@ -148,7 +149,7 @@ def test_iir_chirp():
         context.run(100)
 
         # Write the coefficients.
-        wbm.write(0, sosi)
+        wbm.write(0, sos.flatten(), q=IIR.COEFQ)
 
         axis_tx.write_command(tx_data, DATAQ)
         context.run(600)
@@ -157,11 +158,12 @@ def test_iir_chirp():
         axis_rx.tready = False
         context.run(800)
         axis_rx.tready = True
-        # Blocking read.
-        _rx_data = axis_rx.read(len(tx_data), timeout=80000000)
+        # # Blocking read.
+        # _rx_data = axis_rx.read(len(tx_data), timeout=80000000)
 
-        # print(_rx_data)
-        rx_data = to_float(sign_extendv(_rx_data, IIR.DW), DATAQ)
+        # # print(_rx_data)
+        # rx_data = to_float(sign_extendv(_rx_data, IIR.DW), DATAQ)
+        rx_data = axis_rx.read(len(tx_data), q=DATAQ)
 
         assert len(tx_data) == len(rx_data)
 

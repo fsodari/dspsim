@@ -20,14 +20,15 @@ namespace dspsim
         m_width = width;
         if (m_width == default_bitwidth<T>::value)
         {
-            m_bitmask = static_cast<T>(-1);
+            // m_bitmask = static_cast<StdintSignedMap<T>::type>(-1);
+            m_bitmask = -1;
             m_sign_bit = 0;
             m_sign_mask = m_bitmask;
         }
         else
         {
-            m_bitmask = (1 << width) - 1;
-            m_sign_bit = 1 << (width - 1);
+            m_bitmask = ((T)1 << width) - 1;
+            m_sign_bit = (T)1 << (width - 1);
             m_sign_mask = m_sign_bit - 1;
         }
     }

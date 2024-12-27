@@ -24,7 +24,7 @@ from dspsim._library import WbRegs as WbRegs32
 from dspsim._library import WbRegs64, WbRegs256, WbRegs1024
 from dspsim._library import WbBram
 
-from dspsim._library import macc_core, Macc
+from dspsim._library import macc_core, Macc, Macc2
 from dspsim._library import iir_core, IIR2, IIR4, IIR6, IIR8
 
 from dspsim._library import Mixer

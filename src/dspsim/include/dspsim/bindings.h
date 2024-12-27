@@ -256,9 +256,9 @@ namespace dspsim
               //     .def("write", [](WBM &wbm, std::map<int, int> d, int timeout)
               //          { wbm.write_block(d, timeout); }, nb::arg("data"), nb::arg("timeout") = 10000)
               // getitem, setitem accessors.
-              .def("__getitem__", [](WBM &wbm, int address)
+              .def("__getitem__", [](WBM &wbm, AT address)
                    { return wbm.read_block(address, -1); }, nb::arg("address"))
-              .def("__setitem__", [](WBM &wbm, int address, DT data)
+              .def("__setitem__", [](WBM &wbm, AT address, DT data)
                    { wbm.write_block(address, data, -1); }, nb::arg("address"), nb::arg("data"));
      }
 } // namespace dspsim

@@ -57,13 +57,15 @@ namespace dspsim
             else if (!buf.empty() && (!m_axis_tvalid || m_axis_tready))
             {
                 m_axis_tdata = buf.front();
+                auto _tid = _next_tid();
                 if (m_axis_tid)
                 {
-                    *m_axis_tid = _next_tid();
-                    if (m_axis_tlast && (this->tid_it == this->tid_pattern.begin()))
-                    {
-                        *m_axis_tlast = 1;
-                    }
+                    *m_axis_tid = _tid;
+                }
+
+                if (m_axis_tlast && (this->tid_it == this->tid_pattern.begin()))
+                {
+                    *m_axis_tlast = 1;
                 }
                 m_axis_tvalid = 1;
 
@@ -255,10 +257,10 @@ namespace dspsim
         std::vector<double> result;
         result.reserve(amount);
 
-        const double sf = std::pow(2, -q);
+        const double sf = std::pow(2, q);
 
         std::transform(rx_buf.begin(), rx_buf.end(), std::back_inserter(result), [&sf](const T &x)
-                       { return static_cast<StdintSignedMap<T>::type>(x) * sf; });
+                       { return static_cast<StdintSignedMap<T>::type>(x) / sf; });
         clear(amount);
         return result;
     }
