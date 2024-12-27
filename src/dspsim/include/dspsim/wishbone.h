@@ -63,33 +63,38 @@ namespace dspsim
 
         // Send a command to the interface. If it's a read command, data is ignored.
         void command(bool mode, AT address, DT data = 0);
-        void clear();
+        void clear(int amount = -1);
         bool busy() const { return cyc_o || !_cmd_buf.empty(); }
 
         // Command to read a sequence of addresses starting with start address and incrementing.
         void read_command(AT start_address, size_t n = 1);
         // Read a list of addresses
-        void read_command(std::list<AT> &addresses);
+        void read_command(std::vector<AT> &addresses);
 
         // Rx buffer size.
         size_t rx_size() const { return _rx_buf.size(); }
         // Read out the rx buffer.
-        std::vector<DT> rx_data(bool clear = true);
+        std::vector<DT> rx_data(int clear = -1);
+
+        int wait_block(int n, int timeout = -1);
 
         // Send a read command and wait for a response. Advances the context sim automatically.
-        DT read_block(AT address, int timeout = 1000);
-        std::vector<DT> read_block(std::list<AT> &addresses, int timeout = 10000);
+        DT read_block(AT address, int timeout = -1);
+        std::vector<DT> read_block(std::vector<AT> &addresses, int timeout = -1);
 
         // Append a single write command to the buffer.
-        void write_command(int address, int64_t data);
-        void write_command(int start_address, std::list<int64_t> &data);
+        void write_command(int address, DT data);
+        void write_command(int start_address, std::vector<DT> &data);
         // Write a map/dict of addresses and data.
-        void write_command(std::map<int, int64_t> &data);
+        void write_command(std::map<int, DT> &data);
 
         // Send a write command and wait until it's done.
-        void write_block(int address, int64_t data, int timeout = 1000);
-        void write_block(int start_address, std::list<int64_t> &data, int timeout = 10000);
-        void write_block(std::map<int, int64_t> &data, int timeout = 10000);
+        void write_block(int address, DT data, int timeout = -1);
+        void write_block(int start_address, std::vector<DT> &data, int timeout = -1);
+        void write_block(std::map<int, DT> &data, int timeout = -1);
+        void write_blockf(int address, double data, int timeout = -1);
+        void write_blockf(int start_address, std::vector<double> &data, int timeout = -1);
+        void write_blockf(std::map<int, double> &data, int timeout = -1);
 
         static std::shared_ptr<WishboneM<AT, DT>> create(
             Signal<uint8_t> &clk,
@@ -106,6 +111,7 @@ namespace dspsim
     protected:
         std::deque<std::tuple<AT, DT, bool>> _cmd_buf; // Command buffer for reads and writes.
         std::deque<bool> _ack_buf;                     // Track responses.
-        std::deque<DT> _rx_buf;                        // Receive data buffer.
+
+        std::deque<DT> _rx_buf; // Receive data buffer.
     };
 } // namespace dspsim

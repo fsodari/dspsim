@@ -27,6 +27,8 @@ from dspsim._library import WbBram
 from dspsim._library import macc_core, Macc
 from dspsim._library import iir_core, IIR2, IIR4, IIR6, IIR8
 
+from dspsim._library import Mixer
+
 
 # # Sync to the framework context factory.
 # from dspsim._library import set_context_factory

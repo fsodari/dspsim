@@ -43,9 +43,8 @@ Skid #(.DW(DW)) skid_i (
 );
 
 logic signed [DW-1:0] macc_atdata;
-logic macc_atvalid, macc_atready, macc_atlast;
+logic macc_tvalid, macc_tready, macc_tlast;
 logic signed [COEFW-1:0] macc_btdata;
-logic macc_btvalid, macc_btready;
 logic signed [ACCUMW-1:0] accum_tdata;
 
 
@@ -78,13 +77,10 @@ Macc #(
     .rst,
 
     .s_axis_atdata(macc_atdata),
-    .s_axis_atvalid(macc_atvalid),
-    .s_axis_atready(macc_atready),
-    .s_axis_atlast(macc_atlast),
-    
     .s_axis_btdata(macc_btdata),
-    .s_axis_btvalid(macc_btvalid),
-    .s_axis_btready(macc_btready),
+    .s_axis_tvalid(macc_tvalid),
+    .s_axis_tready(macc_tready),
+    .s_axis_tlast(macc_tlast),
 
     .m_axis_tdata(accum_tdata),
     .m_axis_tvalid(m_axis_tvalid),
@@ -107,7 +103,7 @@ generate
 endgenerate
 
 
-logic [IDW-1:0] state_id = 0, coef_id = 0;
+logic [IDW-1:0] state_id = 0;
 logic busy = 0;
 assign skid_tready = !busy && (!m_axis_tvalid || m_axis_tready);
 
@@ -115,30 +111,27 @@ always @(posedge clk) begin
 
     // Output was accepted, we're not busy anymore
     if (m_axis_tvalid && m_axis_tready) begin
+        m_axis_tvalid <= 0;
+
         busy <= 0;
         state_vars[NX] <= m_axis_tdata; // Save the output into the state vars.
     end
 
     // Send data through macc
-    if (macc_atvalid && macc_atready) begin
-        macc_atvalid <= 0;
-        macc_atlast <= 0;
+    if (macc_tvalid && macc_tready) begin
+        macc_tvalid <= 0;
+        macc_tlast <= 0;
 
         if (state_id < IDW'(N)) begin
             state_id <= state_id + 1;
-            macc_atdata <= state_vars[state_id];
-            macc_atvalid <= 1;
-            macc_atlast <= state_id == IDW'(N-1);
-        end
-    end
-    // Send coefs through macc
-    if (macc_btvalid && macc_btready) begin
-        macc_btvalid <= 0;
 
-        if (coef_id < IDW'(N)) begin
-            coef_id <= coef_id + 1;
-            macc_btdata <= coefs_adj[coef_id];
-            macc_btvalid <= 1;
+            macc_atdata <= state_vars[state_id];
+            macc_btdata <= coefs_adj[state_id];
+            macc_tvalid <= 1;
+
+            if (state_id == IDW'(N-1)) begin
+                macc_tlast <= 1;
+            end
         end
     end
 
@@ -157,18 +150,17 @@ always @(posedge clk) begin
 
         // Send the first computation.
         macc_atdata <= skid_tdata;
-        macc_atvalid <= 1;
-
         macc_btdata <= coefs_adj[0];
-        macc_btvalid <= 1;
-        // Set the next state_id, coef_id
+        macc_tvalid <= 1;
+        macc_tlast <= 0;
+
+        // Set the next state_id
         state_id <= 1;
-        coef_id <= 1;
     end
 
     if (rst) begin
         state_id <= 0;
-        coef_id <= 0;
+        m_axis_tvalid <= 0;
     end
 end
 

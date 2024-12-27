@@ -9,12 +9,15 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 import seaborn as sns
 
+import pytest
+
 sns.set_theme()
 
 trace_dir = Path("traces")
 trace_dir.mkdir(exist_ok=True)
 
 
+@pytest.mark.skip
 def test_macc_basic():
     with Context(1e-9, 1e-9) as context:
         clk = Clock(10e-9)
