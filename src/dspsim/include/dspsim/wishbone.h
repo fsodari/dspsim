@@ -114,7 +114,10 @@ namespace dspsim
             Signal<uint8_t> &stall_i,
             Signal<AT> &addr_o,
             Signal<DT> &data_o,
-            Signal<DT> &data_i);
+            Signal<DT> &data_i)
+        {
+            return Model::create<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
+        }
 
     protected:
         std::deque<std::tuple<AT, DT, bool>> _cmd_buf; // Command buffer for reads and writes.

@@ -156,6 +156,11 @@ namespace dspsim
         bool m_extend = true;
     };
 
+    using Signal8 = Signal<uint8_t>;
+    using Signal16 = Signal<uint16_t>;
+    using Signal32 = Signal<uint32_t>;
+    using Signal64 = Signal<uint64_t>;
+
     template <typename T>
     using SignalPtr = std::shared_ptr<Signal<T>>;
 
