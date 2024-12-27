@@ -1,4 +1,4 @@
-from dspsim.framework import Model, Signal8, SignalT, signal, port_info
+from dspsim.framework import Signal8, SignalT, signal, port_info
 
 from dspsim._framework import AxisTx8, AxisTx16, AxisTx32, AxisTx64
 
@@ -6,9 +6,6 @@ from dspsim._framework import AxisTx8, AxisTx16, AxisTx32, AxisTx64
 from dspsim._framework import AxisRx8, AxisRx16, AxisRx32, AxisRx64
 # from dspsim._framework import AxisRxU8, AxisRxU16, AxisRxU32, AxisRxU64
 
-import numpy as _np
-from numpy.typing import ArrayLike as _ArrayLike
-from typing import TypeVar, Literal
 
 from dspsim import util
 
@@ -65,9 +62,6 @@ class Axis:
         return self._signed
 
 
-import itertools
-
-
 def init_stream_model[ModelT](
     cls: type[ModelT],
     clk: Signal8,
@@ -79,7 +73,6 @@ def init_stream_model[ModelT](
     """
     Init a model that contains a stream input and output using
     """
-    from dspsim.config import Port
 
     args = dict(
         clk=clk,

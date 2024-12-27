@@ -32,7 +32,6 @@ def test_mixer_basic():
         wbm = WishboneM32(clk, rst, *wb0)
 
         mixer.trace(trace_dir / "mixer.vcd")
-
         context.elaborate()
 
         rst.d = 1
@@ -52,7 +51,7 @@ def test_mixer_basic():
         tx_data = rgen.uniform(-1.0, 1.0, size=(NT, Mixer.N))
 
         # Queue up all of the tx data.
-        DATAQ = 20
+        DATAQ = 22
         for x in tx_data:
             axis_tx.write_command(x, q=DATAQ)
 
