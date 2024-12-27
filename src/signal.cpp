@@ -3,7 +3,7 @@
 namespace dspsim
 {
     template <typename T>
-    Signal<T>::Signal(T init, int width)
+    Signal<T>::Signal(T init, int width, bool sign_ext)
     {
         d_local = init;
         d = &d_local;
@@ -11,6 +11,7 @@ namespace dspsim
         prev_q = !init; // !init ?
 
         set_width(width);
+        set_sign_extend(sign_ext);
     }
 
     template <typename T>
@@ -98,7 +99,7 @@ namespace dspsim
     // }
 
     template <typename T>
-    Dff<T>::Dff(Signal<uint8_t> &clk, T initial, int width) : Signal<T>(initial, width), clk(clk)
+    Dff<T>::Dff(Signal<uint8_t> &clk, T initial, int width, bool sign_ext) : Signal<T>(initial, width, sign_ext), clk(clk)
     {
     }
 
@@ -138,30 +139,19 @@ namespace dspsim
         return *this;
     }
 
-    template <typename T>
-    std::shared_ptr<Dff<T>> Dff<T>::create(Signal<uint8_t> &clk, T initial, int width)
-    {
-        // // return create<Dff<T>>(clk, initial);
-        // auto dff = std::make_shared<Dff<T>>(clk, initial);
-        // dff->context()->own_model(dff);
-        // return dff;
-        // return Context::create_and_register<Dff<T>>(clk, initial);
-        return Model::create<Dff<T>>(clk, initial, width);
-    }
-
     // Explicit template instantiation
-    template class Signal<int8_t>;
-    template class Signal<int16_t>;
-    template class Signal<int32_t>;
-    template class Signal<int64_t>;
+    // template class Signal<int8_t>;
+    // template class Signal<int16_t>;
+    // template class Signal<int32_t>;
+    // template class Signal<int64_t>;
     template class Signal<uint8_t>;
     template class Signal<uint16_t>;
     template class Signal<uint32_t>;
     template class Signal<uint64_t>;
-    template class Dff<int8_t>;
-    template class Dff<int16_t>;
-    template class Dff<int32_t>;
-    template class Dff<int64_t>;
+    // template class Dff<int8_t>;
+    // template class Dff<int16_t>;
+    // template class Dff<int32_t>;
+    // template class Dff<int64_t>;
     template class Dff<uint8_t>;
     template class Dff<uint16_t>;
     template class Dff<uint32_t>;

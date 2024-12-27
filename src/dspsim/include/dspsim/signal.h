@@ -3,6 +3,8 @@
 #include <array>
 #include <type_traits>
 #include <algorithm>
+#include <cmath>
+
 /*
 
 def sign_extend(value: int, width: int) -> int:
@@ -28,41 +30,82 @@ namespace dspsim
         static constexpr int value = sizeof(T) * 8;
     };
 
-    // template <typename T>
-    // int64_t sign_extend64(T value, int width)
-    // {
-    //     T sign_bit = 1 << (width - 1);
-    //     T mask0 = sign_bit - 1;
+    template <typename UT>
+    struct StdintSignedMap;
+    template <>
+    struct StdintSignedMap<uint8_t>
+    {
+        using type = int8_t;
+    };
+    template <>
+    struct StdintSignedMap<uint16_t>
+    {
+        using type = int16_t;
+    };
+    template <>
+    struct StdintSignedMap<uint32_t>
+    {
+        using type = int32_t;
+    };
+    template <>
+    struct StdintSignedMap<uint64_t>
+    {
+        using type = int64_t;
+    };
 
-    //     return (value & mask0) - (value & sign_bit);
-    // }
-
-    // template <typename T, typename IIter, typename OIter>
-    // void sign_extend(int width, IIter ibegin, IIter iend, OIter obegin)
-    // {
-    //     const T sign_bit = 1 << (width - 1);
-    //     const T mask0 = sign_bit - 1;
-
-    //     std::transform(ibegin, iend, obegin, [&sign_bit, &mask0](const T &x)
-    //                    { return (x & mask0) - (x & sign_bit); });
-    // }
     template <typename T>
     inline T _sign_extend(T value, T sign_bit, T sign_mask)
     {
         return (value & sign_mask) - (value & sign_bit);
+    }
+    template <typename T>
+    inline T sign_extend(T value, int width)
+    {
+        T sign_bit = 1 << (width - 1);
+        T sign_mask = sign_bit - 1;
+        return _sign_extend(value, sign_bit, sign_mask);
+    }
+
+    template <typename T>
+    inline std::vector<T> sign_extend(std::vector<T> &data, int width)
+    {
+        T sign_bit = 1 << (width - 1);
+        T sign_mask = sign_bit - 1;
+        std::vector<T> result;
+        result.reserve(data.size());
+
+        std::transform(data.begin(), data.end(), std::back_inserter(result), [&sign_bit, &sign_mask](const T &x)
+                       { return _sign_extend(x, sign_bit, sign_mask); });
+        return result;
+    }
+
+    template <typename T>
+    inline std::vector<double> sign_extendf(std::vector<T> &data, int width, int q)
+    {
+        T sign_bit = 1 << (width - 1);
+        T sign_mask = sign_bit - 1;
+        std::vector<T> result;
+        result.reserve(data.size());
+
+        const double sf = std::pow(2, q);
+
+        std::transform(data.begin(), data.end(), std::back_inserter(result), [&sf, &sign_bit, &sign_mask](const T &x)
+                       { return sf * static_cast<StdintSignedMap<T>::type>(_sign_extend(x, sign_bit, sign_mask)); });
+        return result;
     }
 
     template <typename T>
     class Signal : public Model
     {
     public:
-        Signal(T init = 0, int width = default_bitwidth<T>::value);
+        Signal(T init = 0, int width = default_bitwidth<T>::value, bool sign_ext = false);
 
         virtual void eval_step() {}
         virtual void eval_end_step();
 
         void set_width(int width);
         int get_width() const { return m_width; }
+        int width() const { return get_width(); }
 
         void set_sign_extend(bool extend) { m_extend = extend; }
         bool get_sign_extend() { return m_extend; }
@@ -92,24 +135,14 @@ namespace dspsim
         //
         void _force(T value);
 
-        void _bind(T &other)
+        void _bind(T *other)
         {
-            d = static_cast<T *>(&other);
+            d = other;
         }
 
-        // // // Python is 64 bit so it tends to write with ints.
-        // // void write64(int64_t value) { write(value); }
-        // // int64_t read64() const { return sign_extend64(read(), default_bitwidth<T>::value); }
-
-        // template <typename PT>
-        // void pywrite(PT value) { write(static_cast<T>(value)); }
-
-        // template <typename PT>
-        // PT pyread() const { return static_cast<PT>(read()); }
-
-        static std::shared_ptr<Signal<T>> create(T init = 0, int width = default_bitwidth<T>::value)
+        static std::shared_ptr<Signal<T>> create(T init = 0, int width = default_bitwidth<T>::value, bool sign_ext = false)
         {
-            return Model::create<Signal<T>>(init, width);
+            return Model::create<Signal<T>>(init, width, sign_ext);
         }
 
     protected:
@@ -137,7 +170,7 @@ namespace dspsim
         bool update = false;
 
     public:
-        Dff(Signal<uint8_t> &clk, T initial = 0, int width = default_bitwidth<T>::value);
+        Dff(Signal<uint8_t> &clk, T initial = 0, int width = default_bitwidth<T>::value, bool sign_ext = false);
 
         virtual void eval_step();
         virtual void eval_end_step();
@@ -149,6 +182,9 @@ namespace dspsim
         Signal<T> &operator=(const T &other);
         Signal<T> &operator=(const Signal<T> &other);
 
-        static std::shared_ptr<Dff<T>> create(Signal<uint8_t> &clk, T initial = 0, int width = default_bitwidth<T>::value);
+        static std::shared_ptr<Dff<T>> create(Signal<uint8_t> &clk, T initial = 0, int width = default_bitwidth<T>::value, bool sign_ext = false)
+        {
+            return Model::create<Dff<T>>(clk, initial, width, sign_ext);
+        }
     };
 } // namespace dspsim

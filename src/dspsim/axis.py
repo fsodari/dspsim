@@ -1,9 +1,10 @@
-from dspsim.framework import Model, SignalU8, SignalT, signal, port_info
+from dspsim.framework import Model, Signal8, SignalT, signal, port_info
 
 from dspsim._framework import AxisTx8, AxisTx16, AxisTx32, AxisTx64
-from dspsim._framework import AxisTxU8, AxisTxU16, AxisTxU32, AxisTxU64
+
+# from dspsim._framework import AxisTxU8, AxisTxU16, AxisTxU32, AxisTxU64
 from dspsim._framework import AxisRx8, AxisRx16, AxisRx32, AxisRx64
-from dspsim._framework import AxisRxU8, AxisRxU16, AxisRxU32, AxisRxU64
+# from dspsim._framework import AxisRxU8, AxisRxU16, AxisRxU32, AxisRxU64
 
 import numpy as _np
 from numpy.typing import ArrayLike as _ArrayLike
@@ -17,12 +18,13 @@ TIDW = 8
 
 class Axis:
     tdata: SignalT
-    tvalid: SignalU8
-    tready: SignalU8
-    tid: SignalU8 = None
-    tlast: SignalU8 = None
+    tvalid: Signal8
+    tready: Signal8
+    tid: Signal8 = None
+    tlast: Signal8 = None
 
     _width: int
+    _signed: bool
 
     def __init__(
         self,
@@ -33,6 +35,8 @@ class Axis:
         tlast: bool = False,
     ):
         self._width = width
+        self._signed = signed
+
         self.tdata = signal(width=width, signed=signed)
         self.tvalid = signal()
         self.tready = signal()
@@ -56,14 +60,18 @@ class Axis:
     def width(self):
         return self._width
 
+    @property
+    def signed(self) -> bool:
+        return self._signed
+
 
 import itertools
 
 
 def init_stream_model[ModelT](
     cls: type[ModelT],
-    clk: SignalU8,
-    rst: SignalU8,
+    clk: Signal8,
+    rst: Signal8,
     s_axis: Axis,
     m_axis: Axis,
     **extra,
@@ -105,42 +113,36 @@ def init_stream_model[ModelT](
 
 
 AxisTxT = (
-    AxisTx8
-    | AxisTx16
-    | AxisTx32
-    | AxisTx64
-    | AxisTxU8
-    | AxisTxU16
-    | AxisTxU32
-    | AxisTxU64
+    AxisTx8 | AxisTx16 | AxisTx32 | AxisTx64
+    # | AxisTxU8
+    # | AxisTxU16
+    # | AxisTxU32
+    # | AxisTxU64
 )
 AxisRxT = (
-    AxisRx8
-    | AxisRx16
-    | AxisRx32
-    | AxisRx64
-    | AxisRxU8
-    | AxisRxU16
-    | AxisRxU32
-    | AxisRxU64
+    AxisRx8 | AxisRx16 | AxisRx32 | AxisRx64
+    # | AxisRxU8
+    # | AxisRxU16
+    # | AxisRxU32
+    # | AxisRxU64
 )
 
 
 def AxisTx(
-    clk: SignalU8,
-    rst: SignalU8,
+    clk: Signal8,
+    rst: Signal8,
     m_axis: Axis,
     tid_pattern: list[int] = [0],
     *,
     width: int = 32,
-    signed: bool = False,
 ) -> AxisTxT:
     """"""
-
-    _models = {8: AxisTx8, 16: AxisTx16, 32: AxisTx32, 64: AxisTx64}
-    _umodels = {8: AxisTxU8, 16: AxisTxU16, 32: AxisTxU32, 64: AxisTxU64}
     uw = util.uint_width(width)
-    cls = _models[uw] if signed else _umodels[uw]
+    _models = {8: AxisTx8, 16: AxisTx16, 32: AxisTx32, 64: AxisTx64}
+    cls = _models[uw]
+    # _umodels = {8: AxisTxU8, 16: AxisTxU16, 32: AxisTxU32, 64: AxisTxU64}
+    # cls = _models[uw] if signed else _umodels[uw]
+
     return cls(
         clk=clk,
         rst=rst,
@@ -154,19 +156,18 @@ def AxisTx(
 
 
 def AxisRx(
-    clk: SignalU8,
-    rst: SignalU8,
+    clk: Signal8,
+    rst: Signal8,
     s_axis: Axis,
     *,
     width: int = 32,
-    signed: bool = False,
 ) -> AxisRxT:
     """"""
-    _models = {8: AxisRx8, 16: AxisRx16, 32: AxisRx32, 64: AxisRx64}
-    _umodels = {8: AxisRxU8, 16: AxisRxU16, 32: AxisRxU32, 64: AxisRxU64}
     uw = util.uint_width(width)
-
-    cls = _models[uw] if signed else _umodels[uw]
+    _models = {8: AxisRx8, 16: AxisRx16, 32: AxisRx32, 64: AxisRx64}
+    cls: type[AxisRxT] = _models[uw]
+    # _umodels = {8: AxisRxU8, 16: AxisRxU16, 32: AxisRxU32, 64: AxisRxU64}
+    # cls = _models[uw] if signed else _umodels[uw]
     obj = cls(
         clk, rst, s_axis.tdata, s_axis.tvalid, s_axis.tready, s_axis.tid, s_axis.tlast
     )

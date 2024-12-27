@@ -1,6 +1,6 @@
 from dspsim.framework import Context, Clock, dff
-from dspsim.axis import Axis, AxisTx, AxisRx
-from dspsim.wishbone import Wishbone, WishboneM32, WishboneMU32
+from dspsim.axis import Axis, AxisTx32, AxisRx32
+from dspsim.wishbone import Wishbone, WishboneM32
 from dspsim.library import Mixer
 
 import numpy as np
@@ -21,17 +21,15 @@ def test_mixer_basic():
         clk = Clock(10e-9)
         rst = dff(clk, 1)
 
-        b0 = Axis(width=Mixer.DW, tid=True, tlast=True)
-        b1 = Axis(width=Mixer.DW, tid=True, tlast=True)
-        wb0 = Wishbone()
+        b0 = Axis(width=Mixer.DW, signed=True, tid=True, tlast=True)
+        b1 = Axis(width=Mixer.DW, signed=True, tid=True, tlast=True)
+        wb0 = Wishbone(signed=True)
 
         mixer = Mixer(clk, rst, *b0, *b1, *wb0)
 
-        DATAQ = 20
-
-        axis_tx = AxisTx(clk, rst, b0, tid_pattern=range(Mixer.N), width=Mixer.DW)
-        axis_rx = AxisRx(clk, rst, b1, width=Mixer.DW)
-        wbm = WishboneMU32(clk, rst, *wb0)
+        axis_tx = AxisTx32(clk, rst, *b0, tid_pattern=range(Mixer.N))
+        axis_rx = AxisRx32(clk, rst, *b1)
+        wbm = WishboneM32(clk, rst, *wb0)
 
         mixer.trace(trace_dir / "mixer.vcd")
 
@@ -44,9 +42,8 @@ def test_mixer_basic():
 
         # Random coefficient matrix
         coefs = rgen.uniform(-0.5, 0.5, size=(Mixer.M, Mixer.N))
-        _coefs = (coefs * 2**Mixer.COEFQ).flatten()
         # Write coefs
-        wbm.write(0, _coefs.astype(np.uint32))
+        wbm.write(0, coefs.flatten(), q=Mixer.COEFQ)
 
         axis_rx.tready = True
 
@@ -55,13 +52,19 @@ def test_mixer_basic():
         tx_data = rgen.uniform(-1.0, 1.0, size=(NT, Mixer.N))
 
         # Queue up all of the tx data.
+        DATAQ = 20
         for x in tx_data:
             axis_tx.write_command(x, q=DATAQ)
 
+        # Read it out all operations and compare results.
         for x in tx_data:
-            rx_data = np.array(axis_rx.read(n=Mixer.M)).astype(np.int32) * 2**-DATAQ
+            rx_data = axis_rx.read(n=Mixer.M, q=DATAQ)
             # Compare the rx data to the expected result.
             y = coefs @ x
+            # print(f"A: {coefs}")
+            # print(f"x: {x}")
+            # print(f"rx: {rx_data}")
+            # print(f"y: {y}")
 
             assert np.all(np.isclose(rx_data, y, atol=0.0001))
 

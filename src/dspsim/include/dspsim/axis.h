@@ -46,13 +46,13 @@ namespace dspsim
 
         void write_command(T data);
         void write_command(std::vector<T> &data);
-        void writef_command(double data, int q = 0);
-        void writef_command(std::vector<double> &data, int q = 0);
+        void writef_command(double data, int q);
+        void writef_command(std::vector<double> &data, int q);
 
         void write_block(T data, int timeout = -1);
         void write_block(std::vector<T> &data, int timeout = -1);
-        void writef_block(double data, int q = 0, int timeout = -1);
-        void writef_block(std::vector<double> &data, int q = 0, int timeout = -1);
+        void writef_block(double data, int q, int timeout = -1);
+        void writef_block(std::vector<double> &data, int q, int timeout = -1);
 
         int block_wait(int timeout = -1) const;
 
@@ -111,13 +111,19 @@ namespace dspsim
         uint8_t get_tready() const { return s_axis_tready; }
         void eval_step();
 
-        std::vector<T> read_rx_buf(int clear = -1);
-        std::vector<uint8_t> read_tid(int clear = -1);
+        void clear(int amount = -1);
+        std::vector<T> read_rx_buf(int amount = -1);
+        std::vector<double> readf_rx_buf(int q, int amount = -1);
+
+        std::vector<uint8_t> read_tid(int amount = -1);
 
         int block_wait(int n, int timeout = -1);
 
         T read_block(int timeout = -1);
         std::vector<T> read_block(int n, int timeout = -1);
+
+        double readf_block(int q, int timeout = -1);
+        std::vector<double> readf_block(int n, int q, int timeout = -1);
 
         static std::shared_ptr<AxisRx<T>> create(
             Signal<uint8_t> &clk,
