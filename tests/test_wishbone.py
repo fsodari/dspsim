@@ -33,16 +33,17 @@ def test_wishbone_regs():
     context.run(100)
 
     # Send tx data as dict.
-    tx_data = {i: i for i in range(WbRegs32.N_CTL)}
+    tx_data = list(range(WbRegs32.N_CTL))
     # Blocking write.
-    wbm.write(tx_data)
+    wbm.write(0, tx_data)
+
     # Blocking read.
-    rx_data = wbm.read(list(tx_data.keys()))
-    assert np.all(rx_data == list(tx_data.values()))
+    rx_data = wbm.read(list(range(WbRegs32.N_CTL)))
+    assert np.all(rx_data == tx_data)
 
     # Check that the registers match.
     ctl_vals = [s.q for s in ctl_regs]
-    assert np.all(ctl_vals == list(tx_data.values()))
+    assert np.all(ctl_vals == tx_data)
 
     # __getitem__, __setitem__ interfaace. blocking.
     wbm[12] = 42

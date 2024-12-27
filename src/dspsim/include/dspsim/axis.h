@@ -46,15 +46,15 @@ namespace dspsim
 
         void write_command(T data);
         void write_command(std::vector<T> &data);
-        void writef_command(double data, int q = 0);
-        void writef_command(std::vector<double> &data, int q = 0);
+        void writef_command(double data, int q);
+        void writef_command(std::vector<double> &data, int q);
 
-        void write_block(T data, int timeout = 1000);
-        void write_block(std::vector<T> &data, int timeout = 10000);
-        void writef_block(double data, int q = 0, int timeout = 1000);
-        void writef_block(std::vector<double> &data, int q = 0, int timeout = 10000);
+        void write_block(T data, int timeout = -1);
+        void write_block(std::vector<T> &data, int timeout = -1);
+        void writef_block(double data, int q, int timeout = -1);
+        void writef_block(std::vector<double> &data, int q, int timeout = -1);
 
-        int block_wait(int timeout = 1000) const;
+        int block_wait(int timeout = -1) const;
 
         // void write_frame_command(T data);
         // void write_frame_command(std::vector<T> &data);
@@ -93,6 +93,7 @@ namespace dspsim
         Signal<uint8_t> &s_axis_tvalid;
         Signal<uint8_t> &s_axis_tready;
         Signal<uint8_t> *s_axis_tid = nullptr;
+        Signal<uint8_t> *s_axis_tlast = nullptr;
 
     public:
         AxisRx(Signal<uint8_t> &clk,
@@ -100,17 +101,29 @@ namespace dspsim
                Signal<T> &s_axis_tdata,
                Signal<uint8_t> &s_axis_tvalid,
                Signal<uint8_t> &s_axis_tready,
-               Signal<uint8_t> *s_axis_tid = nullptr);
+               Signal<uint8_t> *s_axis_tid = nullptr,
+               Signal<uint8_t> *s_axis_tlast = nullptr);
+
+        void set_width(int width) { m_width = width; }
+        int get_width() const { return m_width; }
 
         void set_tready(uint8_t value) { _next_tready = value; }
         uint8_t get_tready() const { return s_axis_tready; }
         void eval_step();
 
-        std::vector<T> read_rx_buf(bool clear = true);
-        std::vector<uint8_t> read_tid(bool clear = true);
+        void clear(int amount = -1);
+        std::vector<T> read_rx_buf(int amount = -1);
+        std::vector<double> readf_rx_buf(int q, int amount = -1);
 
-        T read_block(int timeout = 1000);
-        std::vector<T> read_block(int n, int timeout = 10000);
+        std::vector<uint8_t> read_tid(int amount = -1);
+
+        int block_wait(int n, int timeout = -1);
+
+        T read_block(int timeout = -1);
+        std::vector<T> read_block(int n, int timeout = -1);
+
+        double readf_block(int q, int timeout = -1);
+        std::vector<double> readf_block(int n, int q, int timeout = -1);
 
         static std::shared_ptr<AxisRx<T>> create(
             Signal<uint8_t> &clk,
@@ -118,11 +131,13 @@ namespace dspsim
             Signal<T> &s_axis_tdata,
             Signal<uint8_t> &s_axis_tvalid,
             Signal<uint8_t> &s_axis_tready,
-            Signal<uint8_t> *s_axis_tid = nullptr);
+            Signal<uint8_t> *s_axis_tid = nullptr,
+            Signal<uint8_t> *s_axis_tlast = nullptr);
 
     protected:
         std::deque<T> rx_buf;
         std::deque<uint8_t> tid_buf;
         uint8_t _next_tready = 0;
+        int m_width = default_bitwidth<T>::value;
     };
 } // namespace dspsim

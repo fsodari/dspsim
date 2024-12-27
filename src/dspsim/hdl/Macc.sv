@@ -8,14 +8,10 @@ module Macc #(
 
     // Input A stream input. when tlast goes high, the accumulator is read out and reset.
     input  logic signed [ADW-1:0] s_axis_atdata,
-    input  logic s_axis_atvalid,
-    output logic s_axis_atready,
-    input  logic s_axis_atlast,
-
-    // Input B.
     input  logic signed [BDW-1:0] s_axis_btdata,
-    input  logic s_axis_btvalid,
-    output logic s_axis_btready,
+    input  logic s_axis_tvalid,
+    output logic s_axis_tready,
+    input  logic s_axis_tlast,
 
     // Output of the accumulator after a complete frame is received.
     output logic signed [ODW-1:0] m_axis_tdata,
@@ -28,20 +24,15 @@ logic signed [ADW-1:0] skid_atdata;
 logic signed [BDW-1:0] skid_btdata;
 logic skid_tvalid, skid_tready, skid_tlast;
 
-combine2 #(
-    .ADW(ADW+1),
-    .BDW(BDW)
-) combine_inputs_i (
+Skid #(
+    .DW(ADW + BDW + 1)
+) skid_i (
     .clk,
     .rst,
-    .s_axis_atdata({s_axis_atdata, s_axis_atlast}),
-    .s_axis_atvalid,
-    .s_axis_atready,
-    .s_axis_btdata,
-    .s_axis_btvalid,
-    .s_axis_btready,
-    .m_axis_atdata({skid_atdata, skid_tlast}),
-    .m_axis_btdata(skid_btdata),
+    .s_axis_tdata({s_axis_atdata, s_axis_btdata, s_axis_tlast}),
+    .s_axis_tvalid,
+    .s_axis_tready,
+    .m_axis_tdata({skid_atdata, skid_btdata, skid_tlast}),
     .m_axis_tvalid(skid_tvalid),
     .m_axis_tready(skid_tready)
 );

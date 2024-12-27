@@ -91,15 +91,20 @@ namespace dspsim
      static inline auto bind_signal(nb::handle &scope, const char *name)
      {
           return nb::class_<Signal<T>>(scope, name)
-              .def(nb::new_([](int initial)
-                            { return Signal<T>::create(initial); }),
-                   nb::arg("initial") = 0)
+              .def(nb::new_(&Signal<T>::create),
+                   nb::arg("initial") = 0,
+                   nb::arg("width") = default_bitwidth<T>::value,
+                   nb::arg("signed") = false)
+              //     .def(nb::new_([](int initial)
+              //                   { return Signal<T>::create(initial); }),
+              //          nb::arg("initial") = 0)
+              .def_prop_rw("width", &Signal<T>::get_width, &Signal<T>::set_width)
+              .def_prop_rw("sign_extend", &Signal<T>::get_sign_extend, &Signal<T>::set_sign_extend, nb::arg("extend"))
               .def("posedge", &Signal<T>::posedge)
               .def("negedge", &Signal<T>::negedge)
               .def("changed", &Signal<T>::changed)
               .def_prop_rw(
-                  "d", &Signal<T>::_read_d, [](Signal<T> &s, int value)
-                  { s.write(value); }, nb::arg("value"))
+                  "d", &Signal<T>::_read_d, &Signal<T>::write, nb::arg("value"))
               .def_prop_ro("q", &Signal<T>::read);
      }
 
@@ -109,7 +114,9 @@ namespace dspsim
           return nb::class_<Dff<T>, Signal<T>>(scope, name)
               .def(nb::new_(&Dff<T>::create),
                    nb::arg("clk"),
-                   nb::arg("initial") = 0);
+                   nb::arg("initial") = 0,
+                   nb::arg("width") = default_bitwidth<T>::value,
+                   nb::arg("signed") = false);
      }
 
      // Bind Clock.
@@ -144,14 +151,15 @@ namespace dspsim
               .def("write_command", nb::overload_cast<std::vector<double> &, int>(&AxisTx<T>::writef_command),
                    nb::arg("data"), nb::arg("q") = 0)
               .def("write", nb::overload_cast<T, int>(&AxisTx<T>::write_block),
-                   nb::arg("data"), nb::arg("timeout") = 1000)
+                   nb::arg("data"), nb::arg("timeout") = -1)
               .def("write", nb::overload_cast<std::vector<T> &, int>(&AxisTx<T>::write_block),
-                   nb::arg("data"), nb::arg("timeout") = 1000)
+                   nb::arg("data"), nb::arg("timeout") = -1)
               .def("write", nb::overload_cast<double, int, int>(&AxisTx<T>::writef_block),
-                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = 1000)
+                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = -1)
               .def("write", nb::overload_cast<std::vector<double> &, int, int>(&AxisTx<T>::writef_block),
-                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = 1000);
+                   nb::arg("data"), nb::arg("q") = 0, nb::arg("timeout") = -1);
      }
+
      template <typename T>
      static inline auto bind_axis_rx(nb::handle &scope, const char *name)
      {
@@ -162,14 +170,18 @@ namespace dspsim
                    nb::arg("s_axis_tdata"),
                    nb::arg("s_axis_tvalid"),
                    nb::arg("s_axis_tready"),
-                   nb::arg("s_axis_tid") = nb::none())
+                   nb::arg("s_axis_tid") = nb::none(),
+                   nb::arg("s_axis_tlast") = nb::none())
+              .def_prop_rw("width", &AxisRx<T>::get_width, &AxisRx<T>::set_width, nb::arg("width") = default_bitwidth<T>::value)
               .def_prop_rw("tready", &AxisRx<T>::get_tready, &AxisRx<T>::set_tready, nb::arg("value"))
-              .def("read_rx_buf", &AxisRx<T>::read_rx_buf, nb::arg("clear") = true)
-              .def("read_tid", &AxisRx<T>::read_tid, nb::arg("clear") = true)
+              .def("read_rx_buf", &AxisRx<T>::read_rx_buf, nb::arg("clear") = -1)
+              .def("read_tid", &AxisRx<T>::read_tid, nb::arg("clear") = -1)
               .def("read", nb::overload_cast<int>(&AxisRx<T>::read_block),
-                   nb::arg("timeout") = 1000)
+                   nb::arg("timeout") = -1)
               .def("read", nb::overload_cast<int, int>(&AxisRx<T>::read_block),
-                   nb::arg("n"), nb::arg("timeout") = 10000);
+                   nb::arg("n"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<int, int, int>(&AxisRx<T>::readf_block),
+                   nb::arg("n"), nb::arg("q"), nb::arg("timeout") = -1);
      }
 
      template <typename AT, typename DT>
@@ -194,36 +206,59 @@ namespace dspsim
               // Read commands.
               .def("read_command", nb::overload_cast<AT, size_t>(&WBM::read_command),
                    nb::arg("start_address"), nb::arg("n") = 1)
-              .def("read_command", nb::overload_cast<std::list<AT> &>(&WBM::read_command),
+              .def("read_command", nb::overload_cast<std::vector<AT> &>(&WBM::read_command),
                    nb::arg("addresses"))
+
               // Rx data
               .def_prop_ro("rx_size", &WBM::rx_size)
-              .def("rx_data", &WBM::rx_data, nb::arg("clear") = true)
+              .def("rx_data", &WBM::rx_data, nb::arg("amount") = -1)
+              .def("rx_data", &WBM::rx_dataf, nb::arg("q"), nb::arg("amount") = -1)
+
               // Blocking reads.
               .def("read", nb::overload_cast<AT, int>(&WBM::read_block),
-                   nb::arg("address"), nb::arg("timeout") = 1000)
-              .def("read", nb::overload_cast<std::list<AT> &, int>(&WBM::read_block),
-                   nb::arg("addresses"), nb::arg("timeout") = 10000)
+                   nb::arg("address"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<std::vector<AT> &, int>(&WBM::read_block),
+                   nb::arg("addresses"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<AT, int, int>(&WBM::readf_block),
+                   nb::arg("address"), nb::arg("q"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<std::vector<AT> &, int, int>(&WBM::readf_block),
+                   nb::arg("addresses"), nb::arg("q"), nb::arg("timeout") = -1)
+
               // Write commands.
-              .def("write_command", nb::overload_cast<int, int64_t>(&WBM::write_command),
+              .def("write_command", nb::overload_cast<AT, DT>(&WBM::write_command),
                    nb::arg("address"), nb::arg("data"))
-              .def("write_command", nb::overload_cast<int, std::list<int64_t> &>(&WBM::write_command),
+              .def("write_command", nb::overload_cast<AT, std::vector<DT> &>(&WBM::write_command),
                    nb::arg("start_address"), nb::arg("data"))
-              .def("write_command", nb::overload_cast<std::map<int, int64_t> &>(&WBM::write_command),
+              .def("write_command", nb::overload_cast<std::map<AT, DT> &>(&WBM::write_command),
                    nb::arg("data"))
+
+              .def("write_command", nb::overload_cast<AT, double, int>(&WBM::writef_command),
+                   nb::arg("address"), nb::arg("data"), nb::arg("q"))
+              .def("write_command", nb::overload_cast<AT, std::vector<double> &, int>(&WBM::writef_command),
+                   nb::arg("start_address"), nb::arg("data"), nb::arg("q"))
+              .def("write_command", nb::overload_cast<std::map<AT, double> &, int>(&WBM::writef_command),
+                   nb::arg("data"), nb::arg("q"))
+
               // Blocking writes.
-              .def("write", nb::overload_cast<int, int64_t, int>(&WBM::write_block),
-                   nb::arg("address"), nb::arg("data"), nb::arg("timeout") = 1000)
-              .def("write", nb::overload_cast<int, std::list<int64_t> &, int>(&WBM::write_block),
-                   nb::arg("start_address"), nb::arg("data"), nb::arg("timeout") = 10000)
-              .def("write", nb::overload_cast<std::map<int, int64_t> &, int>(&WBM::write_block),
-                   nb::arg("data"), nb::arg("timeout") = 10000)
+              .def("write", nb::overload_cast<AT, DT, int>(&WBM::write_block),
+                   nb::arg("address"), nb::arg("data"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<AT, std::vector<DT> &, int>(&WBM::write_block),
+                   nb::arg("start_address"), nb::arg("data"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<std::map<AT, DT> &, int>(&WBM::write_block),
+                   nb::arg("data"), nb::arg("timeout") = -1)
+
+              .def("write", nb::overload_cast<AT, double, int, int>(&WBM::writef_block),
+                   nb::arg("address"), nb::arg("data"), nb::arg("q"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<AT, std::vector<double> &, int, int>(&WBM::writef_block),
+                   nb::arg("start_address"), nb::arg("data"), nb::arg("q"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<std::map<AT, double> &, int, int>(&WBM::writef_block),
+                   nb::arg("data"), nb::arg("q"), nb::arg("timeout") = -1)
               //     .def("write", [](WBM &wbm, std::map<int, int> d, int timeout)
               //          { wbm.write_block(d, timeout); }, nb::arg("data"), nb::arg("timeout") = 10000)
               // getitem, setitem accessors.
-              .def("__getitem__", [](WBM &wbm, int address)
-                   { return wbm.read_block(address, 1000); }, nb::arg("address"))
-              .def("__setitem__", [](WBM &wbm, int address, int64_t data)
-                   { wbm.write_block(address, data, 1000); }, nb::arg("address"), nb::arg("data"));
+              .def("__getitem__", [](WBM &wbm, AT address)
+                   { return wbm.read_block(address, -1); }, nb::arg("address"))
+              .def("__setitem__", [](WBM &wbm, AT address, DT data)
+                   { wbm.write_block(address, data, -1); }, nb::arg("address"), nb::arg("data"));
      }
 } // namespace dspsim

@@ -1,5 +1,7 @@
 from dspsim._framework import WishboneM8, WishboneM16, WishboneM32, WishboneM64
-from dspsim._framework import Signal8, Signal16, Signal32, Signal64
+
+# from dspsim._framework import WishboneMU8, WishboneMU16, WishboneMU32, WishboneMU64
+from dspsim._framework import Signal8
 
 from dspsim.framework import SignalT, signal
 
@@ -16,6 +18,7 @@ class Wishbone:
 
     _address_width: int
     _data_width: int
+    _signed: bool
 
     @property
     def data_width(self) -> int:
@@ -25,9 +28,16 @@ class Wishbone:
     def address_width(self) -> int:
         return self._address_width
 
-    def __init__(self, address_width: int = 32, data_width: int = 32):
+    @property
+    def signed(self) -> bool:
+        return self._signed
+
+    def __init__(
+        self, address_width: int = 32, data_width: int = 32, signed: bool = False
+    ):
         self._address_width = address_width
         self._data_width = data_width
+        self._signed = signed
 
         self.cyc = Signal8()
         self.stb = Signal8()
@@ -35,8 +45,8 @@ class Wishbone:
         self.ack = Signal8()
         self.stall = Signal8()
         self.addr = signal(width=address_width)
-        self.data_o = signal(width=data_width)
-        self.data_i = signal(width=data_width)
+        self.data_o = signal(width=data_width, signed=signed)
+        self.data_i = signal(width=data_width, signed=signed)
 
     def __str__(self):
         return f"Wishbone(address_width={self.address_width}, data_width={self.data_width})"

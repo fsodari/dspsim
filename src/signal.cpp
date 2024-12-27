@@ -3,12 +3,34 @@
 namespace dspsim
 {
     template <typename T>
-    Signal<T>::Signal(T init)
+    Signal<T>::Signal(T init, int width, bool sign_ext)
     {
         d_local = init;
         d = &d_local;
         q = init;
         prev_q = !init; // !init ?
+
+        set_width(width);
+        set_sign_extend(sign_ext);
+    }
+
+    template <typename T>
+    void Signal<T>::set_width(int width)
+    {
+        m_width = width;
+        if (m_width == default_bitwidth<T>::value)
+        {
+            // m_bitmask = static_cast<StdintSignedMap<T>::type>(-1);
+            m_bitmask = -1;
+            m_sign_bit = 0;
+            m_sign_mask = m_bitmask;
+        }
+        else
+        {
+            m_bitmask = ((T)1 << width) - 1;
+            m_sign_bit = (T)1 << (width - 1);
+            m_sign_mask = m_sign_bit - 1;
+        }
     }
 
     template <typename T>
@@ -41,13 +63,22 @@ namespace dspsim
     template <typename T>
     void Signal<T>::write(T value)
     {
-        *d = value;
+        // apply a bitmask when writing to the d pin.
+        // This way, verilator models will see the correct number of bits set.
+        *d = value & m_bitmask;
     }
 
     template <typename T>
     T Signal<T>::read() const
     {
-        return q;
+        if (m_extend)
+        {
+            return _sign_extend(q, m_sign_bit, m_sign_mask);
+        }
+        else
+        {
+            return q;
+        }
     }
     template <typename T>
     T Signal<T>::_read_d() const
@@ -62,20 +93,14 @@ namespace dspsim
         q = value;
     }
 
-    template <typename T>
-    void Signal<T>::_bind(T &other)
-    {
-        d = &other;
-    }
+    // template <typename T, typename BT>
+    // void Signal<T>::_bind(BT &other)
+    // {
+    //     d = &other;
+    // }
 
     template <typename T>
-    std::shared_ptr<Signal<T>> Signal<T>::create(T initial)
-    {
-        return Model::create<Signal<T>>(initial);
-    }
-
-    template <typename T>
-    Dff<T>::Dff(Signal<uint8_t> &clk, T initial) : Signal<T>(initial), clk(clk)
+    Dff<T>::Dff(Signal<uint8_t> &clk, T initial, int width, bool sign_ext) : Signal<T>(initial, width, sign_ext), clk(clk)
     {
     }
 
@@ -115,22 +140,19 @@ namespace dspsim
         return *this;
     }
 
-    template <typename T>
-    std::shared_ptr<Dff<T>> Dff<T>::create(Signal<uint8_t> &clk, T initial)
-    {
-        // // return create<Dff<T>>(clk, initial);
-        // auto dff = std::make_shared<Dff<T>>(clk, initial);
-        // dff->context()->own_model(dff);
-        // return dff;
-        // return Context::create_and_register<Dff<T>>(clk, initial);
-        return Model::create<Dff<T>>(clk, initial);
-    }
-
     // Explicit template instantiation
+    // template class Signal<int8_t>;
+    // template class Signal<int16_t>;
+    // template class Signal<int32_t>;
+    // template class Signal<int64_t>;
     template class Signal<uint8_t>;
     template class Signal<uint16_t>;
     template class Signal<uint32_t>;
     template class Signal<uint64_t>;
+    // template class Dff<int8_t>;
+    // template class Dff<int16_t>;
+    // template class Dff<int32_t>;
+    // template class Dff<int64_t>;
     template class Dff<uint8_t>;
     template class Dff<uint16_t>;
     template class Dff<uint32_t>;

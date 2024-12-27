@@ -1,4 +1,5 @@
 #include <dspsim/axis.h>
+#include <cmath>
 
 namespace dspsim
 {
@@ -43,6 +44,10 @@ namespace dspsim
             if (m_axis_tvalid && m_axis_tready)
             {
                 m_axis_tvalid = 0;
+                if (m_axis_tlast)
+                {
+                    *m_axis_tlast = 0;
+                }
             }
 
             if (rst)
@@ -52,17 +57,19 @@ namespace dspsim
             else if (!buf.empty() && (!m_axis_tvalid || m_axis_tready))
             {
                 m_axis_tdata = buf.front();
+                auto _tid = _next_tid();
                 if (m_axis_tid)
                 {
-                    *m_axis_tid = _next_tid();
+                    *m_axis_tid = _tid;
+                }
+
+                if (m_axis_tlast && (this->tid_it == this->tid_pattern.begin()))
+                {
+                    *m_axis_tlast = 1;
                 }
                 m_axis_tvalid = 1;
 
                 buf.pop_front();
-                if (m_axis_tlast)
-                {
-                    *m_axis_tlast = buf.empty();
-                }
             }
         }
     }
@@ -82,7 +89,7 @@ namespace dspsim
     template <typename T>
     void AxisTx<T>::writef_command(double data, int q)
     {
-        int64_t fixed = data * std::pow(2, q);
+        T fixed = data * std::pow(2, q);
         write_command(fixed);
     }
 
@@ -98,16 +105,16 @@ namespace dspsim
     template <typename T>
     int AxisTx<T>::block_wait(int timeout) const
     {
-        for (int i = 0; i < timeout; i++)
+        for (int i = timeout; i != 0; --i)
         {
             context()->run(1);
             if (!busy())
             {
-                return 0;
+                return 1;
             }
         }
 
-        return 1; // timed out.
+        return 0; // timed out.
     }
 
     template <typename T>
@@ -191,13 +198,15 @@ namespace dspsim
         Signal<T> &s_axis_tdata,
         Signal<uint8_t> &s_axis_tvalid,
         Signal<uint8_t> &s_axis_tready,
-        Signal<uint8_t> *s_axis_tid)
+        Signal<uint8_t> *s_axis_tid,
+        Signal<uint8_t> *s_axis_tlast)
         : clk(clk),
           rst(rst),
           s_axis_tdata(s_axis_tdata),
           s_axis_tvalid(s_axis_tvalid),
           s_axis_tready(s_axis_tready),
-          s_axis_tid(s_axis_tid)
+          s_axis_tid(s_axis_tid),
+          s_axis_tlast(s_axis_tlast)
     {
     }
 
@@ -224,53 +233,103 @@ namespace dspsim
     }
 
     template <typename T>
-    std::vector<T> AxisRx<T>::read_rx_buf(bool clear)
+    void AxisRx<T>::clear(int amount)
     {
-        std::vector<T> result(rx_buf.begin(), rx_buf.end());
-        if (clear)
-        {
-            rx_buf.clear();
-        }
+        amount = (amount < 0 || amount > rx_buf.size()) ? rx_buf.size() : amount;
+        rx_buf.erase(rx_buf.begin(), rx_buf.begin() + amount);
+    }
+
+    template <typename T>
+    std::vector<T> AxisRx<T>::read_rx_buf(int amount)
+    {
+        amount = (amount < 0 || amount > rx_buf.size()) ? rx_buf.size() : amount;
+
+        std::vector<T> result(rx_buf.begin(), rx_buf.begin() + amount);
+        clear(amount);
+
         return result;
     }
 
     template <typename T>
-    std::vector<uint8_t> AxisRx<T>::read_tid(bool clear)
+    std::vector<double> AxisRx<T>::readf_rx_buf(int q, int amount)
     {
-        std::vector<uint8_t> result(tid_buf.begin(), tid_buf.end());
-        if (clear)
-        {
-            tid_buf.clear();
-        }
+        amount = (amount < 0 || amount > rx_buf.size()) ? rx_buf.size() : amount;
+        std::vector<double> result;
+        result.reserve(amount);
+
+        const double sf = std::pow(2, q);
+
+        std::transform(rx_buf.begin(), rx_buf.end(), std::back_inserter(result), [&sf](const T &x)
+                       { return static_cast<StdintSignedMap<T>::type>(x) / sf; });
+        clear(amount);
         return result;
+    }
+
+    template <typename T>
+    std::vector<uint8_t> AxisRx<T>::read_tid(int amount)
+    {
+        amount = amount < 0 ? tid_buf.size() : amount;
+
+        std::vector<uint8_t> result(tid_buf.begin(), tid_buf.begin() + amount);
+        tid_buf.erase(tid_buf.begin(), tid_buf.begin() + amount);
+        return result;
+    }
+
+    template <typename T>
+    int AxisRx<T>::block_wait(int n, int timeout)
+    {
+        for (int i = timeout; i != 0; --i)
+        {
+            context()->run(1);
+            if (rx_buf.size() >= n)
+            {
+                return 1;
+            }
+        }
+
+        return 0; // timed out
     }
 
     template <typename T>
     T AxisRx<T>::read_block(int timeout)
     {
-        for (int i = 0; i < timeout; i++)
+        if (block_wait(1, timeout))
         {
-            context()->run(1);
-            if (rx_buf.size() == 1)
-            {
-                break;
-            }
+            return read_rx_buf(1)[0];
         }
-        return read_rx_buf(true)[0];
+        else
+        {
+            // Exception?
+            return 0;
+        }
     }
 
     template <typename T>
     std::vector<T> AxisRx<T>::read_block(int n, int timeout)
     {
-        for (int i = 0; i < timeout; i++)
+        if (block_wait(n, timeout))
         {
-            context()->run(1);
-            if (rx_buf.size() == n)
-            {
-                break;
-            }
         }
-        return read_rx_buf(true);
+        return read_rx_buf(n);
+    }
+
+    template <typename T>
+    double AxisRx<T>::readf_block(int q, int timeout)
+    {
+        if (block_wait(1, timeout))
+        {
+            return readf_rx_buf(q, 1)[0];
+        }
+        return 0;
+    }
+
+    template <typename T>
+    std::vector<double> AxisRx<T>::readf_block(int n, int q, int timeout)
+    {
+        if (block_wait(n, timeout))
+        {
+        }
+        return readf_rx_buf(q, n);
     }
 
     template <typename T>
@@ -280,19 +339,24 @@ namespace dspsim
         Signal<T> &s_axis_tdata,
         Signal<uint8_t> &s_axis_tvalid,
         Signal<uint8_t> &s_axis_tready,
-        Signal<uint8_t> *s_axis_tid)
+        Signal<uint8_t> *s_axis_tid,
+        Signal<uint8_t> *s_axis_tlast)
     {
-        // auto axis_rx = std::make_shared<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
-        // axis_rx->context()->own_model(axis_rx);
-        // return axis_rx;
-        // return Context::create_and_register<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
-        return Model::create<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid);
+        return Model::create<AxisRx<T>>(clk, rst, s_axis_tdata, s_axis_tvalid, s_axis_tready, s_axis_tid, s_axis_tlast);
     }
 
+    // template class AxisTx<int8_t>;
+    // template class AxisTx<int16_t>;
+    // template class AxisTx<int32_t>;
+    // template class AxisTx<int64_t>;
     template class AxisTx<uint8_t>;
     template class AxisTx<uint16_t>;
     template class AxisTx<uint32_t>;
     template class AxisTx<uint64_t>;
+    // template class AxisRx<int8_t>;
+    // template class AxisRx<int16_t>;
+    // template class AxisRx<int32_t>;
+    // template class AxisRx<int64_t>;
     template class AxisRx<uint8_t>;
     template class AxisRx<uint16_t>;
     template class AxisRx<uint32_t>;

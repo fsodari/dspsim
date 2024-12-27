@@ -7,8 +7,6 @@ namespace dspsim
         m_period = period / context()->time_unit();
         m_half_period = m_period / 2;
 
-        std::cout << "Clock: " << m_half_period << std::endl;
-
         m_checkpoint = context()->time() + m_half_period - 1;
     }
 

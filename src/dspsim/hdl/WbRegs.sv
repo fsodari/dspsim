@@ -9,7 +9,8 @@ module WbRegs #(
     parameter N_CTL = 32,
     // status regs are after ctl regs
     parameter N_STS = 32,
-    parameter SIGN_EXTEND = 1
+    parameter SIGN_EXTEND = 1,
+    parameter string INIT_FILE = "" // Initialize control registers with memory file.
 ) (
     input  logic clk,
     /* verilator lint_off UNUSED */

@@ -1,6 +1,6 @@
 from dspsim.framework import Context, Clock, signal, dff
-from dspsim.axis import Axis, AxisTx, AxisRx
-from dspsim.library import macc_core, Macc
+from dspsim.axis import Axis, AxisTx, AxisRx64
+from dspsim.library import macc_core, Macc2
 from dspsim.util import to_fixed, to_float, sign_extendv
 
 import numpy as np
@@ -8,6 +8,8 @@ from pathlib import Path
 
 from matplotlib import pyplot as plt
 import seaborn as sns
+
+import pytest
 
 sns.set_theme()
 
@@ -20,15 +22,18 @@ def test_macc_basic():
         clk = Clock(10e-9)
         rst = dff(clk, 1)
 
-        adata = Axis(width=Macc.ADW, tlast=True)
-        bdata = Axis(width=Macc.BDW)
-        accum_data = Axis(width=Macc.ODW)
+        adata = Axis(width=Macc2.ADW, signed=True, tlast=True)
+        bdata = Axis(width=Macc2.BDW, signed=True, tlast=True)
+        accum_data = Axis(width=Macc2.ODW, signed=True)
 
-        macc = Macc(clk, rst, *adata, *bdata, *accum_data)
+        macc = Macc2(clk, rst, *adata, *bdata, *accum_data)
 
-        axis_a_tx = AxisTx(clk, rst, adata, width=Macc.ADW)
-        axis_b_tx = AxisTx(clk, rst, bdata, width=Macc.BDW)
-        axis_rx = AxisRx(clk, rst, accum_data, width=Macc.ODW)
+        FRAME_SIZE = 10
+        axis_a_tx = AxisTx(
+            clk, rst, adata, tid_pattern=range(FRAME_SIZE), width=Macc2.ADW
+        )
+        axis_b_tx = AxisTx(clk, rst, bdata, width=Macc2.BDW)
+        axis_rx = AxisRx64(clk, rst, *accum_data)
 
         macc.trace(trace_dir / "Macc.vcd")
 
@@ -44,22 +49,20 @@ def test_macc_basic():
         COEFQ = 16
         OUTPUTQ = DATAQ + COEFQ
 
-        # a_tx_data = np.linspace(0, 1, 10) * 2**DATAQ
-        a_tx_data = np.array(10 * [1.0]) * 2**DATAQ
-        b_tx_data = np.array(10 * [0.5]) * 2**COEFQ
+        a_tx_data = np.array(FRAME_SIZE * [1.0])
+        b_tx_data = np.array(FRAME_SIZE * [0.5])
 
         axis_rx.tready = True
 
-        axis_a_tx.write_command(a_tx_data)
-        axis_b_tx.write_command(b_tx_data)
+        axis_a_tx.write_command(a_tx_data, q=DATAQ)
+        axis_b_tx.write_command(b_tx_data, q=COEFQ)
 
-        rx_data = axis_rx.read(timeout=10000) >> OUTPUTQ
-        assert rx_data == 5
+        axis_a_tx.write_command(a_tx_data, q=DATAQ)
+        axis_b_tx.write_command(b_tx_data * 2, q=COEFQ)
 
-        axis_a_tx.write_command(a_tx_data)
-        axis_b_tx.write_command(b_tx_data * 2)
+        rx_data = axis_rx.read(n=2, q=OUTPUTQ)
 
-        rx_data = axis_rx.read(timeout=10000) >> OUTPUTQ
-        assert rx_data == 10
+        # assert rx_data == 10
+        assert np.all(rx_data == [5, 10])
 
         context.run(100)
