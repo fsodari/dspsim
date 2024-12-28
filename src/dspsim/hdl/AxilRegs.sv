@@ -3,10 +3,10 @@ module AxilRegs #(
     parameter CFGDW = 32,
     parameter REGW = 32,
     parameter N_CTL = 32,
-    parameter N_STS = 32,
-    parameter SIGN_EXTEND = 1,
+    parameter N_STS = 32
+    // parameter SIGN_EXTEND = 1,
     // parameter string INIT_FILE = "",
-    localparam STBW = CFGAW >> 2
+    // localparam STBW = CFGAW >> 2
 ) (
     input  logic clk,
     input  logic rst,
@@ -45,29 +45,50 @@ module AxilRegs #(
 );
 
 // Combine/sync write address and write data streams.
-logic [CFGAW-1:0] waddr;
+logic [CFGAW-1:0] awaddr;
 logic [CFGDW-1:0] wdata;
-logic wvalid, wready;
+logic awvalid, wvalid, wready;
 
-combine2 #(.ADW(CFGAW), .BDW(CFGDW)) combine_write_i (
+// combine2 #(.ADW(CFGAW), .BDW(CFGDW)) combine_write_i (
+//     .clk,
+//     .rst,
+
+//     .s_axis_atdata(s_axil_awaddr),
+//     .s_axis_atvalid(s_axil_awvalid),
+//     .s_axis_atready(s_axil_awready),
+
+//     .s_axis_btdata(s_axil_wdata),
+//     .s_axis_btvalid(s_axil_wvalid),
+//     .s_axis_btready(s_axil_wready),
+
+//     .m_axis_atdata(waddr),
+//     .m_axis_btdata(wdata),
+//     .m_axis_tvalid(wvalid),
+//     .m_axis_tready(wready)
+// );
+Skid #(.DW(CFGAW)) write_addr_i (
     .clk,
     .rst,
-
-    .s_axis_atdata(s_axil_awaddr),
-    .s_axis_atvalid(s_axil_awvalid),
-    .s_axis_atready(s_axil_awready),
-
-    .s_axis_btdata(s_axil_wdata),
-    .s_axis_btvalid(s_axil_wvalid),
-    .s_axis_btready(s_axil_wready),
-
-    .m_axis_atdata(waddr),
-    .m_axis_btdata(wdata),
+    .s_axis_tdata(s_axil_awaddr),
+    .s_axis_tvalid(s_axil_awvalid),
+    .s_axis_tready(s_axil_awready),
+    .m_axis_tdata(awaddr),
+    .m_axis_tvalid(awvalid),
+    .m_axis_tready(wready)
+);
+Skid #(.DW(CFGDW)) write_data_i (
+    .clk,
+    .rst,
+    .s_axis_tdata(s_axil_wdata),
+    .s_axis_tvalid(s_axil_wvalid),
+    .s_axis_tready(s_axil_wready),
+    .m_axis_tdata(wdata),
     .m_axis_tvalid(wvalid),
     .m_axis_tready(wready)
 );
-
-assign wready = !s_axil_bvalid || s_axil_bready;
+logic write_all_valid;
+assign write_all_valid = awvalid && wvalid;
+assign wready = write_all_valid && (!s_axil_bvalid || s_axil_bready);
 
 always @(posedge clk) begin
     if (s_axil_bvalid && s_axil_bready) begin
@@ -75,8 +96,8 @@ always @(posedge clk) begin
     end
 
     if (wvalid && wready) begin
-        if (waddr < N_CTL) begin
-            ctl_regs[waddr] <= wdata[REGW-1:0];
+        if (awaddr < N_CTL) begin
+            ctl_regs[awaddr] <= wdata[REGW-1:0];
         end
 
         s_axil_bresp <= 0;
@@ -107,8 +128,10 @@ assign arready = !s_axil_rvalid || s_axil_rready;
 
 logic signed [REGW-1:0] cdata_r, sdata_r;
 /* verilator lint_off WIDTHEXPAND */
-assign cdata_r = SIGN_EXTEND != 0 ? $signed(ctl_regs[araddr]) : {{(CFGDW-REGW){1'b0}}, ctl_regs[araddr]};
-assign sdata_r = SIGN_EXTEND != 0 ? $signed(sts_regs[araddr - N_CTL]) : {{(CFGDW-REGW){1'b0}}, sts_regs[araddr - N_CTL]};
+assign cdata_r = ctl_regs[araddr];
+assign sdata_r = sts_regs[araddr-N_CTL];
+// assign cdata_r = SIGN_EXTEND != 0 ? $signed(ctl_regs[araddr]) : {{(CFGDW-REGW){1'b0}}, ctl_regs[araddr]};
+// assign sdata_r = SIGN_EXTEND != 0 ? $signed(sts_regs[araddr - N_CTL]) : {{(CFGDW-REGW){1'b0}}, sts_regs[araddr - N_CTL]};
 /* verilator lint_on WIDTHEXPAND */
 
 always @(posedge clk) begin
