@@ -31,25 +31,49 @@ module Macc2 #(
 
 logic signed [ADW-1:0] cmb_atdata;
 logic signed [BDW-1:0] cmb_btdata;
-logic cmb_tvalid, cmb_tready, cmb_atlast;
+logic cmb_atvalid, cmb_btvalid, cmb_tready, cmb_atlast;
 
-// Synchronize the two input streams.
-combine2 #(.ADW(ADW + 1), .BDW(BDW)) combine_i (
+// // Synchronize the two input streams.
+// combine2 #(.ADW(ADW + 1), .BDW(BDW)) combine_i (
+//     .clk,
+//     .rst,
+//     .s_axis_atdata({s_axis_atdata, s_axis_atlast}),
+//     .s_axis_atvalid,
+//     .s_axis_atready,
+
+//     .s_axis_btdata(s_axis_btdata),
+//     .s_axis_btvalid,
+//     .s_axis_btready,
+
+//     .m_axis_atdata({cmb_atdata, cmb_atlast}),
+//     .m_axis_btdata(cmb_btdata),
+//     .m_axis_tvalid(cmb_tvalid),
+//     .m_axis_tready(cmb_tready)
+// );
+
+logic cmb_tvalid;
+assign cmb_tvalid = cmb_atvalid && cmb_btvalid;
+Skid #(.DW(ADW + 1)) skid_a_i (
     .clk,
     .rst,
-    .s_axis_atdata({s_axis_atdata, s_axis_atlast}),
-    .s_axis_atvalid,
-    .s_axis_atready,
-
-    .s_axis_btdata(s_axis_btdata),
-    .s_axis_btvalid,
-    .s_axis_btready,
-
-    .m_axis_atdata({cmb_atdata, cmb_atlast}),
-    .m_axis_btdata(cmb_btdata),
-    .m_axis_tvalid(cmb_tvalid),
-    .m_axis_tready(cmb_tready)
+    .s_axis_tdata({s_axis_atdata, s_axis_atlast}),
+    .s_axis_tvalid(s_axis_atvalid),
+    .s_axis_tready(s_axis_atready),
+    .m_axis_tdata({cmb_atdata, cmb_atlast}),
+    .m_axis_tvalid(cmb_atvalid),
+    .m_axis_tready(cmb_tready && cmb_tvalid)
 );
+Skid #(.DW(BDW)) skid_b_i (
+    .clk,
+    .rst,
+    .s_axis_tdata(s_axis_btdata),
+    .s_axis_tvalid(s_axis_btvalid),
+    .s_axis_tready(s_axis_btready),
+    .m_axis_tdata(cmb_btdata),
+    .m_axis_tvalid(cmb_btvalid),
+    .m_axis_tready(cmb_tready && cmb_tvalid)
+);
+
 
 // Pass the synced streams to the base Macc component.
 Macc #(.ADW(ADW), .BDW(BDW), .ODW(ODW)) macc_i (

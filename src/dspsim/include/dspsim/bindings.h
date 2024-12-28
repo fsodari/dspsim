@@ -3,6 +3,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/list.h>
 #include <nanobind/stl/array.h>
@@ -260,5 +261,57 @@ namespace dspsim
                    { return wbm.read_block(address, -1); }, nb::arg("address"))
               .def("__setitem__", [](WBM &wbm, AT address, DT data)
                    { wbm.write_block(address, data, -1); }, nb::arg("address"), nb::arg("data"));
+     }
+
+     template <typename AT, typename DT>
+     static inline auto bind_axil_m(nb::handle &scope, const char *name)
+     {
+          using AM = AxilM<AT, DT>;
+          return nb::class_<AM>(scope, name)
+              .def(nb::new_(&AM::create),
+                   nb::arg("clk"),
+                   nb::arg("rst"),
+                   nb::arg("m_axil_awaddr"),
+                   nb::arg("m_axil_awvalid"),
+                   nb::arg("m_axil_awready"),
+                   nb::arg("m_axil_wdata"),
+                   nb::arg("m_axil_wvalid"),
+                   nb::arg("m_axil_wready"),
+                   nb::arg("m_axil_bresp"),
+                   nb::arg("m_axil_bvalid"),
+                   nb::arg("m_axil_bready"),
+                   nb::arg("m_axil_araddr"),
+                   nb::arg("m_axil_arvalid"),
+                   nb::arg("m_axil_arready"),
+                   nb::arg("m_axil_rdata"),
+                   nb::arg("m_axil_rresp"),
+                   nb::arg("m_axil_rvalid"),
+                   nb::arg("m_axil_rready"))
+              .def_prop_rw("bready", &AM::get_bready, &AM::set_bready)
+              .def_prop_rw("rready", &AM::get_rready, &AM::set_rready)
+              // Non blocking commands and buffer reads.
+              .def("write_command", nb::overload_cast<AT, DT>(&AM::write_command), nb::arg("address"), nb::arg("data"))
+              .def("write_command", nb::overload_cast<AT, std::vector<DT> &>(&AM::write_command), nb::arg("start_address"), nb::arg("data"))
+              .def("write_command", nb::overload_cast<std::map<AT, DT> &>(&AM::write_command), nb::arg("data"))
+              .def("read_bresp_buf", &AM::read_bresp_buf, nb::arg("amount") = -1)
+              .def("read_command", nb::overload_cast<AT>(&AM::read_command), nb::arg("address"))
+              .def("read_command", nb::overload_cast<std::vector<AT> &>(&AM::read_command), nb::arg("addresses"))
+              .def("read_rdata_buf", &AM::read_rdata_buf, nb::arg("amount") = -1)
+              .def("read_rresp_buf", &AM::read_rresp_buf, nb::arg("amount") = -1)
+              // Blocking commands.
+              .def("write", nb::overload_cast<AT, DT, int>(&AM::write),
+                   nb::arg("address"), nb::arg("data"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<AT, std::vector<DT> &, int>(&AM::write),
+                   nb::arg("start_address"), nb::arg("data"), nb::arg("timeout") = -1)
+              .def("write", nb::overload_cast<std::map<AT, DT> &, int>(&AM::write),
+                   nb::arg("data"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<AT, int>(&AM::read),
+                   nb::arg("address"), nb::arg("timeout") = -1)
+              .def("read", nb::overload_cast<std::vector<AT> &, int>(&AM::read),
+                   nb::arg("addresses"), nb::arg("timeout") = -1)
+              .def("__getitem__", [](AM &axil, AT address)
+                   { return std::get<0>(axil.read(address, -1)); })
+              .def("__setitem__", [](AM &axil, AT address, DT data)
+                   { axil.write(address, data, -1); });
      }
 } // namespace dspsim

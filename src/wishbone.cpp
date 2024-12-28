@@ -36,7 +36,7 @@ namespace dspsim
             // The last command was accepted.
             if (cyc_o && stb_o && !stall_i)
             {
-                _cmd_buf.pop_front();
+                _ack_buf.push_back(we_o);
                 stb_o = 0;
                 we_o = 0;
             }
@@ -45,13 +45,12 @@ namespace dspsim
             if (!_cmd_buf.empty())
             {
                 auto [addr_cmd, data, we_cmd] = _cmd_buf.front();
+                _cmd_buf.pop_front();
                 cyc_o = 1;
                 stb_o = 1;
                 we_o = we_cmd;
                 addr_o = addr_cmd;
                 data_o = data;
-
-                _ack_buf.push_back(we_cmd);
             }
 
             // Accept data response
@@ -300,26 +299,6 @@ namespace dspsim
             writef_command(k, v, q);
         }
         wait_block(data.size(), timeout);
-    }
-
-    template <typename AT, typename DT>
-    std::shared_ptr<WishboneM<AT, DT>> WishboneM<AT, DT>::create(
-        Signal<uint8_t> &clk,
-        Signal<uint8_t> &rst,
-        Signal<uint8_t> &cyc_o,
-        Signal<uint8_t> &stb_o,
-        Signal<uint8_t> &we_o,
-        Signal<uint8_t> &ack_i,
-        Signal<uint8_t> &stall_i,
-        Signal<AT> &addr_o,
-        Signal<DT> &data_o,
-        Signal<DT> &data_i)
-    {
-        // auto wbm = std::make_shared<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
-        // wbm->context()->own_model(wbm);
-        // return wbm;
-        // return Context::create_and_register<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
-        return Model::create<WishboneM<AT, DT>>(clk, rst, cyc_o, stb_o, we_o, ack_i, stall_i, addr_o, data_o, data_i);
     }
 
     // template class WishboneM<uint32_t, int8_t>;

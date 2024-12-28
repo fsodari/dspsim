@@ -61,6 +61,8 @@ NB_MODULE(_framework, m)
   // bind_axis_rx<uint32_t>(m, "AxisRxU32");
   // bind_axis_rx<uint64_t>(m, "AxisRxU64");
 
+  bind_axil_m<uint32_t, uint32_t>(m, "AxilM32");
+
   // Wishbone Master
   bind_wisbone_m<uint32_t, uint8_t>(m, "WishboneM8");
   bind_wisbone_m<uint32_t, uint16_t>(m, "WishboneM16");
