@@ -5,6 +5,11 @@
 #include "LEDCtl.h"
 
 #include "dspsim/usb.h"
+#include "dspsim/avril.h"
+#include "dspsim/sram.h"
+
+#include "booter.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -23,21 +28,7 @@ void Blinky(void *arg)
     }
 }
 
-void Echo(void *arg)
-{
-    (void)arg;
-    static uint8_t tmp_buf[4096];
-    uint32_t timeout = pdMS_TO_TICKS(100);
-
-    for (ever)
-    {
-        uint32_t count = usb_serial_read(tmp_buf, 4096, timeout);
-        if (count)
-        {
-            usb_serial_write(tmp_buf, count, timeout);
-        }
-    }
-}
+// Sram *avtest_iface;
 
 /*
     This function will be called when the scheduler starts.
@@ -45,19 +36,23 @@ void Echo(void *arg)
 */
 void vApplicationDaemonTaskStartupHook(void)
 {
-    // Startup usb
+    // Start usb
     usb_start(0, 10);
-    // Start up usb serial.
+    // Start usb serial.
     usb_serial_start(
         USB_SERIAL_CTL_IFACE, USB_SERIAL_CTL_EP,
         USB_SERIAL_DATA_IFACE, USB_SERIAL_TX_EP, USB_SERIAL_RX_EP,
         USB_SERIAL_TX_BUF_SIZE, USB_SERIAL_RX_BUF_SIZE,
         USB_SERIAL_PRIORITY);
-    // Create all tasks here.
-    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 
-    // USB Serial echo
-    xTaskCreate(&Echo, "", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+    //
+    booter_start();
+
+    avril_start(10, usb_serial_tx_buf(), usb_serial_rx_buf());
+    avril_add_mode(0, (MMI *)sram_create(64));
+    avril_add_mode(1, booter_mmi);
+
+    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 }
 
 int main(void)

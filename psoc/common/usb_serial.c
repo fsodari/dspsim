@@ -96,23 +96,35 @@ uint32_t usb_serial_read(void *dst, uint32_t amount, uint32_t timeout)
     return xStreamBufferReceive(rx_buffer, dst, amount, timeout);
 }
 
+StreamBufferHandle_t usb_serial_tx_buf()
+{
+    return tx_buffer;
+}
+StreamBufferHandle_t usb_serial_rx_buf()
+{
+    return rx_buffer;
+}
+
 void USBSerialTx(void *arg)
 {
     (void)arg;
 
-    uint32_t timeout = pdMS_TO_TICKS(10);
+    uint32_t timeout = pdMS_TO_TICKS(4);
     for (;;)
     {
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(4));
 
         if (USBFS_GetEPState(_tx_ep) == USBFS_IN_BUFFER_EMPTY)
         {
-            // Data is available.
-            uint32_t received = xStreamBufferReceive(tx_buffer, tx_ep_buf, 64, timeout);
-            if (received)
-            {
-                USBFS_LoadInEP(_tx_ep, NULL, received);
-            }
+//            // Data is available.
+//            if (!xStreamBufferIsEmpty(tx_buffer))
+//            {
+                uint32_t received = xStreamBufferReceive(tx_buffer, tx_ep_buf, 64, timeout);
+                if (received)
+                {
+                    USBFS_LoadInEP(_tx_ep, NULL, received);
+                }
+//            }
         }
     }
 }
@@ -120,22 +132,19 @@ void USBSerialTx(void *arg)
 void usb_serial_tx_ep_isr()
 {
     BaseType_t awoken_task = pdFALSE;
-    if (USBFS_GetEPState(_tx_ep) == USBFS_IN_BUFFER_EMPTY)
-    {
-        vTaskNotifyGiveFromISR(serial_tx_task, &awoken_task);
-    }
+    vTaskNotifyGiveFromISR(serial_tx_task, &awoken_task);
     portYIELD_FROM_ISR(awoken_task);
 }
 
 void USBSerialRx(void *arg)
 {
     (void)arg;
-    uint32_t timeout = pdMS_TO_TICKS(10);
+    uint32_t timeout = pdMS_TO_TICKS(4);
 
     for (;;)
     {
         // Data is available.
-        if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY))
+        if (ulTaskNotifyTake(pdTRUE, timeout))
         {
             uint32_t count = USBFS_GetEPCount(_rx_ep);
             if (count)

@@ -7,6 +7,13 @@ import shutil
 import subprocess
 import os
 import argparse
+import struct
+
+BOOTLOADER_SECURITY_KEY = "0x424344454647"
+BOOTLOADER_MODE = 1
+
+from avril import Avril, find_device
+import time
 
 
 @dataclass
@@ -34,6 +41,9 @@ class PSoCCreatorConfig(YAMLWizard):
 
     def generated_source_dir(self, project: str) -> Path:
         return self.projects[project] / "Generated_Source"
+
+    def cyacd_file(self, project: str) -> Path:
+        return self.build_dir(project) / f"{project}.cyacd"
 
     def clean(self, project: str):
         """Deletes all generated sources, cyfit file, and runs Clean in PSoC Creator for all projects in the workspace."""
@@ -77,12 +87,35 @@ class PSoCCreatorConfig(YAMLWizard):
         ]
         subprocess.run(cmd, check=True)
 
+    def bootload(self, project: str, recovery: bool = False):
+        """"""
+        port = find_device(54544)[0]
+        if not recovery:
+            with Avril(BOOTLOADER_MODE) as av:
+                password = 0
+                _password = struct.pack("<L", password)
+                av.write(0, _password)
+            time.sleep(0.2)
+
+        cyflash_cmd = [
+            "cyflash",
+            f"--serial={port}",
+            self.cyacd_file(project),
+            "--timeout=1.0",
+            "--psoc5",
+            "-cs=56",
+            f"--key={BOOTLOADER_SECURITY_KEY}",
+        ]
+        subprocess.run(cyflash_cmd, check=True)
+
 
 @dataclass
 class Args:
     project: list[str]
     clean: bool
     build: bool
+    bootload: bool
+    recovery: bool
     config: Path = Path("psoc_config.yaml")
 
     @classmethod
@@ -93,6 +126,10 @@ class Args:
         )
         parser.add_argument("--clean", action="store_true", help="Clean project(s).")
         parser.add_argument("--build", action="store_true", help="Build project(s).")
+        parser.add_argument(
+            "--bootload", action="store_true", help="Run the bootload host tool."
+        )
+        parser.add_argument("--recovery", action="store_true")
         parser.add_argument(
             "-config",
             type=Path,
@@ -114,6 +151,8 @@ def main(cli_args: list[str] = None):
             psoc_creator.clean(project)
         if args.build:
             psoc_creator.build(project)
+        if args.bootload:
+            psoc_creator.bootload(project, args.recovery)
 
 
 if __name__ == "__main__":

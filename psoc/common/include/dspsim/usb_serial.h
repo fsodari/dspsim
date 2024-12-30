@@ -1,4 +1,6 @@
 #pragma once
+#include "FreeRTOS.h"
+#include "stream_buffer.h"
 #include <stdint.h>
 
 // Configure and start up usb serial module.
@@ -24,3 +26,5 @@ uint32_t usb_serial_read(void *dst, uint32_t amount, uint32_t timeout);
 void usb_serial_tx_ep_isr();
 void usb_serial_rx_ep_isr();
 
+StreamBufferHandle_t usb_serial_tx_buf();
+StreamBufferHandle_t usb_serial_rx_buf();

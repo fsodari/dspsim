@@ -76,6 +76,8 @@
 #pragma once
 #include "dspsim/vmmi.h"
 #include "dspsim/vmmi_meta.h"
+#include "FreeRTOS.h"
+#include "stream_buffer.h"
 #include <stdint.h>
 
 #define AVRIL_CMD_NOP 0
@@ -85,21 +87,13 @@
 #define AVRIL_CMD_WRITE_ACK 4
 #define AVRIL_CMD_READ_ACK 5
 
-#define AVRIL_MODE_STANDARD 0
-#define AVRIL_MODE_METADATA 1
+typedef uint32_t (*avril_write_cmd_cb)(uint32_t address, const void *src, uint32_t amount);
+typedef uint32_t (*avril_read_cmd_cb)(uint32_t address, void *dst, uint32_t amount);
 
-typedef uint32_t (*avril_resp_cb)(uint8_t *buf, uint32_t size);
+void avril_start(uint32_t n_modes, StreamBufferHandle_t tx_buffer, StreamBufferHandle_t rx_buffer);
 
-typedef struct AvrilDef *Avril;
-struct AvrilDef
-{
-    VMMI *vmmi;          // Reference to a vmmi.
-    VMMIMeta *vmmi_meta; // Optional metadata.
+void avril_add_mode(uint32_t mode_id, MMI *mode_interface);
 
-    avril_resp_cb response_cb;
-};
-
-void avril_init(Avril avril, VMMI *vmmi, VMMIMeta *vmmi_meta, avril_resp_cb response_cb);
-Avril avril_create(VMMI *vmmi, VMMIMeta *vmmi_meta, avril_resp_cb response_cb);
-
-uint32_t avril_execute(Avril avril, const uint8_t *buf, uint32_t size);
+// Callbacks for unused write/read commands.
+uint32_t avril_unused_write_cb(uint32_t address, const void *src, uint32_t amount);
+uint32_t avril_unused_read_cb(uint32_t address, void *dst, uint32_t amount);
