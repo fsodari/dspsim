@@ -1,4 +1,4 @@
-#include "avril.h"
+#include "dspsim/avril.h"
 #include <stdlib.h>
 
 void avril_init(Avril avril, VMMI *vmmi, VMMIMeta *vmmi_meta, avril_resp_cb response_cb)
