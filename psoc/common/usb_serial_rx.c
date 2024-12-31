@@ -33,7 +33,7 @@ StreamBufferHandle_t usb_serial_rx_buf(USBSerialRx self)
 void USBSerialRxTask(void *_self)
 {
     USBSerialRx self = _self;
-    uint32_t timeout = pdMS_TO_TICKS(4);
+    uint32_t timeout = pdMS_TO_TICKS(1);
 
     for (;;)
     {
@@ -58,5 +58,5 @@ void usb_serial_rx_ep_isr(USBSerialRx self)
 {
     BaseType_t awoken_task = pdFALSE;
     vTaskNotifyGiveFromISR(self->rx_task, &awoken_task);
-    // portYIELD_FROM_ISR(awoken_task);
+    portYIELD_FROM_ISR(awoken_task);
 }

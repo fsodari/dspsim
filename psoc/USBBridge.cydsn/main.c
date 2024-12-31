@@ -6,6 +6,8 @@
 
 #include "dspsim/usb.h"
 #include "dspsim/avril.h"
+#include "dspsim/vmmi.h"
+#include "dspsim/vmmi_meta.h"
 #include "dspsim/sram.h"
 #include "dspsim/cobs.h"
 #include "booter.h"
@@ -26,11 +28,29 @@ USBSerialRx usb_serial_rx;
 */
 void vApplicationDaemonTaskStartupHook(void)
 {
+    // All interfaces to be used in the vmmi. The map will probably be a generated code file eventually?
+    Sram sram0 = sram_create(1024, MMI_l);
+    Sram sram1 = sram_create(1024, MMI_f);
+
+    // Virtual MMI Interface
+    VMMI vmmi = vmmi_create(5);
+    // Metadata interface for inspecting the interfaces in the vmmi.
+    VMMIMeta vmeta = vmmi_meta_create(vmmi, VMMI_META_RESERVE_SIZE);
+
+    vmmi_register(vmmi, (MMI)vmeta, "vmeta"); // Metadata can be instantiated as part of the virtual interface.
+    vmmi_register(vmmi, (MMI)sram0, "sram0");
+    vmmi_register(vmmi, (MMI)sram1, "sram1");
+
+    // Bootloader
+    Booter booter = booter_create(BOOTLOAD_PASSWORD);
+
     // Avril interface. USB -> Cobs Avril, Avril -> Cobs -> USB
     Avril av = avril_start(AVRIL_N_MODES, AVRIL_MAX_MSG_SIZE, AVRIL_PRIORITY);
+
     // Add avril modes.
-    avril_add_mode(av, AVRIL_MODE_STANDARD, (MMI)sram_create(1024));
-    avril_add_mode(av, AVRIL_MODE_BOOTLOAD, (MMI)booter_create(BOOTLOAD_PASSWORD));
+    avril_add_mode(av, AVRIL_MODE_STANDARD, (MMI)vmmi);
+    avril_add_mode(av, AVRIL_MODE_BOOTLOAD, (MMI)booter);
+    avril_add_mode(av, AVRIL_MODE_VMETA, (MMI)vmeta); // Metadata can also be accessed with a different mode.
 
     // Start usb
     USBCore usb_core = usb_start(0, 10);
@@ -51,6 +71,7 @@ void vApplicationDaemonTaskStartupHook(void)
     start_blinky();
     (void)encoder;
     (void)decoder;
+    (void)booter;
 }
 
 static void HardwareSetup(void)

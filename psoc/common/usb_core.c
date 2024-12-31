@@ -5,6 +5,25 @@
 #include <USBFS.h>
 #include <USBFS_cdc.h>
 
+#define USB_ALT_INVALID 0xFF
+
+typedef struct USBCfgDef *USBCfg;
+struct USBCfgDef
+{
+    void *iface;
+    uint8_t id;
+    uint8_t settings;
+    usb_cfg_change_cb callback;
+};
+
+struct USBCoreDef
+{
+    USBCfg interfaces;
+    uint32_t max_interfaces;
+    uint32_t n_interfaces;
+    TaskHandle_t task_ref;
+};
+
 // Handle usb configuration when it changes.
 void USBConfigService(void *_self);
 

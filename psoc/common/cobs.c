@@ -1,5 +1,16 @@
 #include "dspsim/cobs.h"
 
+struct CobsDef
+{
+    MessageBufferHandle_t msg_buf;
+    StreamBufferHandle_t encode_buf;
+    uint32_t max_message_size;
+    uint8_t *tmp_enc_buf;
+    uint8_t *tmp_dec_buf;
+    uint32_t buf_id;
+    TaskHandle_t task_ref;
+};
+
 void CobsDecodeTask(void *_self);
 void CobsEncodeTask(void *_self);
 
@@ -134,14 +145,22 @@ uint32_t cobs_encode(uint8_t *dst, const uint8_t *src, uint32_t size)
             *code_ptr = code;
             code_ptr = dst_ptr++;
             code = 1;
+            if (i == (size - 1))
+            {
+                break;
+            }
         }
         else
         {
             // Non zero data, append until we need to reset the code.
             *dst_ptr++ = rx_byte;
             code++;
+            if (i == (size - 1))
+            {
+                break;
+            }
             // Set the code.
-            if ((code == 0xFF) && (i < (size - 1)))
+            if (code == 0xFF)
             {
                 // Code gets set at the end. So skip setting the code if it's the last byte in src..
                 *code_ptr = code;

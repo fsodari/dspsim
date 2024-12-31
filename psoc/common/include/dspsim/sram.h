@@ -9,4 +9,4 @@ struct SramDef
     uint32_t size;
 };
 
-Sram sram_create(uint32_t size);
+Sram sram_create(uint32_t size, int32_t dtype);

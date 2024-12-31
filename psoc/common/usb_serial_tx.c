@@ -20,7 +20,7 @@ USBSerialTx usb_serial_tx_start(USBSerial usb_serial, uint32_t tx_buffer_size, u
     self->tx_ep = usb_serial->tx_ep;
     self->tx_ep_buf = usb_serial->tx_ep_buf;
 
-    self->tx_buf = xStreamBufferCreate(tx_buffer_size, 1);
+    self->tx_buf = xStreamBufferCreate(tx_buffer_size, 64);
 
     xTaskCreate(&USBSerialTxTask, "", configMINIMAL_STACK_SIZE, self, priority, &self->tx_task);
 
@@ -41,7 +41,7 @@ void USBSerialTxTask(void *_self)
 {
     USBSerialTx self = _self;
 
-    uint32_t timeout = pdMS_TO_TICKS(4);
+    uint32_t timeout = pdMS_TO_TICKS(1);
     for (;;)
     {
         // Refresh or wait on isr to unblock.
@@ -51,6 +51,16 @@ void USBSerialTxTask(void *_self)
             if (received)
             {
                 USBFS_LoadInEP(self->tx_ep, NULL, received);
+                uint32_t remaining = xStreamBufferBytesAvailable(self->tx_buf);
+
+                // If it's exactly 64 bytes
+                if (received == 64 && remaining == 0)
+                {
+                    while (!USBFS_GetEPState(self->tx_ep))
+                    {
+                    }
+                    USBFS_LoadInEP(self->tx_ep, NULL, 0);
+                }
             }
         }
         else
@@ -64,5 +74,5 @@ void usb_serial_tx_ep_isr(USBSerialTx self)
 {
     BaseType_t awoken_task = pdFALSE;
     vTaskNotifyGiveFromISR(self->tx_task, &awoken_task);
-    // portYIELD_FROM_ISR(awoken_task);
+    portYIELD_FROM_ISR(awoken_task);
 }

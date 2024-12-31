@@ -1,4 +1,30 @@
 #include "dspsim/usb_audio_tx.h"
+#include <USBFS.h>
+
+struct USBAudioTxDef
+{
+    // Audio messages are written into this buffer. Downstream tasks should wait on messages from this buffer.
+    MessageBufferHandle_t msg_buf;
+
+    // Feedback updates should be written into this queue
+    QueueHandle_t fb_buf;
+
+    // Audio data endpoint.
+    uint8_t tx_ep;
+    // Feedback endpoint.
+    uint8_t fb_ep;
+
+    // Data endpoint buffer.
+    uint8_t *tx_ep_buf;
+    uint32_t tx_ep_buf_size;
+
+    // Feedback buffer is always 3 bytes.
+    uint8_t fb_ep_buf[3];
+
+    // Byte swap buffer. Same size as endpoint buffer. Data is endian swapped here before transmitting to msg buf.
+    uint8_t *byte_swap_buf;
+    TaskHandle_t byte_swap_task;
+};
 
 static inline void unpack_fb(USBAudioTx self, uint32_t feedback)
 {
@@ -40,15 +66,14 @@ USBAudioTx usb_audio_tx_start(USBCore usb_core, uint32_t sample_rate, uint8_t in
 
     return self;
 }
-
-uint32_t usb_audio_tx_update_feedback(USBAudioTx self, uint32_t new_feedback)
+MessageBufferHandle_t usb_audio_tx_msg_buf(USBAudioTx self)
 {
-    return xQueueOverwrite(self->fb_buf, &new_feedback);
+    return self->msg_buf;
 }
 
-uint32_t usb_audio_tx_update_sample_rate(USBAudioTx self, uint32_t sample_rate)
+QueueHandle_t usb_audio_tx_fb_buf(USBAudioTx self)
 {
-    return usb_audio_tx_update_feedback(self, fs_to_feedback(sample_rate));
+    return self->fb_buf;
 }
 
 uint32_t fs_to_feedback(uint32_t sample_rate)
@@ -63,7 +88,7 @@ uint32_t feedback_to_fs(uint32_t fb)
 static inline byte_swap24(uint8_t *dst, const uint8_t *src)
 {
     dst[0] = src[2];
-    dst[1] = src[1];
+    // dst[1] = src[1];
     dst[2] = src[0];
 }
 

@@ -26,6 +26,27 @@ AVRIL_CMD_NOP_ACK = 3
 AVRIL_CMD_WRITE_ACK = 4
 AVRIL_CMD_READ_ACK = 5
 
+META_MODE = 2
+
+dtype_decode: dict[int, str] = {
+    0: "x",
+    -1: "b",
+    1: "B",
+    -2: "h",
+    2: "H",
+    -4: "l",
+    4: "L",
+    -8: "q",
+    8: "Q",
+    0x14: "f",
+    0x18: "d",
+}
+
+
+def dtype_size(dtype: str) -> int:
+    key = list(dtype_decode.keys())[list(dtype_decode.values()).index(dtype)]
+    return abs(key) & 0xF
+
 
 @dataclass
 class AvrilMessage:
@@ -71,11 +92,35 @@ class AvrilAck(AvrilMessage):
 import time
 
 
+@dataclass
+class VMetaEntry:
+    base_address: int
+    size: int
+    dtype: str
+    name: str
+
+    @classmethod
+    def unpack(cls, b: bytes):
+        dtype_offset = 8
+        name_offset = 12
+        return cls(
+            *struct.unpack("<LL", b[:dtype_offset]),
+            dtype_decode[struct.unpack("<l", b[dtype_offset:name_offset])[0]],
+            b[name_offset:].decode().strip("\0"),
+        )
+
+
+class AvrilIface:
+    pass
+
+
 class Avril:
     mode: int
     pid: int
     port: str
     device: serial.Serial
+    chunk_size: int = 48
+    meta_mode: int = META_MODE
 
     def __init__(
         self,
@@ -93,6 +138,8 @@ class Avril:
             write_timeout=write_timeout,
             inter_byte_timeout=inter_byte_timeout,
         )
+        self.chunk_size = 44
+        self.meta_address = 0
 
     def __enter__(self):
         time.sleep(0.2)
@@ -104,54 +151,184 @@ class Avril:
     def __exit__(self, *args):
         self.device.flush()
         self.device.close()
-        pass
 
-    def write(self, address: int, data: bytes, msg_id: int = None) -> AvrilAck:
+    def _serial_send(self, b: bytes, chunk: bool = True):
+        """"""
+        chunk_size = self.chunk_size if chunk else len(b)
+        remain = len(b)
+        while remain > 0:
+            ssize = chunk_size if remain > chunk_size else remain
+            self.device.write(b[:ssize])
+            remain -= ssize
+            b = b[ssize:]
+
+    def _serial_read(self, size: int, chunk: bool = True):
+        """"""
+        chunk_size = self.chunk_size if chunk else size
+        b = b""
+        while size > 0:
+            ssize = chunk_size if size > chunk_size else size
+            b += self.device.read(ssize)
+            size -= ssize
+        return b
+
+    def write(
+        self, address: int, data: bytes, msg_id: int = None, chunk: bool = True
+    ) -> AvrilAck:
         cmd = AvrilMessage(AVRIL_CMD_WRITE, self.mode, msg_id, len(data), address, data)
-        # print(cmd)
-        self.device.write(cmd.encode())
-
-        expected_length = cobs.encoding_overhead(16) + 17
-        response = self.device.read(expected_length)
-        # print(response)
-        ack = AvrilAck.decode(response)
-        # print(ack)
-        return ack
+        self._serial_send(cmd.encode(), chunk=chunk)
+        response = self._serial_read(cobs.max_encoded_length(16) + 1)
+        return AvrilAck.decode(response)
 
     def writef(self, address: int, fmt: str, *data) -> AvrilAck:
         x = struct.pack(fmt, *data)
         return self.write(address, x)
 
-    def read(self, address: int, size: int, msg_id: int = None) -> AvrilAck:
+    def read(
+        self, address: int, size: int, msg_id: int = None, chunk: bool = True
+    ) -> AvrilAck:
         cmd = AvrilMessage(AVRIL_CMD_READ, self.mode, msg_id, size, address)
-        # print(cmd)
-        self.device.write(cmd.encode())
+        self._serial_send(cmd.encode())
 
-        expected_length = cobs.encoding_overhead(16 + size) + 17 + size
-        response = self.device.read(expected_length)
-        # print(f"Expected: {expected_length}, Got: {len(response)}")
+        expected_length = cobs.max_encoded_length(16 + size) + 1
+        response = self._serial_read(expected_length, chunk)
+        return AvrilAck.decode(response)
+
+    def read_meta(self, id: int, mode: int = None) -> VMetaEntry:
+        if mode is None:
+            mode = self.meta_mode
+        addr = id * 28
+        cmd = AvrilMessage(AVRIL_CMD_READ, mode, None, 28, addr)
+        self._serial_send(cmd.encode())
+
+        expected_length = cobs.max_encoded_length(16 + 28) + 1
+        response = self._serial_read(expected_length)
+
         ack = AvrilAck.decode(response)
-        # print(ack)
+        return VMetaEntry.unpack(ack.data)
+
+    def read_all_meta(self, mode: int = None) -> dict[str, VMetaEntry]:
+        """"""
+        all_meta = {}
+        max = int(4096 / 28)
+        for i in range(max):
+            try:
+                entry = self.read_meta(i, mode)
+                all_meta[entry.name] = entry
+            except Exception as e:
+                print(f"{e}")
+                break
+        return all_meta
+
+    def get_interface(
+        self, interface: str, registers: dict[str, int] = {}
+    ) -> AvrilIface:
+        """"""
+        return AvrilIface(self, interface, registers)
+
+
+class AvrilIface:
+    av: Avril
+    meta: VMetaEntry
+    dtype: str
+    registers: dict[str, int]
+
+    def __init__(self, av: Avril, interface: str, registers: dict[str, int] = {}):
+        self.av = av
+        self.meta = self.av.read_all_meta()[interface]
+        self.dtype = self.meta.dtype
+        self.registers = registers
+
+    def __str__(self):
+        return f"AvrilIface(av={self.av}, meta={self.meta})"
+
+    def _get_address(self, address: int | str) -> int:
+        # If the address is a string, look up the address in the registers
+        if isinstance(address, str):
+            address = self.registers[address]
+        return address + self.base_address
+
+    def write(self, _address: int | str, data: bytes):
+        address = self._get_address(_address)
+        ack = self.av.write(address, data)
         return ack
+
+    def read(self, _address: int | str, size: int):
+        address = self._get_address(_address)
+        return self.av.read(address, size)
+
+    def write_reg(self, address: int | str, data: int | float, dtype: str = None):
+        """"""
+        if dtype is None:
+            dtype = self.dtype
+
+        bdata = struct.pack(f"<{dtype}", data)
+        return self.write(address, bdata)
+
+    def read_reg(self, address: int | str, dtype: str = None) -> int | float:
+        if dtype is None:
+            dtype = self.dtype
+        ack = self.read(address, self.dtype_size)
+        return struct.unpack(f"<{dtype}", ack.data)[0]
+
+    def __getitem__(self, address: int | str) -> int | float:
+        return self.read_reg(address)
+
+    def __setitem__(self, address: int | str, data: int | float):
+        self.write_reg(address, data)
+
+    @property
+    def size(self) -> int:
+        return self.meta.size
+
+    @property
+    def dtype_size(self) -> int:
+        return dtype_size(self.dtype)
+
+    @property
+    def base_address(self) -> int:
+        return self.meta.base_address
+
+    def __iter__(self):
+        return iter(range(0, self.size, self.dtype_size))
 
 
 import random
-from tqdm import trange
+from tqdm import trange, tqdm
+import numpy as np
+
+import string
 
 
 def main():
     """"""
-    MSG_SIZE = 90
-    N = 200
-    with Avril(0, timeout=0.1) as av:
-        for i in trange(N):
-            x = random.randbytes(MSG_SIZE)
+    with Avril(0, timeout=0.02) as av:
+        meta = av.read_all_meta(META_MODE)
+        # print(meta)
+        for name, iface in meta.items():
+            print(f"{name}: {iface}")
 
-            ack = av.write(0, x)
-            assert not ack.error
+        sram0 = av.get_interface("sram0", registers={"x": 12, "y": 32})
+        sram1 = AvrilIface(av, "sram1")
 
-            ack = av.read(0, MSG_SIZE)
-            assert ack.data == x
+        # assign random register names to all registers.
+        sram1.registers = {
+            "".join(random.choices(string.ascii_lowercase, k=32)): i for i in sram1
+        }
+
+        # Iterate through all addresses, incrementing by dtype.
+        for addr in tqdm(sram0):
+            x = random.randint(0, 0xFFFFFFFF)
+            sram0[addr] = x
+            y = sram0[addr]
+            assert y == x
+
+        # Iterate through all registers.
+        for r in tqdm(sram1.registers):
+            x = random.random()
+            sram1[r] = x
+            y = sram1[r]
+            assert np.isclose(y, x, atol=0.00001)
 
 
 if __name__ == "__main__":

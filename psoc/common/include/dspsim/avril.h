@@ -74,8 +74,7 @@
 
 */
 #pragma once
-#include "dspsim/vmmi.h"
-#include "dspsim/vmmi_meta.h"
+#include "dspsim/mmi.h"
 #include "FreeRTOS.h"
 #include "message_buffer.h"
 #include "task.h"

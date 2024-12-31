@@ -60,10 +60,10 @@
 #define USB_SERIAL_RX_EP 8
 
 #define USB_SERIAL_TX_BUF_SIZE 1024
-#define USB_SERIAL_TX_PRIORITY 2
+#define USB_SERIAL_TX_PRIORITY 3
 
 #define USB_SERIAL_RX_BUF_SIZE 1024
-#define USB_SERIAL_RX_PRIORITY 2
+#define USB_SERIAL_RX_PRIORITY 3
 
 extern USBSerialTx usb_serial_tx;
 static inline void usb_serial_main_tx_isr() { usb_serial_tx_ep_isr(usb_serial_tx); }
@@ -72,16 +72,20 @@ extern USBSerialRx usb_serial_rx;
 static inline void usb_serial_main_rx_isr() { usb_serial_rx_ep_isr(usb_serial_rx); }
 
 // Cobs config
-#define COBS_ENCODE_PRIORITY 3
-#define COBS_DECODE_PRIORITY 3
+#define COBS_ENCODE_PRIORITY 2
+#define COBS_DECODE_PRIORITY 2
 
 // Avril Config
 #define AVRIL_MODE_STANDARD 0
 #define AVRIL_MODE_BOOTLOAD 1
+#define AVRIL_MODE_VMETA 2
 #define AVRIL_N_MODES 4
 
 #define AVRIL_MAX_MSG_SIZE 1024
 #define AVRIL_PRIORITY 1
+
+// VMMI Metadata
+#define VMMI_META_RESERVE_SIZE 4096
 
 #define BOOTLOAD_PASSWORD 0
 
