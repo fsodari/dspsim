@@ -103,7 +103,7 @@ class PSoCCreatorConfig(YAMLWizard):
             self.cyacd_file(project),
             "--timeout=1.0",
             "--psoc5",
-            "-cs=56",
+            "-cs=48",
             f"--key={BOOTLOADER_SECURITY_KEY}",
         ]
         subprocess.run(cyflash_cmd, check=True)

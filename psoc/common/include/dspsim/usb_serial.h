@@ -23,6 +23,7 @@ uint32_t usb_serial_write(const void *src, uint32_t amount, uint32_t timeout);
 // Read data from usb rx buffer.
 uint32_t usb_serial_read(void *dst, uint32_t amount, uint32_t timeout);
 
+void usb_serial_tx_notify();
 void usb_serial_tx_ep_isr();
 void usb_serial_rx_ep_isr();
 

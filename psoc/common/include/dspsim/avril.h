@@ -77,7 +77,7 @@
 #include "dspsim/vmmi.h"
 #include "dspsim/vmmi_meta.h"
 #include "FreeRTOS.h"
-#include "stream_buffer.h"
+#include "message_buffer.h"
 #include <stdint.h>
 
 #define AVRIL_CMD_NOP 0
@@ -90,7 +90,8 @@
 typedef uint32_t (*avril_write_cmd_cb)(uint32_t address, const void *src, uint32_t amount);
 typedef uint32_t (*avril_read_cmd_cb)(uint32_t address, void *dst, uint32_t amount);
 
-void avril_start(uint32_t n_modes, StreamBufferHandle_t tx_buffer, StreamBufferHandle_t rx_buffer);
+// void avril_start(uint32_t n_modes, StreamBufferHandle_t tx_buffer, StreamBufferHandle_t rx_buffer);
+void avril_start(uint32_t n_models, MessageBufferHandle_t tx_buffer, MessageBufferHandle_t rx_buffer);
 
 void avril_add_mode(uint32_t mode_id, MMI *mode_interface);
 

@@ -90,6 +90,11 @@ uint32_t usb_serial_write(const void *src, uint32_t amount, uint32_t timeout)
     return xStreamBufferSend(tx_buffer, src, amount, timeout);
 }
 
+void usb_serial_tx_notify()
+{
+    xTaskNotifyGive(serial_tx_task);
+}
+
 // Read data from usb rx buffer.
 uint32_t usb_serial_read(void *dst, uint32_t amount, uint32_t timeout)
 {
@@ -112,19 +117,19 @@ void USBSerialTx(void *arg)
     uint32_t timeout = pdMS_TO_TICKS(4);
     for (;;)
     {
-        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(4));
+        // Refresh or wait on isr to unblock.
 
         if (USBFS_GetEPState(_tx_ep) == USBFS_IN_BUFFER_EMPTY)
         {
-//            // Data is available.
-//            if (!xStreamBufferIsEmpty(tx_buffer))
-//            {
-                uint32_t received = xStreamBufferReceive(tx_buffer, tx_ep_buf, 64, timeout);
-                if (received)
-                {
-                    USBFS_LoadInEP(_tx_ep, NULL, received);
-                }
-//            }
+            uint32_t received = xStreamBufferReceive(tx_buffer, tx_ep_buf, 64, timeout);
+            if (received)
+            {
+                USBFS_LoadInEP(_tx_ep, NULL, received);
+            }
+        }
+        else
+        {
+            ulTaskNotifyTake(pdTRUE, timeout);
         }
     }
 }
@@ -146,12 +151,15 @@ void USBSerialRx(void *arg)
         // Data is available.
         if (ulTaskNotifyTake(pdTRUE, timeout))
         {
-            uint32_t count = USBFS_GetEPCount(_rx_ep);
-            if (count)
+            if (USBFS_GetEPState(_rx_ep))
             {
-                // send data from ep buf to rx_buffer stream.
-                xStreamBufferSend(rx_buffer, rx_ep_buf, count, portMAX_DELAY);
-                USBFS_EnableOutEP(_rx_ep);
+                uint32_t count = USBFS_GetEPCount(_rx_ep);
+                if (count)
+                {
+                    // send data from ep buf to rx_buffer stream.
+                    xStreamBufferSend(rx_buffer, rx_ep_buf, count, portMAX_DELAY);
+                    USBFS_EnableOutEP(_rx_ep);
+                }
             }
         }
     }

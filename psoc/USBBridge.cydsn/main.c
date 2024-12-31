@@ -7,7 +7,7 @@
 #include "dspsim/usb.h"
 #include "dspsim/avril.h"
 #include "dspsim/sram.h"
-
+#include "dspsim/cobs.h"
 #include "booter.h"
 
 #include "FreeRTOS.h"
@@ -28,8 +28,6 @@ void Blinky(void *arg)
     }
 }
 
-// Sram *avtest_iface;
-
 /*
     This function will be called when the scheduler starts.
     Create all tasks here. You can use FreeRToS features since the scheduler will have started already.
@@ -48,11 +46,17 @@ void vApplicationDaemonTaskStartupHook(void)
     //
     booter_start();
 
-    avril_start(10, usb_serial_tx_buf(), usb_serial_rx_buf());
-    avril_add_mode(0, (MMI *)sram_create(64));
+    MessageBufferHandle_t rx_msg_buf = xMessageBufferCreate(1024);
+    MessageBufferHandle_t tx_msg_buf = xMessageBufferCreate(1024);
+
+    Cobs decoder = cobs_decode_create(rx_msg_buf, usb_serial_rx_buf(), 1024, 2);
+    Cobs encoder = cobs_encode_create(tx_msg_buf, usb_serial_tx_buf(), 1024, 2);
+
+    avril_start(10, tx_msg_buf, rx_msg_buf);
+    avril_add_mode(0, (MMI *)sram_create(1024));
     avril_add_mode(1, booter_mmi);
 
-    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 }
 
 int main(void)
