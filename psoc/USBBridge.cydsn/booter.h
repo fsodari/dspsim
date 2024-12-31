@@ -1,7 +1,14 @@
 #pragma once
 #include "dspsim/mmi.h"
+#include "timers.h"
 
-extern MMI *booter_mmi;
+typedef struct BooterDef *Booter;
+struct BooterDef
+{
+    struct MMIDef base;
+    uint32_t password;
+    TimerHandle_t delay_timer;
+};
 
-void booter_start(void);
-void booter_set_password(uint32_t password);
+Booter booter_create(uint32_t password);
+void booter_set_password(Booter self, uint32_t password);

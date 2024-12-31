@@ -13,20 +13,12 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-// Set up psoc to use free rtos.
-static void HardwareSetup(void);
-void Blinky(void *arg)
-{
-    (void)arg;
+// Blink led task.
+void start_blinky();
 
-    for (ever)
-    {
-        LEDCtl_Write(0x1);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        LEDCtl_Write(0x0);
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-}
+// Globals need to be defined somewhere.
+USBSerialTx usb_serial_tx;
+USBSerialRx usb_serial_rx;
 
 /*
     This function will be called when the scheduler starts.
@@ -34,40 +26,31 @@ void Blinky(void *arg)
 */
 void vApplicationDaemonTaskStartupHook(void)
 {
+    // Avril interface. USB -> Cobs Avril, Avril -> Cobs -> USB
+    Avril av = avril_start(AVRIL_N_MODES, AVRIL_MAX_MSG_SIZE, AVRIL_PRIORITY);
+    // Add avril modes.
+    avril_add_mode(av, AVRIL_MODE_STANDARD, (MMI)sram_create(1024));
+    avril_add_mode(av, AVRIL_MODE_BOOTLOAD, (MMI)booter_create(BOOTLOAD_PASSWORD));
+
     // Start usb
-    usb_start(0, 10);
+    USBCore usb_core = usb_start(0, 10);
     // Start usb serial.
-    usb_serial_start(
+    USBSerial usb_serial = usb_serial_start(
+        usb_core,
         USB_SERIAL_CTL_IFACE, USB_SERIAL_CTL_EP,
-        USB_SERIAL_DATA_IFACE, USB_SERIAL_TX_EP, USB_SERIAL_RX_EP,
-        USB_SERIAL_TX_BUF_SIZE, USB_SERIAL_RX_BUF_SIZE,
-        USB_SERIAL_PRIORITY);
+        USB_SERIAL_DATA_IFACE, USB_SERIAL_TX_EP, USB_SERIAL_RX_EP);
 
-    //
-    booter_start();
+    // Create tx/rx modules from the serial interface.
+    usb_serial_tx = usb_serial_tx_start(usb_serial, USB_SERIAL_TX_BUF_SIZE, USB_SERIAL_TX_PRIORITY);
+    usb_serial_rx = usb_serial_rx_start(usb_serial, USB_SERIAL_RX_BUF_SIZE, USB_SERIAL_RX_PRIORITY);
 
-    MessageBufferHandle_t rx_msg_buf = xMessageBufferCreate(1024);
-    MessageBufferHandle_t tx_msg_buf = xMessageBufferCreate(1024);
+    // Start the cobs encoder/decoders. Connect between the avril message buffer and serial stream buffer.
+    Cobs encoder = cobs_encode_start(avril_tx_msg_buf(av), usb_serial_tx_buf(usb_serial_tx), USB_SERIAL_TX_BUF_SIZE, COBS_ENCODE_PRIORITY);
+    Cobs decoder = cobs_decode_start(avril_rx_msg_buf(av), usb_serial_rx_buf(usb_serial_rx), USB_SERIAL_RX_BUF_SIZE, COBS_DECODE_PRIORITY);
 
-    Cobs decoder = cobs_decode_create(rx_msg_buf, usb_serial_rx_buf(), 1024, 2);
-    Cobs encoder = cobs_encode_create(tx_msg_buf, usb_serial_tx_buf(), 1024, 2);
-
-    avril_start(10, tx_msg_buf, rx_msg_buf);
-    avril_add_mode(0, (MMI *)sram_create(1024));
-    avril_add_mode(1, booter_mmi);
-
-    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-}
-
-int main(void)
-{
-    CyGlobalIntEnable;
-    HardwareSetup();
-    vTaskStartScheduler();
-
-    for (ever)
-    {
-    }
+    start_blinky();
+    (void)encoder;
+    (void)decoder;
 }
 
 static void HardwareSetup(void)
@@ -82,6 +65,18 @@ static void HardwareSetup(void)
     CyRamVectors[11] = (cyisraddress)vPortSVCHandler;
     CyRamVectors[14] = (cyisraddress)xPortPendSVHandler;
     CyRamVectors[15] = (cyisraddress)xPortSysTickHandler;
+}
+
+//
+int main(void)
+{
+    CyGlobalIntEnable;
+    HardwareSetup();
+    vTaskStartScheduler();
+
+    for (ever)
+    {
+    }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -104,4 +99,21 @@ void vApplicationMallocFailedHook(void)
     for (ever)
     {
     }
+}
+
+void Blinky(void *arg)
+{
+    (void)arg;
+
+    for (ever)
+    {
+        LEDCtl_Write(0x1);
+        vTaskDelay(pdMS_TO_TICKS(500));
+        LEDCtl_Write(0x0);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+void start_blinky()
+{
+    xTaskCreate(&Blinky, "", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 }

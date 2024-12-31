@@ -78,6 +78,7 @@
 #include "dspsim/vmmi_meta.h"
 #include "FreeRTOS.h"
 #include "message_buffer.h"
+#include "task.h"
 #include <stdint.h>
 
 #define AVRIL_CMD_NOP 0
@@ -87,14 +88,10 @@
 #define AVRIL_CMD_WRITE_ACK 4
 #define AVRIL_CMD_READ_ACK 5
 
-typedef uint32_t (*avril_write_cmd_cb)(uint32_t address, const void *src, uint32_t amount);
-typedef uint32_t (*avril_read_cmd_cb)(uint32_t address, void *dst, uint32_t amount);
+typedef struct AvrilDef *Avril;
 
-// void avril_start(uint32_t n_modes, StreamBufferHandle_t tx_buffer, StreamBufferHandle_t rx_buffer);
-void avril_start(uint32_t n_models, MessageBufferHandle_t tx_buffer, MessageBufferHandle_t rx_buffer);
+Avril avril_start(uint32_t n_modes, uint32_t max_msg_size, uint32_t priority);
+void avril_add_mode(Avril self, uint32_t mode_id, MMI mode_interface);
 
-void avril_add_mode(uint32_t mode_id, MMI *mode_interface);
-
-// Callbacks for unused write/read commands.
-uint32_t avril_unused_write_cb(uint32_t address, const void *src, uint32_t amount);
-uint32_t avril_unused_read_cb(uint32_t address, void *dst, uint32_t amount);
+MessageBufferHandle_t avril_tx_msg_buf(Avril self);
+MessageBufferHandle_t avril_rx_msg_buf(Avril self);

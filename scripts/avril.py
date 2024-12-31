@@ -141,33 +141,17 @@ from tqdm import trange
 
 def main():
     """"""
-    # N = 12
-    # with Avril(0) as av:
-    #     # tx_data = bytes(range(4))
-    #     tx_data = random.randbytes(N)
-    #     ack = av.write(0, tx_data)
-
-    #     ack = av.read(0, len(tx_data))
-    #     assert ack.data == tx_data
-    N = 229
+    MSG_SIZE = 90
+    N = 200
     with Avril(0, timeout=0.1) as av:
-        for i in trange(1000):
-            # for i in range(200):
-            _x = [random.randint(0, 0xFF) for _ in range(N)]
-            # _x[120] = 0
-            x = bytes(_x)
+        for i in trange(N):
+            x = random.randbytes(MSG_SIZE)
 
-            assert cobs.decode(cobs.encode(x)) == x
-            # print(x[:4])
             ack = av.write(0, x)
             assert not ack.error
-            # print(ack.command)
 
-            # ack = av.read(0, N)
-            # # print(ack.command)
-            # assert not ack.error
-            # # print(ack)
-            # assert ack.data == x
+            ack = av.read(0, MSG_SIZE)
+            assert ack.data == x
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 typedef struct SramDef *Sram;
 struct SramDef
 {
-    MMI base;
+    struct MMIDef base;
     uint8_t *buf;
     uint32_t size;
 };

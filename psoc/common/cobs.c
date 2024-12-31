@@ -16,14 +16,14 @@ Cobs cobs_create(MessageBufferHandle_t message_buffer, StreamBufferHandle_t enco
     return self;
 }
 
-Cobs cobs_encode_create(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority)
+Cobs cobs_encode_start(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority)
 {
     Cobs self = cobs_create(message_buffer, encode_buffer, max_message_size);
     xTaskCreate(&CobsEncodeTask, "", configMINIMAL_STACK_SIZE, self, priority, &self->task_ref);
     return self;
 }
 
-Cobs cobs_decode_create(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority)
+Cobs cobs_decode_start(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority)
 {
     Cobs self = cobs_create(message_buffer, encode_buffer, max_message_size);
     xTaskCreate(&CobsDecodeTask, "", configMINIMAL_STACK_SIZE, self, priority, &self->task_ref);

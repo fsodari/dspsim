@@ -6,7 +6,7 @@ typedef void (*miter_next_ft)(MIter *);
 
 struct MIter
 {
-    MMI *mmi_ref;
+    MMI mmi_ref;
     uint32_t address;
     uint32_t inc_size;
     miter_next_ft next;

@@ -20,8 +20,8 @@ struct CobsDef
     TaskHandle_t task_ref;
 };
 
-Cobs cobs_encode_create(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority);
-Cobs cobs_decode_create(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority);
+Cobs cobs_encode_start(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority);
+Cobs cobs_decode_start(MessageBufferHandle_t message_buffer, StreamBufferHandle_t encode_buffer, uint32_t max_message_size, uint32_t priority);
 
 // Decode a complete encoded message with 0 byte delimeter. Returns size of encoded message including 0.
 uint32_t cobs_decode(uint8_t *dst, const uint8_t *src, uint32_t size);

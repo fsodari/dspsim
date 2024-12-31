@@ -10,7 +10,7 @@ Sram sram_create(uint32_t size)
     Sram self = pvPortMalloc(sizeof(*self));
     self->buf = pvPortMalloc(size);
     self->size = size;
-    mmi_init(self, sram_write, sram_read, size);
+    mmi_init((MMI)self, sram_write, sram_read, size);
 
     return self;
 }

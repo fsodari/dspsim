@@ -1,4 +1,5 @@
 #pragma once
+#include "dspsim/usb.h"
 
 // Enable processing data before transmitting.
 #define ENABLE_PROC 1
@@ -59,9 +60,30 @@
 #define USB_SERIAL_RX_EP 8
 
 #define USB_SERIAL_TX_BUF_SIZE 1024
-#define USB_SERIAL_RX_BUF_SIZE 1024
+#define USB_SERIAL_TX_PRIORITY 2
 
-#define USB_SERIAL_PRIORITY 1
+#define USB_SERIAL_RX_BUF_SIZE 1024
+#define USB_SERIAL_RX_PRIORITY 2
+
+extern USBSerialTx usb_serial_tx;
+static inline void usb_serial_main_tx_isr() { usb_serial_tx_ep_isr(usb_serial_tx); }
+
+extern USBSerialRx usb_serial_rx;
+static inline void usb_serial_main_rx_isr() { usb_serial_rx_ep_isr(usb_serial_rx); }
+
+// Cobs config
+#define COBS_ENCODE_PRIORITY 3
+#define COBS_DECODE_PRIORITY 3
+
+// Avril Config
+#define AVRIL_MODE_STANDARD 0
+#define AVRIL_MODE_BOOTLOAD 1
+#define AVRIL_N_MODES 4
+
+#define AVRIL_MAX_MSG_SIZE 1024
+#define AVRIL_PRIORITY 1
+
+#define BOOTLOAD_PASSWORD 0
 
 // // USB Synchronization
 // #define SYNC_WINDOW_SIZE 128
