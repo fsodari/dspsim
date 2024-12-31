@@ -9,6 +9,7 @@
 #include "dspsim/vmmi.h"
 #include "dspsim/vmmi_meta.h"
 #include "dspsim/sram.h"
+#include "dspsim/mmi_iter.h"
 #include "dspsim/cobs.h"
 #include "booter.h"
 
@@ -30,6 +31,17 @@ void vApplicationDaemonTaskStartupHook(void)
 {
     // All interfaces to be used in the vmmi. The map will probably be a generated code file eventually?
     Sram sram0 = sram_create(1024, MMI_l);
+    {
+        MIter sbegin, send, sit;
+        int32_t i = 0;
+        for_miter((MMI)sram0, sbegin, send, sit)
+        {
+            iset(sit, &i);
+            i++;
+        }
+        endfor_miter(sbegin, send, sit);
+    }
+
     Sram sram1 = sram_create(1024, MMI_f);
 
     // Virtual MMI Interface

@@ -1,54 +1,71 @@
 #pragma once
 #include "dspsim/mmi.h"
 
-typedef struct MIter MIter;
-typedef void (*miter_next_ft)(MIter *);
-
-struct MIter
+struct MIterDef
 {
-    MMI mmi_ref;
+    MMI mmi;
     uint32_t address;
-    uint32_t inc_size;
-    miter_next_ft next;
 };
 
-static inline void inext(MIter *it)
+static inline void inext(MIter it)
 {
-    it->next(it);
-}
-static inline int ieq(MIter *it0, MIter *it1)
-{
-    return (it0->address == it1->address);
+    it->mmi->next(it);
 }
 
-/*
-    for (MIter it = x_begin(&x), MIter end = x_end(&x); !ieq(&it, &end); inext(&it))
-    {
-        uint32_t x;
-        iget(&it, &x);
-        uint32_t y = 42;
-        iset(&it, &y);
-    }
-
-*/
-
-static inline uint32_t miter_write(MIter *it, const void *src)
+static inline int ieq(MIter it0, MIter it1)
 {
-    return mmi_write(it->mmi_ref, it->address, src, it->inc_size);
+    return it0->address == it1->address;
 }
 
-static inline uint32_t miter_read(MIter *it, void *dst)
+#define miter_pair_create(mmi, begin, end, it) \
+    do                                         \
+    {                                          \
+        miter_pair(mmi, &begin, &end, &it);    \
+    } while (0);
+
+#define miter_pair_destroy(begin, end, it) \
+    do                                     \
+    {                                      \
+        miter_destroy(&begin);             \
+        miter_destroy(&end);               \
+        miter_destroy(&it);                \
+    } while (0);
+
+// Pass an mmi, begin and end iterators, and name of iterator.
+#define for_miter(mmi, begin, end, it)      \
+    do                                      \
+    {                                       \
+        miter_pair(mmi, &begin, &end, &it); \
+    } while (0);                            \
+    for (; !ieq(it, end); inext(it))
+
+// Clean up iterators.
+#define endfor_miter(begin, end, it) miter_pair_destroy(begin, end, it)
+
+static inline uint32_t miter_write(MIter it, const void *src)
 {
-    return mmi_read(it->mmi_ref, it->address, dst, it->inc_size);
+    return mmi_write(it->mmi, it->address, src, mmi_dtype_size(it->mmi->dtype));
 }
 
-static inline uint32_t iget(MIter *it, void *dst) { return miter_read(it, dst); }
-static inline uint32_t iset(MIter *it, const void *src) { return miter_write(it, src); }
+static inline uint32_t miter_read(MIter it, void *dst)
+{
+    return mmi_read(it->mmi, it->address, dst, mmi_dtype_size(it->mmi->dtype));
+}
+
+static inline uint32_t iget(MIter it, void *dst) { return miter_read(it, dst); }
+static inline uint32_t iset(MIter it, const void *src) { return miter_write(it, src); }
 
 // Typical standard iter functions.
-// Increment the address.
-void miter_next_inc(MIter *it);
-// Increment the address, and rollover
-void miter_next_circ(MIter *it);
 
-void icopy(MIter *ibegin, MIter *iend, MIter *obegin);
+// Increment the address.
+static inline void miter_next_inc(MIter it) { it->address += mmi_dtype_size(it->mmi->dtype); }
+
+MIter miter_create(MMI mmi, uint32_t address);
+MIter miter_begin(MMI mmi);
+MIter miter_end(MMI mmi);
+
+void miter_pair(MMI mmi, MIter *begin, MIter *end, MIter *it);
+
+void miter_destroy(MIter *self);
+
+void icopy(MIter ibegin, MIter iend, MIter obegin);

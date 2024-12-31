@@ -6,6 +6,7 @@
 #pragma once
 #include "dspsim/error_codes.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef enum MMIDtypes
 {
@@ -22,9 +23,15 @@ typedef enum MMIDtypes
     MMI_d = 0x18,
 } MMIDtypes;
 
+extern uint8_t *mmi_swap_buf;
+static inline uint32_t mmi_dtype_size(int32_t dtype) { return abs(dtype) & 0xF; }
+
 // Interfaces must implement these function types.
 typedef uint32_t (*mmi_write_ft)(void *self, uint32_t address, const void *src, uint32_t size);
 typedef uint32_t (*mmi_read_ft)(void *self, uint32_t address, void *dst, uint32_t size);
+
+typedef struct MIterDef *MIter;
+typedef void (*miter_next_ft)(MIter);
 
 typedef struct MMIDef *MMI;
 struct MMIDef
@@ -33,6 +40,7 @@ struct MMIDef
     mmi_read_ft read;
     uint32_t size;
     int32_t dtype;
+    miter_next_ft next;
 };
 
 void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, int32_t dtype);

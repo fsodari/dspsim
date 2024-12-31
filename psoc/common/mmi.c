@@ -1,4 +1,5 @@
 #include "dspsim/mmi.h"
+#include "dspsim/mmi_iter.h"
 
 void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, int32_t dtype)
 {
@@ -6,6 +7,7 @@ void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, int
     self->read = read;
     self->size = size;
     self->dtype = dtype;
+    self->next = miter_next_inc; // Default iter function. Override if you need to.
 }
 
 // Standardized functions that mmis can use.
