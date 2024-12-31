@@ -15,7 +15,7 @@ typedef enum MMIDtypes
     MMI_B = 1,
     MMI_h = -2,
     MMI_H = 2,
-    MMI_l = 4,
+    MMI_l = -4,
     MMI_L = 4,
     MMI_q = -8,
     MMI_Q = 8,

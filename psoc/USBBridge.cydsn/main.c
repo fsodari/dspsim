@@ -37,7 +37,7 @@ void vApplicationDaemonTaskStartupHook(void)
         for_miter((MMI)sram0, sbegin, send, sit)
         {
             iset(sit, &i);
-            i++;
+            i--;
         }
         endfor_miter(sbegin, send, sit);
     }

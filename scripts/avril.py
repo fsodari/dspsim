@@ -318,7 +318,7 @@ def main():
 
         # Iterate through all addresses, incrementing by dtype.
         for addr in tqdm(sram0):
-            x = random.randint(0, 0xFFFFFFFF)
+            x = random.randint(-(2**31), 2**31 - 1)
             sram0[addr] = x
             y = sram0[addr]
             assert y == x
