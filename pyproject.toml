@@ -25,6 +25,9 @@ dependencies = [
     "jinja2>=3.1.4",
     "numpy>=2.1.3",
     "dataclass-wizard[toml, yaml]>=0.30.1",
+    "cobs>=1.2.1",
+    "pyserial>=3.5",
+    "cyflash",
 ]
 
 # Optional dependencies
@@ -39,6 +42,7 @@ dev = [
     "seaborn>=0.13.2",
     "scipy>=1.14.1",
     "mkdocs>=1.6.1",
+    "tqdm>=4.67.1",
 ]
 
 # Available on github. Wheels and sdist published to pypi.org
@@ -49,6 +53,7 @@ Homepage = "https://github.com/fsodari/dspsim"
 [project.scripts]
 # Main command line interface.
 dspsim = "dspsim.main:main"
+psoc = "dspsim.psoc_creator:main"
 # Generate binding code for modules.
 
 #---------------------------------------------------------------------------------------------------#
@@ -132,6 +137,9 @@ skip = ["*-win_arm64", "*musllinux*"]
 test-command = "pytest {project}/tests/test_framework.py"
 test-requires = "pytest"
 build-verbosity = 1
+
+[tool.uv.sources]
+cyflash = { git = "https://github.com/arachnidlabs/cyflash" }
 ###
 ###
 ###

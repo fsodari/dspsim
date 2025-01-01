@@ -60,7 +60,7 @@ namespace dspsim
             tfp->set_time_unit("ns");
 
             top->trace(tfp.get(), levels, options);
-            tfp->open(trace_path.c_str());
+            tfp->open(trace_path.string().c_str());
         }
 
         void close()

@@ -1,7 +1,7 @@
 workspace: dspsim.cywrk
 projects:
-  # USBBootloader: psoc/USBBootloader.cydsn
-  USBBridge: psoc/USBBridge.cydsn
+  USBBootloader: src/dspsim/psoc/USBBootloader.cydsn
+  USBBridge: src/dspsim/psoc/USBBridge.cydsn
 
 build_type: Release
 output_files:
