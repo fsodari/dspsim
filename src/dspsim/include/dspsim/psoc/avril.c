@@ -77,10 +77,11 @@ static uint32_t write_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 
 static uint32_t read_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
-    uint32_t data_size = header->size;
+    uint32_t data_size = error == dErrNone ? header->size : 0;
 
     header->command = AvrilReadAck;
     header->size = sizeof(error) + data_size;
+
     memcpy(dst, header, sizeof(*header));
     dst += sizeof(*header);
     memcpy(dst, &error, sizeof(error));

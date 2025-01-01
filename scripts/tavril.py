@@ -25,6 +25,14 @@ def main():
 
         sram1 = VIFace(av, "sram1")
 
+        ack = sram1.write_reg(0, 42)
+        assert ack.error == ErrorCode.NoError
+        print(ack)
+
+        ack, _data = sram1.read_reg(0)
+        assert ack.error == ErrorCode.NoError
+        print(ack, _data)
+
         # assign random register names to all registers.
         sram1.load_registers(
             {
@@ -50,6 +58,19 @@ def main():
         # Write out of bounds.
         ack = sram1.write_reg(1024, 42)
         assert ack.error == ErrorCode.InvalidAddress
+        print(ack)
+
+        # Read out of bounds
+        ack, _data = sram1.read_reg(1024)
+        assert ack.error == ErrorCode.InvalidAddress
+        print(ack)
+
+        # getitem/setitem raises an exception if there is an ack error.
+        try:
+            ack = sram1[1024]
+            assert False
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":

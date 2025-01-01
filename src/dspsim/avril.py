@@ -292,19 +292,28 @@ class VIFace:
             dtype = self.dtype
 
         bdata = struct.pack(f"<{dtype.name}", data)
-        return self.write(address, bdata)
+        ack = self.write(address, bdata)
+        return ack
 
-    def read_reg(self, address: int | str, dtype: DType = None) -> int | float:
+    def read_reg(self, address: int | str, dtype: DType = None) -> tuple[AvrilAck, int | float]:
         if dtype is None:
             dtype = self.dtype
         ack = self.read(address, dtype_size(self.dtype))
-        return struct.unpack(f"<{dtype.name}", ack.data)[0]
+        if ack.error == ErrorCode.NoError:
+            return ack, struct.unpack(f"<{dtype.name}", ack.data)[0]
+        else:
+            return ack, b""
 
     def __getitem__(self, address: int | str) -> int | float:
-        return self.read_reg(address)
+        ack, val = self.read_reg(address)
+        if ack.error != ErrorCode.NoError:
+            raise Exception(f"Read Ack Error: {ack.error.name}")
+        return val
 
     def __setitem__(self, address: int | str, data: int | float):
-        self.write_reg(address, data)
+        ack = self.write_reg(address, data)
+        if ack.error != ErrorCode.NoError:
+            raise Exception(f"Read Ack Error: {ack.error.name}")
 
     @property
     def size(self) -> int:
