@@ -1,0 +1,17 @@
+workspace: dspsim.cywrk
+projects:
+  USBBootloader: src/dspsim/psoc/USBBootloader.cydsn
+  USBBridge: src/dspsim/psoc/USBBridge.cydsn
+
+build_type: Release
+output_files:
+  - "*.hex"
+  - "*.cyacd"
+
+
+psoc_creator_location: "C:/Program Files (x86)/Cypress/PSoC Creator"
+psoc_creator_version: 4.4
+
+# Options for PSoC5
+arch: "CortexM3"
+compiler: "ARM_GCC_541"

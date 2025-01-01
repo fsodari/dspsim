@@ -6,11 +6,23 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/d4/7ebdbd03970677812aac39c869717059dbb71a4cfc033ca6e5221787892c/click-8.1.8-py3-none-any.whl", hash = "sha256:63c132bbbed01578a06712a2d1f497bb62d9c1c0d329b7903a866228027263b2", size = 98188 },
+]
+
+[[package]]
+name = "cobs"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/87/dd/cb6aa7465da843cc1633e2ee05ef86a8df63fd95e741dfcb98ed8f477cb8/cobs-1.2.1.tar.gz", hash = "sha256:2af7f8791cde1ae7c6b936f5d0c35fe29feb10de25f79c15b0af0d6729783cc0", size = 14585 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fc/f5/933e2ba7a7a72981ed49f1c64150e98ac428d9447686e1c77a912c74cf8b/cobs-1.2.1-cp312-cp312-win32.whl", hash = "sha256:141107fb3b764772f6db6a52af8158457e00e499f75e3794cb67ea11444839c5", size = 25898 },
+    { url = "https://files.pythonhosted.org/packages/70/f3/fec37bcd8f4e5318efc7dd3174ac48609343ce99deaad0b463ca7d02ffec/cobs-1.2.1-cp312-cp312-win_amd64.whl", hash = "sha256:cb02967314f0db41bf04bc475e4963c079912884586003c8290d82cd0f07d621", size = 27328 },
+    { url = "https://files.pythonhosted.org/packages/88/a9/1dfcca55fb46105cdd6b234cb82bef778fe47614343fdf21c3f26cccd926/cobs-1.2.1-cp313-cp313-win32.whl", hash = "sha256:5857c85de70f244648d2a5ee1f28e2aa9313752ebd44c8089343c086dd184a77", size = 26357 },
+    { url = "https://files.pythonhosted.org/packages/a6/b5/c8103c7bd95e911c8b94609a065e47a1e64bd0cf13d3908409acd199489b/cobs-1.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:3431da8248d91c241ad98ceb08df00824574421132e42359cd31080a1e13bf24", size = 27736 },
 ]
 
 [[package]]
@@ -73,6 +85,16 @@ wheels = [
 ]
 
 [[package]]
+name = "cyflash"
+version = "1.7"
+source = { git = "https://github.com/arachnidlabs/cyflash#6d742d67d960cd6477cf80af714607a973bbcb05" }
+dependencies = [
+    { name = "future" },
+    { name = "pyserial" },
+    { name = "six" },
+]
+
+[[package]]
 name = "dataclass-wizard"
 version = "0.32.1"
 source = { registry = "https://pypi.org/simple" }
@@ -85,16 +107,22 @@ wheels = [
 toml = [
     { name = "tomli-w" },
 ]
+yaml = [
+    { name = "pyyaml" },
+]
 
 [[package]]
 name = "dspsim"
 version = "0.3.7"
 source = { editable = "." }
 dependencies = [
-    { name = "dataclass-wizard", extra = ["toml"] },
+    { name = "cobs" },
+    { name = "cyflash" },
+    { name = "dataclass-wizard", extra = ["toml", "yaml"] },
     { name = "jinja2" },
     { name = "nanobind" },
     { name = "numpy" },
+    { name = "pyserial" },
     { name = "scikit-build-core" },
 ]
 
@@ -106,6 +134,7 @@ dev = [
     { name = "ruff" },
     { name = "scipy" },
     { name = "seaborn" },
+    { name = "tqdm" },
     { name = "verilator-dspsim" },
 ]
 verilator = [
@@ -114,10 +143,13 @@ verilator = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dataclass-wizard", extras = ["toml"], specifier = ">=0.30.1" },
+    { name = "cobs", specifier = ">=1.2.1" },
+    { name = "cyflash", git = "https://github.com/arachnidlabs/cyflash" },
+    { name = "dataclass-wizard", extras = ["toml", "yaml"], specifier = ">=0.30.1" },
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "nanobind", specifier = ">=2.4.0" },
     { name = "numpy", specifier = ">=2.1.3" },
+    { name = "pyserial", specifier = ">=3.5" },
     { name = "scikit-build-core", specifier = ">=0.10.7" },
 ]
 
@@ -129,6 +161,7 @@ dev = [
     { name = "ruff", specifier = ">=0.8.3" },
     { name = "scipy", specifier = ">=1.14.1" },
     { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "verilator-dspsim", specifier = ">=5.30.9" },
 ]
 verilator = [{ name = "verilator-dspsim", specifier = ">=5.30.9" }]
@@ -156,6 +189,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/a8/4bf98840ff89fcc188470b59daec57322178bf36d2f4f756cd19a42a826b/fonttools-4.55.3-cp313-cp313-win32.whl", hash = "sha256:8c5ec45428edaa7022f1c949a632a6f298edc7b481312fc7dc258921e9399628", size = 2160178 },
     { url = "https://files.pythonhosted.org/packages/e6/57/4cc35004605416df3225ff362f3455cf09765db00df578ae9e46d0fefd23/fonttools-4.55.3-cp313-cp313-win_amd64.whl", hash = "sha256:11e5de1ee0d95af4ae23c1a138b184b7f06e0b6abacabf1d0db41c90b03d834b", size = 2206102 },
     { url = "https://files.pythonhosted.org/packages/99/3b/406d17b1f63e04a82aa621936e6e1c53a8c05458abd66300ac85ea7f9ae9/fonttools-4.55.3-py3-none-any.whl", hash = "sha256:f412604ccbeee81b091b420272841e5ec5ef68967a9790e80bffd0e30b8e2977", size = 1111638 },
+]
+
+[[package]]
+name = "future"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326 },
 ]
 
 [[package]]
@@ -330,7 +372,7 @@ version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
     { name = "ghp-import" },
     { name = "jinja2" },
     { name = "markdown" },
@@ -527,6 +569,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyserial"
+version = "3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz", hash = "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb", size = 159125 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl", hash = "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0", size = 90585 },
+]
+
+[[package]]
 name = "pytest"
 version = "8.3.4"
 source = { registry = "https://pypi.org/simple" }
@@ -695,6 +746,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d4/19/b65f1a088ee23e37cdea415b357843eca8b1422a7b11a9eee6e35d4ec273/tomli_w-1.1.0.tar.gz", hash = "sha256:49e847a3a304d516a169a601184932ef0f6b61623fe680f836a2aa7128ed0d33", size = 6929 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/ac/ce90573ba446a9bbe65838ded066a805234d159b4446ae9f8ec5bbd36cbd/tomli_w-1.1.0-py3-none-any.whl", hash = "sha256:1403179c78193e3184bfaade390ddbd071cba48a32a2e62ba11aae47490c63f7", size = 6440 },
+]
+
+[[package]]
+name = "tqdm"
+version = "4.67.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "platform_system == 'Windows'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540 },
 ]
 
 [[package]]

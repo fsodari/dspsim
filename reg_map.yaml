@@ -1,0 +1,11 @@
+interfaces:
+  sram0:
+    x:
+      address: 12
+    y:
+      address: 32
+  sram1:
+    x:
+      address: 1000
+    y:
+      address: 1004
