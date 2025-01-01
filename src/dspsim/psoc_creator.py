@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import os
 import argparse
-import struct
 
 from dspsim import avril
 from dspsim.avril import Avril, AvrilAck, find_device, DType, ErrorCode

@@ -267,12 +267,12 @@ class Avril:
             try:
                 entry = self.read_meta(i, mode)
                 all_meta[entry.name] = entry
-            except Exception as e:
-                print(f"{e}")
+            except Exception:
+                # print(f"{e}")
                 break
         return all_meta
 
-    def get_interface(self, interface: str, registers: dict[str, int] = {}):
+    def get_interface(self, interface: str, registers: dict[str, VReg] = {}):
         """"""
         return VIFace(self, interface, registers)
 
@@ -363,3 +363,102 @@ class VIFace:
 
     def __iter__(self):
         return iter(range(0, self.size, self.dtype.size))
+
+
+import argparse
+
+
+def dtype_lookup(s: str) -> DType:
+    idx = list(DType._member_map_.keys()).index(s)
+    return list(DType._member_map_.values())[idx]
+
+
+def dtype_cnv(dtype: DType, d: str) -> int | float:
+    if dtype.name in ["f", "d"]:
+        return float(d)
+    else:
+        return int(d)
+
+
+@dataclass
+class Args:
+    command: str  # write or read
+    address: int
+    data: list[int | float]
+    n: int = 1
+    dtype: str = None
+    interface: str = None
+    verbose: bool = False
+
+    @classmethod
+    def parse_args(cls, cli_args: list[str] = None):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "command",
+            type=str,
+            choices=["write", "read"],
+            help="write or read command.",
+        )
+        parser.add_argument("-address", type=int, help="Command address")
+        parser.add_argument("-data", nargs="+", help="Write data")
+        parser.add_argument(
+            "-n", type=int, default=1, help="Read a number of registers."
+        )
+        parser.add_argument("-dtype", type=str, default=None, help="DType")
+        parser.add_argument(
+            "-interface",
+            type=str,
+            default=None,
+            help="Address will be relative to this interface.",
+        )
+        parser.add_argument("-verbose", action="store_true", help="verbose output")
+        return cls(**vars(parser.parse_args(cli_args)))
+
+
+def main(cli_args: list[str] = None):
+    args = Args.parse_args(cli_args)
+    # print(args)
+
+    with Avril(timeout=0.05) as av:
+        if args.interface:
+            iface = av.get_interface(args.interface)
+            dtype = dtype_lookup(args.dtype) if args.dtype else iface.dtype
+        else:
+            dtype = dtype_lookup(args.dtype)
+        if args.command == "write":
+            data = [dtype_cnv(dtype, d) for d in args.data]
+            if args.interface:
+                ack = iface.write_reg(args.address, *data, dtype=dtype)
+            else:
+                ack = av.write_reg(args.address, *data, dtype=dtype)
+
+        elif args.command == "read":
+            if args.interface:
+                ack = iface.read_reg(args.address, args.n, dtype=dtype)
+            else:
+                ack = av.read_reg(args.address, dtype, args.n)
+
+        # Check errors
+        if isinstance(ack, Iterable):
+            for a in ack:
+                if a.error != ErrorCode.NoError:
+                    raise Exception(f"Ack Error: {a}")
+        else:
+            if ack.error != ErrorCode.NoError:
+                raise Exception(f"Ack Error: {ack}")
+
+        if isinstance(ack, Iterable):
+            if args.command == "read":
+                msg = (
+                    "\n".join([str(a) for a in ack])
+                    if args.verbose
+                    else ", ".join([str(a.data) for a in ack])
+                )
+            elif args.command == "write":
+                msg = "\n".join([str(a) for a in ack]) if args.verbose else ""
+        else:
+            if args.command == "read":
+                msg = f"{ack}" if args.verbose else ack.data
+            elif args.command == "write":
+                msg = f"{ack}" if args.verbose else ""
+        print(msg)
