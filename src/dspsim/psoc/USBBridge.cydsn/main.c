@@ -30,6 +30,7 @@ USBSerialRx usb_serial_rx;
 void vApplicationDaemonTaskStartupHook(void)
 {
     // All interfaces to be used in the vmmi. The map will probably be a generated code file eventually?
+    // Sram interfaces for demonstration.
     Sram sram0 = sram_create(1024, MMI_l);
     {
         MIter sbegin, send, sit;
@@ -41,11 +42,10 @@ void vApplicationDaemonTaskStartupHook(void)
         }
         endfor_miter(sbegin, send, sit);
     }
-
     Sram sram1 = sram_create(1024, MMI_f);
 
     // Virtual MMI Interface
-    VMMI vmmi = vmmi_create(5);
+    VMMI vmmi = vmmi_create(VMMI_N_INTERFACES);
     // Metadata interface for inspecting the interfaces in the vmmi.
     VMMIMeta vmeta = vmmi_meta_create(vmmi, VMMI_META_RESERVE_SIZE);
 
@@ -60,12 +60,13 @@ void vApplicationDaemonTaskStartupHook(void)
     Avril av = avril_start(AVRIL_N_MODES, AVRIL_MAX_MSG_SIZE, AVRIL_PRIORITY);
 
     // Add avril modes.
-    avril_add_mode(av, AVRIL_MODE_STANDARD, (MMI)vmmi);
+    avril_add_mode(av, AVRIL_MODE_VMMI, (MMI)vmmi);
     avril_add_mode(av, AVRIL_MODE_BOOTLOAD, (MMI)booter);
     avril_add_mode(av, AVRIL_MODE_VMETA, (MMI)vmeta); // Metadata can also be accessed with a different mode.
 
     // Start usb
-    USBCore usb_core = usb_start(0, 10);
+    USBCore usb_core = usb_start(0, USB_N_INTERFACES);
+
     // Start usb serial.
     USBSerial usb_serial = usb_serial_start(
         usb_core,

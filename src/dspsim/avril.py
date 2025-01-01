@@ -15,7 +15,6 @@ if sys.platform == "win32":
 
 # Default VID/PID
 VID = 0x6666
-
 PID = 0xD510
 
 
@@ -35,7 +34,7 @@ AVRIL_CMD_READ_ACK = 5
 
 AVRIL_MODE_VMMI = 0
 AVRIL_MODE_BOOTLOAD = 1
-AVRIL_MODE_META = 2
+AVRIL_MODE_VMETA = 2
 
 # Decode the integer dtype key to the struct.unpack/pack dtype format.
 dtype_decode: dict[int, str] = {
@@ -222,7 +221,7 @@ class Avril:
 
     def read_meta(self, id: int, mode: int = None) -> VMetaEntry:
         if mode is None:
-            mode = AVRIL_MODE_META
+            mode = AVRIL_MODE_VMETA
         addr = id * 28
         cmd = AvrilMessage(AVRIL_CMD_READ, mode, None, 28, addr)
         self._serial_send(cmd.encode())

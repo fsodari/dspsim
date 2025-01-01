@@ -87,6 +87,11 @@
 #define AVRIL_CMD_WRITE_ACK 4
 #define AVRIL_CMD_READ_ACK 5
 
+// Standard modes.
+#define AVRIL_MODE_VMMI 0
+#define AVRIL_MODE_BOOTLOAD 1
+#define AVRIL_MODE_VMETA 2
+
 typedef struct AvrilDef *Avril;
 
 Avril avril_start(uint32_t n_modes, uint32_t max_msg_size, uint32_t priority);

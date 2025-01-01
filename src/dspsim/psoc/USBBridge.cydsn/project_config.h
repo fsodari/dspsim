@@ -52,6 +52,8 @@
 //
 // USB Serial Port
 //
+#define USB_N_INTERFACES 10
+
 #define USB_SERIAL_CTL_IFACE 3
 #define USB_SERIAL_DATA_IFACE 4
 
@@ -76,9 +78,7 @@ static inline void usb_serial_main_rx_isr() { usb_serial_rx_ep_isr(usb_serial_rx
 #define COBS_DECODE_PRIORITY 2
 
 // Avril Config
-#define AVRIL_MODE_STANDARD 0
-#define AVRIL_MODE_BOOTLOAD 1
-#define AVRIL_MODE_VMETA 2
+#define VMMI_N_INTERFACES 5
 #define AVRIL_N_MODES 4
 
 #define AVRIL_MAX_MSG_SIZE 1024
