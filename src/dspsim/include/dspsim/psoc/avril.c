@@ -59,7 +59,7 @@ typedef struct CmdHeader
 
 static uint32_t nop_ack(CmdHeader *header, uint8_t *dst)
 {
-    header->command = AVRIL_CMD_NOP_ACK;
+    header->command = AvrilNopAck;
     header->size = 0;
     memcpy(dst, header, sizeof(*header));
     return sizeof(CmdHeader);
@@ -67,7 +67,7 @@ static uint32_t nop_ack(CmdHeader *header, uint8_t *dst)
 
 static uint32_t write_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
-    header->command = AVRIL_CMD_WRITE_ACK;
+    header->command = AvrilWriteAck;
     header->size = sizeof(error);
     memcpy(dst, header, sizeof(*header));
     dst += sizeof(*header);
@@ -79,7 +79,7 @@ static uint32_t read_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
     uint32_t data_size = header->size;
 
-    header->command = AVRIL_CMD_READ_ACK;
+    header->command = AvrilReadAck;
     header->size = sizeof(error) + data_size;
     memcpy(dst, header, sizeof(*header));
     dst += sizeof(*header);
@@ -104,10 +104,10 @@ void AvrilTask(void *_self)
             uint32_t response_size = 0;
             switch (header->command)
             {
-            case AVRIL_CMD_NOP:
+            case AvrilNop:
                 response_size = nop_ack(header, self->msg_buf);
                 break;
-            case AVRIL_CMD_WRITE:
+            case AvrilWrite:
                 if (header->size == (received - sizeof(CmdHeader)))
                 {
                     error = mmi_write(mode, header->address, data, header->size);
@@ -119,7 +119,7 @@ void AvrilTask(void *_self)
                 response_size = write_ack(header, error, self->msg_buf);
 
                 break;
-            case AVRIL_CMD_READ:
+            case AvrilRead:
                 error = mmi_read(mode, header->address, data + 4, header->size);
                 response_size = read_ack(header, error, self->msg_buf);
                 break;

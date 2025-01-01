@@ -28,7 +28,7 @@ VMMI vmmi_create(uint32_t max_interfaces)
 */
 uint32_t vmmi_register(VMMI self, MMI iface, const char *name)
 {
-    uint32_t error = dERR_NONE;
+    uint32_t error = dErrNone;
 
     // Create table entry.
     VMMITableEntry entry = pvPortMalloc(sizeof(*entry));
@@ -63,21 +63,21 @@ VMMITableEntry vmmi_get_entry(VMMI self, uint32_t id)
 uint32_t vmmi_write(void *_self, uint32_t address, const void *src, uint32_t size)
 {
     VMMI self = _self;
-    uint32_t error = dERR_NONE;
+    uint32_t error = dErrNone;
 
     MMI iface;
     uint32_t relative_address;
 
     // Find the interface and relative address.
     error = vmmi_find_interface(self, address, &iface, &relative_address);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }
 
     // Check for overflow
     error = mmi_check_overflow(iface, relative_address, size);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }
@@ -91,19 +91,19 @@ uint32_t vmmi_write(void *_self, uint32_t address, const void *src, uint32_t siz
 uint32_t vmmi_read(void *_self, uint32_t address, void *dst, uint32_t size)
 {
     VMMI self = _self;
-    uint32_t error = dERR_NONE;
+    uint32_t error = dErrNone;
 
     MMI iface;
     uint32_t relative_address;
 
     // Find the interface and relative address.
     error = vmmi_find_interface(self, address, &iface, &relative_address);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }
     error = mmi_check_overflow(iface, relative_address, size);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }
@@ -116,7 +116,7 @@ uint32_t vmmi_read(void *_self, uint32_t address, void *dst, uint32_t size)
 
 uint32_t vmmi_find_interface(VMMI self, uint32_t virtual_address, MMI *found, uint32_t *relative_address)
 {
-    uint32_t error = dERR_INVALID_ADDRESS;
+    uint32_t error = dErrInvalidAddress;
     *found = NULL;
     *relative_address = UINT32_MAX;
 
@@ -128,7 +128,7 @@ uint32_t vmmi_find_interface(VMMI self, uint32_t virtual_address, MMI *found, ui
         {
             *found = entry->mmi;
             *relative_address = virtual_address - entry->base_address;
-            error = dERR_NONE;
+            error = dErrNone;
             break;
         }
     }

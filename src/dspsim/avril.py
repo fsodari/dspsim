@@ -10,12 +10,24 @@ import sys
 import serial
 import serial.tools.list_ports
 
+from dspsim.cutil import ErrorCode, DType, AvrilCommand, AvrilMode, dtype_size
+
+import time
+
+
 if sys.platform == "win32":
     import serial.win32
 
 # Default VID/PID
 VID = 0x6666
+
+# USBBridge PID
 PID = 0xD510
+
+# USBBootloader PID
+_BOOTLOAD_PID = 0xD511
+# Headphone DAC PID
+_HP_DAC_PID = 0xD512
 
 
 def find_device(pid: int):
@@ -25,43 +37,11 @@ def find_device(pid: int):
     return [port.device for port in ports if port.pid == pid]
 
 
-AVRIL_CMD_NOP = 0
-AVRIL_CMD_WRITE = 1
-AVRIL_CMD_READ = 2
-AVRIL_CMD_NOP_ACK = 3
-AVRIL_CMD_WRITE_ACK = 4
-AVRIL_CMD_READ_ACK = 5
-
-AVRIL_MODE_VMMI = 0
-AVRIL_MODE_BOOTLOAD = 1
-AVRIL_MODE_VMETA = 2
-
-# Decode the integer dtype key to the struct.unpack/pack dtype format.
-dtype_decode: dict[int, str] = {
-    0: "x",
-    0x1: "b",
-    0x10001: "B",
-    0x2: "h",
-    0x10002: "H",
-    0x4: "l",
-    0x10004: "L",
-    0x8: "q",
-    0x10008: "Q",
-    0x20004: "f",
-    0x20008: "d",
-}
-
-
-def dtype_size(dtype: str) -> int:
-    """Get the dtype size from its key. The lower 16 bits represent a size, and upper 16 are for a unique table index."""
-    key = list(dtype_decode.keys())[list(dtype_decode.values()).index(dtype)]
-    return abs(key) & 0xFFFF
-
 
 @dataclass
 class AvrilMessage:
-    command: int
-    mode: int
+    command: AvrilCommand
+    mode: AvrilMode
     msg_id: int
     size: int
     address: int
@@ -73,12 +53,17 @@ class AvrilMessage:
         if self.msg_id is None:
             self.msg_id = random.randint(0, 0xFFFF)
 
+    def __str__(self):
+        return f"AvrilMessage(command={self.command.name}, mode={self.mode.name}, msg_id={hex(self.msg_id)}, size={self.size}, address={self.address}, data={self.data})"
     @classmethod
     def from_bytes(cls, b: bytes):
-        return cls(*struct.unpack(cls._fmt, b[:12]), b[12:])
+        _cmd, _mode, msg_id, size, addr = struct.unpack(cls._fmt, b[:12])
+        return cls(AvrilCommand(_cmd), AvrilMode(_mode), msg_id, size, addr, b[12:])
 
     def to_bytes(self) -> bytes:
-        header = struct.pack(self._fmt, *list(vars(self).values())[:5])
+        _cmd = self.command.value
+        _mode = self.mode.value
+        header = struct.pack(self._fmt, _cmd, _mode, self.msg_id, self.size, self.address)
         return header + self.data
 
     @classmethod
@@ -91,22 +76,22 @@ class AvrilMessage:
 
 @dataclass
 class AvrilAck(AvrilMessage):
-    error: int = 0
+    error: ErrorCode = ErrorCode.NoError
 
     def __post_init__(self):
         super().__post_init__()
-        self.error = struct.unpack("<L", self.data[:4])[0]
+        self.error = ErrorCode(*struct.unpack("<L", self.data[:4]))
         self.data = self.data[4:]
 
-
-import time
+    def __str__(self)->str:
+        return f"AvrilAck(error={self.error.name}, data={self.data})"
 
 
 @dataclass
 class VMetaEntry:
     base_address: int
     size: int
-    dtype: str
+    dtype: DType
     name: str
 
     @classmethod
@@ -115,33 +100,31 @@ class VMetaEntry:
         name_offset = 12
         return cls(
             *struct.unpack("<LL", b[:dtype_offset]),
-            dtype_decode[struct.unpack("<L", b[dtype_offset:name_offset])[0]],
+            DType(struct.unpack("<L", b[dtype_offset:name_offset])[0]),
             b[name_offset:].decode().strip("\0"),
         )
+    
+    def __str__(self) -> str:
+        """"""
+        return f"VMetaEntry(base_address={self.base_address}, size={self.size}, dtype={self.dtype.name}, name={self.name})"
 
 
 @dataclass
 class VReg:
     address: int
-    dtype: str = None
+    dtype: DType = None
     default: int | float = 0
     description: str = ""
-
-
-@dataclass
-class VIFace:
-    base_address: int
-    size: int
-    registers: dict[str, VReg]
 
 
 @dataclass
 class VRegMap(YAMLWizard):
     interfaces: dict[str, dict[str, VReg]]
 
-
+class ErrorCodeException(Exception):
+    pass
 class Avril:
-    mode: int
+    mode: AvrilMode
     pid: int
     port: str
     device: serial.Serial
@@ -149,7 +132,7 @@ class Avril:
 
     def __init__(
         self,
-        mode: int,
+        mode: AvrilMode,
         pid: int = 0xD510,
         timeout: float = 1.0,
         write_timeout: float = 1.0,
@@ -166,6 +149,8 @@ class Avril:
         self.chunk_size = 44
         self.meta_address = 0
 
+    def __str__(self):
+        return f"Avril(mode={self.mode}, pid={self.pid}, port={self.port})"
     def __enter__(self):
         time.sleep(0.2)
         self.device.port = self.port
@@ -200,10 +185,14 @@ class Avril:
     def write(
         self, address: int, data: bytes, msg_id: int = None, chunk: bool = True
     ) -> AvrilAck:
-        cmd = AvrilMessage(AVRIL_CMD_WRITE, self.mode, msg_id, len(data), address, data)
+        cmd = AvrilMessage(AvrilCommand.Write, self.mode, msg_id, len(data), address, data)
         self._serial_send(cmd.encode(), chunk=chunk)
         response = self._serial_read(cobs.max_encoded_length(16) + 1)
-        return AvrilAck.decode(response)
+        ack = AvrilAck.decode(response)
+        if ack.error != ErrorCode.NoError:
+            """Log error?"""
+            # raise ErrorCodeException(f"Write Ack Error: {ack.error.name}")
+        return ack
 
     def writef(self, address: int, fmt: str, *data) -> AvrilAck:
         x = struct.pack(fmt, *data)
@@ -212,18 +201,22 @@ class Avril:
     def read(
         self, address: int, size: int, msg_id: int = None, chunk: bool = True
     ) -> AvrilAck:
-        cmd = AvrilMessage(AVRIL_CMD_READ, self.mode, msg_id, size, address)
+        cmd = AvrilMessage(AvrilCommand.Read, self.mode, msg_id, size, address)
         self._serial_send(cmd.encode())
 
         expected_length = cobs.max_encoded_length(16 + size) + 1
         response = self._serial_read(expected_length, chunk)
-        return AvrilAck.decode(response)
+        ack = AvrilAck.decode(response)
+        if ack.error != ErrorCode.NoError:
+            """Log error?"""
+            # raise ErrorCodeException(f"Read Ack Error: {ack.error.name}")
+        return ack
 
-    def read_meta(self, id: int, mode: int = None) -> VMetaEntry:
+    def read_meta(self, id: int, mode: AvrilMode = None) -> VMetaEntry:
         if mode is None:
-            mode = AVRIL_MODE_VMETA
+            mode = AvrilMode.VMeta
         addr = id * 28
-        cmd = AvrilMessage(AVRIL_CMD_READ, mode, None, 28, addr)
+        cmd = AvrilMessage(AvrilCommand.Read, mode, None, 28, addr)
         self._serial_send(cmd.encode())
 
         expected_length = cobs.max_encoded_length(16 + 28) + 1
@@ -232,7 +225,7 @@ class Avril:
         ack = AvrilAck.decode(response)
         return VMetaEntry.unpack(ack.data)
 
-    def read_all_meta(self, mode: int = None) -> dict[str, VMetaEntry]:
+    def read_all_meta(self, mode: AvrilMode = None) -> dict[str, VMetaEntry]:
         """"""
         all_meta = {}
         max = int(4096 / 28)
@@ -247,14 +240,14 @@ class Avril:
 
     def get_interface(self, interface: str, registers: dict[str, int] = {}):
         """"""
-        return AvrilIface(self, interface, registers)
+        return VIFace(self, interface, registers)
 
 
-class AvrilIface:
+class VIFace:
     av: Avril
     interface: str
     meta: VMetaEntry
-    dtype: str
+    dtype: DType
     registers: dict[str, VReg]
 
     def __init__(self, av: Avril, interface: str, registers: dict[str, VReg] = {}):
@@ -263,6 +256,9 @@ class AvrilIface:
         self.meta = self.av.read_all_meta()[interface]
         self.dtype = self.meta.dtype
         self.load_registers(registers)
+
+    def __str__(self):
+        return f"VIFace(interface={self.interface}, meta={self.meta}, dtype={self.dtype.name})"
 
     def load_registers(self, registers: dict[str, VReg]):
         self.registers = registers
@@ -274,9 +270,6 @@ class AvrilIface:
         """"""
         iface_cfg = VRegMap.from_yaml_file(regmap)
         self.load_registers(iface_cfg.interfaces[self.interface])
-
-    def __str__(self):
-        return f"AvrilIface(av={self.av}, meta={self.meta})"
 
     def _get_address(self, address: int | str) -> int:
         # If the address is a string, look up the address in the registers
@@ -293,19 +286,19 @@ class AvrilIface:
         address = self._get_address(_address)
         return self.av.read(address, size)
 
-    def write_reg(self, address: int | str, data: int | float, dtype: str = None):
+    def write_reg(self, address: int | str, data: int | float, dtype: DType = None):
         """"""
         if dtype is None:
             dtype = self.dtype
 
-        bdata = struct.pack(f"<{dtype}", data)
+        bdata = struct.pack(f"<{dtype.name}", data)
         return self.write(address, bdata)
 
-    def read_reg(self, address: int | str, dtype: str = None) -> int | float:
+    def read_reg(self, address: int | str, dtype: DType = None) -> int | float:
         if dtype is None:
             dtype = self.dtype
-        ack = self.read(address, self.dtype_size)
-        return struct.unpack(f"<{dtype}", ack.data)[0]
+        ack = self.read(address, dtype_size(self.dtype))
+        return struct.unpack(f"<{dtype.name}", ack.data)[0]
 
     def __getitem__(self, address: int | str) -> int | float:
         return self.read_reg(address)
@@ -318,12 +311,8 @@ class AvrilIface:
         return self.meta.size
 
     @property
-    def dtype_size(self) -> int:
-        return dtype_size(self.dtype)
-
-    @property
     def base_address(self) -> int:
         return self.meta.base_address
 
     def __iter__(self):
-        return iter(range(0, self.size, self.dtype_size))
+        return iter(range(0, self.size, dtype_size(self.dtype)))

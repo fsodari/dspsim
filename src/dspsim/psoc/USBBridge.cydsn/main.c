@@ -60,9 +60,9 @@ void vApplicationDaemonTaskStartupHook(void)
     Avril av = avril_start(AVRIL_N_MODES, AVRIL_MAX_MSG_SIZE, AVRIL_PRIORITY);
 
     // Add avril modes.
-    avril_add_mode(av, AVRIL_MODE_VMMI, (MMI)vmmi);
-    avril_add_mode(av, AVRIL_MODE_BOOTLOAD, (MMI)booter);
-    avril_add_mode(av, AVRIL_MODE_VMETA, (MMI)vmeta); // Metadata can also be accessed with a different mode.
+    avril_add_mode(av, AvrilVmmi, (MMI)vmmi);
+    avril_add_mode(av, AvrilBootload, (MMI)booter);
+    avril_add_mode(av, AvrilVMeta, (MMI)vmeta); // Metadata can also be accessed with a different mode.
 
     // Start usb
     USBCore usb_core = usb_start(0, USB_N_INTERFACES);

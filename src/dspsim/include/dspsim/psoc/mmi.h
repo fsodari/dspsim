@@ -5,26 +5,12 @@
 */
 #pragma once
 #include "dspsim/psoc/error_codes.h"
+#include "dspsim/psoc/mmi_dtypes.h"
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef enum MMIDtypes
-{
-    MMI_x = 0,
-    MMI_b = 0x1,
-    MMI_B = 0x10001,
-    MMI_h = 0x2,
-    MMI_H = 0x10002,
-    MMI_l = 0x4,
-    MMI_L = 0x10004,
-    MMI_q = 0x8,
-    MMI_Q = 0x10008,
-    MMI_f = 0x20004,
-    MMI_d = 0x20008,
-} MMIDtypes;
-
 extern uint8_t *mmi_swap_buf;
-static inline uint32_t mmi_dtype_size(uint32_t dtype) { return abs(dtype) & 0xFF; }
+static inline uint32_t mmi_dtype_size(uint32_t dtype) { return abs(dtype) & 0xFFFF; }
 
 // Interfaces must implement these function types.
 typedef uint32_t (*mmi_write_ft)(void *self, uint32_t address, const void *src, uint32_t size);

@@ -2,3 +2,9 @@
 from .util import cmake_dir, include_dir, hdl_dir
 
 __version__ = "0.3.8"
+
+__all__ = [
+    "cmake_dir",
+    "include_dir",
+    "hdl_dir",
+]

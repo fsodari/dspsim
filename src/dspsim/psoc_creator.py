@@ -9,10 +9,11 @@ import os
 import argparse
 import struct
 
-BOOTLOADER_SECURITY_KEY = "0x424344454647"
-
-from dspsim.avril import Avril, find_device, AVRIL_MODE_BOOTLOAD
+from dspsim import avril
+from dspsim.avril import Avril, find_device
 import time
+
+BOOTLOADER_SECURITY_KEY = "0x424344454647"
 
 
 @dataclass
@@ -86,18 +87,16 @@ class PSoCCreatorConfig(YAMLWizard):
         ]
         subprocess.run(cmd, check=True)
 
-    def bootload(self, project: str, recovery: bool = False):
+    def bootload(self, project: str, recovery: bool = False, password: int = 0):
         """"""
-        port = find_device(54544)[0]
+        print(f"Bootloading {project}")
+        port = find_device(avril.PID)[0]
         if not recovery:
-            with Avril(AVRIL_MODE_BOOTLOAD) as av:
-                password = 0
+            with Avril(avril.AvrilMode.Bootload) as av:
                 _password = struct.pack("<L", password)
                 av.write(0, _password)
             time.sleep(0.2)
 
-        if not self.cyacd_file(project).exists():
-            raise Exception(f"{self.cyacd_file(project)}")
         cyflash_cmd = [
             "cyflash",
             f"--serial={port}",
@@ -117,6 +116,7 @@ class Args:
     build: bool
     bootload: bool
     recovery: bool
+    password: int
     config: Path = Path("psoc_config.yaml")
 
     @classmethod
@@ -131,6 +131,7 @@ class Args:
             "--bootload", action="store_true", help="Run the bootload host tool."
         )
         parser.add_argument("--recovery", action="store_true")
+        parser.add_argument("-password", type=int, default=0, help="Bootload password")
         parser.add_argument(
             "-config",
             type=Path,
@@ -151,7 +152,7 @@ def main(cli_args: list[str] = None):
         if args.build:
             psoc_creator.build(project)
         if args.bootload:
-            psoc_creator.bootload(project, args.recovery)
+            psoc_creator.bootload(project, args.recovery, args.password)
 
 
 if __name__ == "__main__":

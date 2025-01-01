@@ -74,23 +74,12 @@
 
 */
 #pragma once
+#include "dspsim/psoc/avril_defs.h"
 #include "dspsim/psoc/mmi.h"
 #include "FreeRTOS.h"
 #include "message_buffer.h"
 #include "task.h"
 #include <stdint.h>
-
-#define AVRIL_CMD_NOP 0
-#define AVRIL_CMD_WRITE 1
-#define AVRIL_CMD_READ 2
-#define AVRIL_CMD_NOP_ACK 3
-#define AVRIL_CMD_WRITE_ACK 4
-#define AVRIL_CMD_READ_ACK 5
-
-// Standard modes.
-#define AVRIL_MODE_VMMI 0
-#define AVRIL_MODE_BOOTLOAD 1
-#define AVRIL_MODE_VMETA 2
 
 typedef struct AvrilDef *Avril;
 

@@ -3,7 +3,7 @@
 from pathlib import Path
 import functools as _functools
 import numpy as np
-
+import jinja2
 
 def cmake_dir() -> Path:
     return Path(__file__).parent / "lib/cmake/dspsim"
@@ -21,7 +21,7 @@ def lib_dir() -> Path:
     return Path(__file__).parent / "lib"
 
 
-import jinja2
+
 
 _template_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates")

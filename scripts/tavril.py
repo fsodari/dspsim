@@ -1,27 +1,29 @@
 import random
-from tqdm import trange, tqdm
+from tqdm import tqdm
 import numpy as np
 
 import string
 from pathlib import Path
-from dspsim.avril import Avril, AvrilIface, VReg
+from dspsim.avril import Avril, VIFace, VReg, ErrorCode, AvrilMode
 
 
 def main():
     """"""
-    with Avril(0, timeout=0.02) as av:
+    with Avril(AvrilMode.Vmmi, timeout=0.02) as av:
+        print(av)
         meta = av.read_all_meta()
         # print(meta)
         for name, iface in meta.items():
             print(f"{name}: {iface}")
 
         sram0 = av.get_interface("sram0")
+        print(sram0)
         sram0.load_register_file(Path("reg_map.yaml"))
 
         sram0["x"] = 99
         assert sram0["x"] == 99
 
-        sram1 = AvrilIface(av, "sram1")
+        sram1 = VIFace(av, "sram1")
 
         # assign random register names to all registers.
         sram1.load_registers(
@@ -44,6 +46,10 @@ def main():
             sram1[r] = x
             y = sram1[r]
             assert np.isclose(y, x, atol=0.00001)
+
+        # Write out of bounds.
+        ack = sram1.write_reg(1024, 42)
+        assert ack.error == ErrorCode.InvalidAddress
 
 
 if __name__ == "__main__":

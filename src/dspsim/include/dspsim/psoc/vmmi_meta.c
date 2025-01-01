@@ -23,20 +23,20 @@ VMMIMeta vmmi_meta_create(VMMI vmmi, uint32_t reserve_size)
 uint32_t vmmi_meta_read(void *_self, uint32_t address, void *dst, uint32_t size)
 {
     VMMIMeta self = _self;
-    uint32_t error = dERR_NONE;
+    uint32_t error = dErrNone;
 
     // The virtual size of the table. Entries are read out lazily from the vmmi, so this class doesn't take up any extra space.
     uint32_t meta_size = VMMI_META_ENTRY_SIZE * self->vmmi_ref->itable_size;
 
     // Check overflow.
     error = mmi_check_overflow_size(address, size, meta_size);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }
     // Reads must start at entry boundaries and contain entire entries.
     error = mmi_check_align(address, size, VMMI_META_ENTRY_SIZE);
-    if (error != dERR_NONE)
+    if (error != dErrNone)
     {
         return error;
     }

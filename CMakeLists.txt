@@ -36,6 +36,20 @@ include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 # Build dspsim-core library.
 add_subdirectory(src)
 
+# Util module
+nanobind_add_module(_util
+    NB_DOMAIN dspsim
+    STABLE_ABI
+    ${DSPSIM_SRC_DIR}/_util.cpp
+)
+target_link_libraries(_util PRIVATE dspsim::dspsim-core)
+# Install extension
+install(TARGETS _util
+    LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
+
+# Install stubs.
+dspsim_add_stub(_util ${SKBUILD_PROJECT_NAME})
+
 # Create framework module
 nanobind_add_module(_framework
     NB_DOMAIN dspsim
