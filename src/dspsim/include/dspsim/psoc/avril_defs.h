@@ -1,18 +1,27 @@
 #pragma once
 
-typedef enum AvrilCommand
+#ifdef __cplusplus
+extern "C"
 {
-    AvrilNop,
-    AvrilWrite,
-    AvrilRead,
-    AvrilNopAck,
-    AvrilWriteAck,
-    AvrilReadAck,
-} AvrilCommand;
+#endif
 
-typedef enum AvrilMode
-{
-    AvrilVmmi,
-    AvrilBootload,
-    AvrilVMeta,
-} AvrilMode;
+    typedef enum AvrilCommand
+    {
+        AvrilNop,
+        AvrilWrite,
+        AvrilRead,
+        AvrilNopAck,
+        AvrilWriteAck,
+        AvrilReadAck,
+    } AvrilCommand;
+
+    typedef enum AvrilMode
+    {
+        AvrilVmmi,
+        AvrilBootload,
+        AvrilVMeta,
+    } AvrilMode;
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,8 +1,5 @@
-from dspsim.framework import Model, Signal8, SignalT, signal, port_info
-
+from dspsim.framework import Signal8, SignalT, signal
 import numpy as np
-from numpy.typing import ArrayLike as _ArrayLike
-from typing import TypeVar, Literal
 
 
 class BramBus:

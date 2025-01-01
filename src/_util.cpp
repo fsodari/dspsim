@@ -6,14 +6,10 @@
 
 // #include "dspsim/bindings.h"
 #include "nanobind/nanobind.h"
-#include <cstdlib>
-extern "C"
-{
 
 #include "dspsim/psoc/error_codes.h"
 #include "dspsim/psoc/mmi_dtypes.h"
 #include "dspsim/psoc/avril_defs.h"
-}
 
 namespace nb = nanobind;
 
@@ -41,6 +37,8 @@ NB_MODULE(_util, m)
         .export_values();
 
     nb::enum_<MMIDtypes>(m, "DType")
+        .def_prop_ro("size", [](MMIDtypes &dtype)
+                     { return _dtype_size(dtype); })
         .value("x", MMIDtypes::MMI_x)
         .value("b", MMIDtypes::MMI_b)
         .value("B", MMIDtypes::MMI_B)

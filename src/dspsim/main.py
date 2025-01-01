@@ -2,8 +2,7 @@
 Main Command-line app interface "dspsim"
 """
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 import argparse
 from typing import Callable
 from dspsim.generate import ArgsGenerate
@@ -66,7 +65,6 @@ class Args:
 
 
 def main(cli_args: list[str] = None):
-
     args = Args.parse_args(cli_args)
     args.exec()
 

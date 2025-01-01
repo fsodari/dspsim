@@ -11,10 +11,10 @@ def main():
     """"""
     with Avril(AvrilMode.Vmmi, timeout=0.02) as av:
         print(av)
-        meta = av.read_all_meta()
-        # print(meta)
-        for name, iface in meta.items():
-            print(f"{name}: {iface}")
+        # meta = av.read_all_meta()
+        # # print(meta)
+        # for name, iface in meta.items():
+        #     print(f"{name}: {iface}")
 
         sram0 = av.get_interface("sram0")
         print(sram0)
@@ -29,9 +29,9 @@ def main():
         assert ack.error == ErrorCode.NoError
         print(ack)
 
-        ack, _data = sram1.read_reg(0)
+        ack = sram1.read_reg(0)
         assert ack.error == ErrorCode.NoError
-        print(ack, _data)
+        print(ack, ack.data)
 
         # assign random register names to all registers.
         sram1.load_registers(
@@ -61,7 +61,7 @@ def main():
         print(ack)
 
         # Read out of bounds
-        ack, _data = sram1.read_reg(1024)
+        ack = sram1.read_reg(1024)
         assert ack.error == ErrorCode.InvalidAddress
         print(ack)
 
@@ -71,6 +71,13 @@ def main():
             assert False
         except Exception as e:
             print(e)
+
+        # Multiple registers
+        sram1[0] = np.random.random((10,))
+        ack = sram1.read_reg(0, 10)
+        for a in ack:
+            print(a)
+        # print(*ack)
 
 
 if __name__ == "__main__":

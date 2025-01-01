@@ -1,6 +1,4 @@
 from dspsim._framework import WishboneM8, WishboneM16, WishboneM32, WishboneM64
-
-# from dspsim._framework import WishboneMU8, WishboneMU16, WishboneMU32, WishboneMU64
 from dspsim._framework import Signal8
 
 from dspsim.framework import SignalT, signal
@@ -64,3 +62,11 @@ class Wishbone:
                 self.data_i,
             )
         )
+
+
+__all__ = [
+    "WishboneM8",
+    "WishboneM16",
+    "WishboneM32",
+    "WishboneM64",
+]

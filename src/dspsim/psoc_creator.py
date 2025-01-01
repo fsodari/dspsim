@@ -10,7 +10,7 @@ import argparse
 import struct
 
 from dspsim import avril
-from dspsim.avril import Avril, find_device
+from dspsim.avril import Avril, AvrilAck, find_device, DType, ErrorCode
 import time
 
 BOOTLOADER_SECURITY_KEY = "0x424344454647"
@@ -90,16 +90,17 @@ class PSoCCreatorConfig(YAMLWizard):
     def bootload(self, project: str, recovery: bool = False, password: int = 0):
         """"""
         print(f"Bootloading {project}")
-        port = find_device(avril.PID)[0]
         if not recovery:
             with Avril(avril.AvrilMode.Bootload) as av:
-                _password = struct.pack("<L", password)
-                av.write(0, _password)
-            time.sleep(0.2)
+                ack: AvrilAck = av.write_reg(0, password, dtype=DType.L)
+                if ack.error != ErrorCode.NoError:
+                    raise Exception(f"Enter Bootload Failed: {ack.error.name}")
+            time.sleep(0.5)
 
+        bootload_port = find_device(avril.BOOTLOAD_PID)[0]
         cyflash_cmd = [
             "cyflash",
-            f"--serial={port}",
+            f"--serial={bootload_port}",
             self.cyacd_file(project),
             "--timeout=1.0",
             "--psoc5",

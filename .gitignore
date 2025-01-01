@@ -44,4 +44,4 @@ logs
 **/*.cydsn/*.cyfit
 **/*.cydsn/*.rpt
 **/*.cydsn.svd
-**/*.cylib/CLEAN.log
+**/*.cylib/*.log
