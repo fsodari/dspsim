@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
+project(${SKBUILD_PROJECT_NAME} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
@@ -102,3 +102,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config-version.cmake
               ${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake
         DESTINATION ${INSTALL_CMAKEDIR})
+
+
+# Testing
+enable_testing()
+add_subdirectory(tests EXCLUDE_FROM_ALL)

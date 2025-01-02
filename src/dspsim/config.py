@@ -2,20 +2,11 @@
 
 from pathlib import Path
 from dataclasses import dataclass, field
-import tomllib
-import glob
 from typing import TypeAlias, Literal
-import json
-from tempfile import TemporaryDirectory
-import shutil
 from functools import cache
-import numpy as np
-from typing import Any
 import numpy.typing as npt
+from dataclass_wizard import JSONSerializable
 
-# from dspsim import verilator
-
-# from .util import cmake_dir
 ParameterValue: TypeAlias = npt.NDArray
 
 
@@ -55,7 +46,7 @@ def _ctype_str(value: ParameterValue):
         # inits = "".join([_cpp_val_type(p) for p in value])
         return f"{header}{_ctype_str(value[0])}{tail}"
     if value.dtype.kind == "U":
-        return f"std::string"
+        return "std::string"
     elif value.dtype.kind == "i":
         return "int"
     elif value.dtype.kind == "f":
@@ -171,9 +162,6 @@ class Port:
         unpacked_fmt = "".join([f"[{s}]" for s in self.shape])
 
         return f"{direction_fmt} logic{width_fmt} {self.name}{unpacked_fmt}"
-
-
-from dataclass_wizard import JSONSerializable
 
 
 @dataclass

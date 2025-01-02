@@ -1,14 +1,5 @@
-from dspsim.framework import Signal8, SignalT, signal, port_info
-
+from dspsim.framework import Signal8, SignalT, signal
 from dspsim._framework import AxilM32
-
-# from dspsim._framework import AxisTxU8, AxisTxU16, AxisTxU32, AxisTxU64
-# from dspsim._framework import AxisRx8, AxisRx16, AxisRx32, AxisRx64
-# from dspsim._framework import AxisRxU8, AxisRxU16, AxisRxU32, AxisRxU64
-
-
-from dspsim import util
-
 
 class Axil:
     awaddr: SignalT
@@ -75,3 +66,8 @@ class Axil:
                 self.rready,
             )
         )
+
+__all__ = [
+    "Axil",
+    "AxilM32"
+]

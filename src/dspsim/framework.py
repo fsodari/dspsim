@@ -2,8 +2,8 @@
 
 # from dspsim._framework import get_context_factory
 from dspsim._framework import Context, global_context
-from dspsim._framework import Model, Clock
-from dspsim._framework import Signal8, Signal16, Signal32, Signal64
+from dspsim._framework import Model
+from dspsim._framework import Clock, Signal8, Signal16, Signal32, Signal64
 # from dspsim._framework import SignalU8, SignalU16, SignalU32, SignalU64
 
 from dspsim._framework import Dff8, Dff16, Dff32, Dff64
@@ -12,7 +12,9 @@ from dspsim._framework import Dff8, Dff16, Dff32, Dff64
 import contextlib as _contextlib
 import functools as _functools
 from dspsim import util as _util
-from typing import TypeVar, Literal
+from typing import TypeVar
+
+from dspsim.config import Port as _Port
 
 SignalT = (
     Signal8 | Signal16 | Signal32 | Signal64
@@ -111,9 +113,6 @@ def runner(time_unit: float = 1e-9, time_precision: float = 1e-9):
         return wrapped
 
     return runner_deco
-
-
-from dspsim.config import Port as _Port
 
 
 def port_info(model: Model) -> dict[str, _Port]:

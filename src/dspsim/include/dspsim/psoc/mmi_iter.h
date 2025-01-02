@@ -44,7 +44,7 @@ static inline int ieq(MIter it0, MIter it1)
 
 static inline uint32_t miter_write(MIter it, const void *src)
 {
-    return mmi_write(it->mmi, it->address, src, mmi_dtype_size(it->mmi->dtype));
+    return mmi_write(it->mmi, it->address, src, dtype_size(it->mmi->dtype));
 }
 
 static inline uint32_t miter_read(MIter it, void *dst)
@@ -58,7 +58,7 @@ static inline uint32_t iset(MIter it, const void *src) { return miter_write(it, 
 // Typical standard iter functions.
 
 // Increment the address.
-static inline void miter_next_inc(MIter it) { it->address += mmi_dtype_size(it->mmi->dtype); }
+static inline void miter_next_inc(MIter it) { it->address += dtype_size(it->mmi->dtype); }
 
 void miter_init(MIter self, MMI mmi, uint32_t address);
 MIter miter_create(MMI mmi, uint32_t address);

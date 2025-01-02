@@ -10,9 +10,12 @@ import sys
 import serial
 import serial.tools.list_ports
 
-from dspsim.cutil import ErrorCode, DType, AvrilCommand, AvrilMode, dtype_size
+from dspsim.cutil import ErrorCode, DType, AvrilCommand, AvrilMode
+from dspsim.util import iterany
 
+from typing import Sequence
 import time
+import argparse
 
 
 if sys.platform == "win32":
@@ -22,10 +25,11 @@ if sys.platform == "win32":
 VID = 0x6666
 
 # USBBridge PID
-PID = 0xD510
+BRIDGE_PID = 0xD510
 
 # USBBootloader PID
-_BOOTLOAD_PID = 0xD511
+BOOTLOAD_PID = 0xD511
+
 # Headphone DAC PID
 _HP_DAC_PID = 0xD512
 
@@ -37,6 +41,37 @@ def find_device(pid: int):
     return [port.device for port in ports if port.pid == pid]
 
 
+_fmt_lookup_tbl = {
+    DType.x: "x",
+    DType.int8: "b",
+    DType.uint8: "B",
+    DType.int16: "h",
+    DType.uint16: "H",
+    DType.int32: "l",
+    DType.uint32: "L",
+    DType.int64: "q",
+    DType.uint64: "Q",
+    DType.float: "f",
+    DType.double: "d",
+    DType.str4: "4s",
+    DType.str8: "8s",
+    DType.str16: "16s",
+    DType.str32: "32s",
+    DType.str64: "64s",
+}
+
+
+def fmt_lookup(dtype: DType):
+    return _fmt_lookup_tbl[dtype]
+
+
+def unpack_dtype(b: bytes, dtype: DType):
+    return struct.unpack(f"<{fmt_lookup(dtype)}", b)[0]
+
+
+def pack_dtype(x, dtype: DType) -> bytes:
+    return struct.pack(f"<{fmt_lookup(dtype)}", x)
+
 
 @dataclass
 class AvrilMessage:
@@ -45,7 +80,7 @@ class AvrilMessage:
     msg_id: int
     size: int
     address: int
-    data: bytes = b""
+    data: bytes | int | float = b""
 
     _fmt = "<BBHLL"
 
@@ -55,6 +90,7 @@ class AvrilMessage:
 
     def __str__(self):
         return f"AvrilMessage(command={self.command.name}, mode={self.mode.name}, msg_id={hex(self.msg_id)}, size={self.size}, address={self.address}, data={self.data})"
+
     @classmethod
     def from_bytes(cls, b: bytes):
         _cmd, _mode, msg_id, size, addr = struct.unpack(cls._fmt, b[:12])
@@ -63,7 +99,9 @@ class AvrilMessage:
     def to_bytes(self) -> bytes:
         _cmd = self.command.value
         _mode = self.mode.value
-        header = struct.pack(self._fmt, _cmd, _mode, self.msg_id, self.size, self.address)
+        header = struct.pack(
+            self._fmt, _cmd, _mode, self.msg_id, self.size, self.address
+        )
         return header + self.data
 
     @classmethod
@@ -83,8 +121,8 @@ class AvrilAck(AvrilMessage):
         self.error = ErrorCode(*struct.unpack("<L", self.data[:4]))
         self.data = self.data[4:]
 
-    def __str__(self)->str:
-        return f"AvrilAck(error={self.error.name}, data={self.data})"
+    def __str__(self) -> str:
+        return f"AvrilAck(command={self.command.name}, mode={self.mode.name}, msg_id={hex(self.msg_id)}, size={self.size}, address={self.address}, error={self.error.name}, data={self.data})"
 
 
 @dataclass
@@ -103,10 +141,14 @@ class VMetaEntry:
             DType(struct.unpack("<L", b[dtype_offset:name_offset])[0]),
             b[name_offset:].decode().strip("\0"),
         )
-    
+
     def __str__(self) -> str:
         """"""
         return f"VMetaEntry(base_address={self.base_address}, size={self.size}, dtype={self.dtype.name}, name={self.name})"
+
+
+VMetaEntrySize = 28
+VMetaReserveSize = 4096
 
 
 @dataclass
@@ -121,19 +163,31 @@ class VReg:
 class VRegMap(YAMLWizard):
     interfaces: dict[str, dict[str, VReg]]
 
-class ErrorCodeException(Exception):
-    pass
+
+def serial_read_delim(
+    device: serial.Serial, delim: bytes = b"\0", timeout: float = 1.0
+) -> bytes:
+    buf = b""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        new_byte = device.read()
+        buf += new_byte
+        if new_byte == delim:
+            break
+
+    return buf
+
+
 class Avril:
     mode: AvrilMode
     pid: int
     port: str
     device: serial.Serial
-    chunk_size: int = 48
 
     def __init__(
         self,
-        mode: AvrilMode,
-        pid: int = 0xD510,
+        mode: AvrilMode = AvrilMode.Vmmi,
+        pid: int = BRIDGE_PID,
         timeout: float = 1.0,
         write_timeout: float = 1.0,
         inter_byte_timeout: float = None,
@@ -146,81 +200,81 @@ class Avril:
             write_timeout=write_timeout,
             inter_byte_timeout=inter_byte_timeout,
         )
-        self.chunk_size = 44
         self.meta_address = 0
 
     def __str__(self):
         return f"Avril(mode={self.mode}, pid={self.pid}, port={self.port})"
+
     def __enter__(self):
         time.sleep(0.2)
         self.device.port = self.port
         self.device.open()
-        self.device.flush()
         return self
 
     def __exit__(self, *args):
         self.device.flush()
         self.device.close()
 
-    def _serial_send(self, b: bytes, chunk: bool = True):
-        """"""
-        chunk_size = self.chunk_size if chunk else len(b)
-        remain = len(b)
-        while remain > 0:
-            ssize = chunk_size if remain > chunk_size else remain
-            self.device.write(b[:ssize])
-            remain -= ssize
-            b = b[ssize:]
-
-    def _serial_read(self, size: int, chunk: bool = True):
-        """"""
-        chunk_size = self.chunk_size if chunk else size
-        b = b""
-        while size > 0:
-            ssize = chunk_size if size > chunk_size else size
-            b += self.device.read(ssize)
-            size -= ssize
-        return b
-
-    def write(
-        self, address: int, data: bytes, msg_id: int = None, chunk: bool = True
-    ) -> AvrilAck:
-        cmd = AvrilMessage(AvrilCommand.Write, self.mode, msg_id, len(data), address, data)
-        self._serial_send(cmd.encode(), chunk=chunk)
-        response = self._serial_read(cobs.max_encoded_length(16) + 1)
+    def write(self, address: int, data: bytes, msg_id: int = None) -> AvrilAck:
+        cmd = AvrilMessage(
+            AvrilCommand.Write, self.mode, msg_id, len(data), address, data
+        )
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
         ack = AvrilAck.decode(response)
-        if ack.error != ErrorCode.NoError:
-            """Log error?"""
-            # raise ErrorCodeException(f"Write Ack Error: {ack.error.name}")
         return ack
 
-    def writef(self, address: int, fmt: str, *data) -> AvrilAck:
-        x = struct.pack(fmt, *data)
-        return self.write(address, x)
+    def write_reg(
+        self,
+        address: int,
+        *data: int | float,
+        dtype: DType,
+        msg_id: int = None,
+    ):
+        """Write a register(s) of the given dtype."""
+        single = len(data) == 1
+        ack: list[AvrilAck] = [
+            self.write(
+                address + i * dtype.size,
+                pack_dtype(d, dtype),
+                msg_id,
+            )
+            for i, d in enumerate(data)
+        ]
+        if single:
+            return ack[0]
+        return (*ack,)
 
-    def read(
-        self, address: int, size: int, msg_id: int = None, chunk: bool = True
-    ) -> AvrilAck:
+    def read(self, address: int, size: int, msg_id: int = None) -> AvrilAck:
+        """Read data. Data is contained in the ack packet."""
         cmd = AvrilMessage(AvrilCommand.Read, self.mode, msg_id, size, address)
-        self._serial_send(cmd.encode())
-
-        expected_length = cobs.max_encoded_length(16 + size) + 1
-        response = self._serial_read(expected_length, chunk)
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
         ack = AvrilAck.decode(response)
-        if ack.error != ErrorCode.NoError:
-            """Log error?"""
-            # raise ErrorCodeException(f"Read Ack Error: {ack.error.name}")
         return ack
+
+    def read_reg(self, address: int, dtype: DType, n: int = 1, msg_id: int = None):
+        """Read a single register with the given dtype."""
+        single = n == 1
+        ack: list[AvrilAck] = []
+        for i in range(n):
+            ack.append(self.read(address + i * dtype.size, dtype.size, msg_id))
+            ack[-1].data = (
+                unpack_dtype(ack[-1].data, dtype)
+                if ack[-1].error == ErrorCode.NoError
+                else b""
+            )
+        if single:
+            return ack[0]
+        return (*ack,)
 
     def read_meta(self, id: int, mode: AvrilMode = None) -> VMetaEntry:
         if mode is None:
             mode = AvrilMode.VMeta
-        addr = id * 28
-        cmd = AvrilMessage(AvrilCommand.Read, mode, None, 28, addr)
-        self._serial_send(cmd.encode())
-
-        expected_length = cobs.max_encoded_length(16 + 28) + 1
-        response = self._serial_read(expected_length)
+        addr = id * VMetaEntrySize
+        cmd = AvrilMessage(AvrilCommand.Read, mode, None, VMetaEntrySize, addr)
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
 
         ack = AvrilAck.decode(response)
         return VMetaEntry.unpack(ack.data)
@@ -228,17 +282,16 @@ class Avril:
     def read_all_meta(self, mode: AvrilMode = None) -> dict[str, VMetaEntry]:
         """"""
         all_meta = {}
-        max = int(4096 / 28)
+        max = int(VMetaReserveSize / VMetaEntrySize)
         for i in range(max):
             try:
                 entry = self.read_meta(i, mode)
                 all_meta[entry.name] = entry
-            except Exception as e:
-                print(f"{e}")
+            except Exception:
                 break
         return all_meta
 
-    def get_interface(self, interface: str, registers: dict[str, int] = {}):
+    def get_interface(self, interface: str, registers: dict[str, VReg] = {}):
         """"""
         return VIFace(self, interface, registers)
 
@@ -275,6 +328,8 @@ class VIFace:
         # If the address is a string, look up the address in the registers
         if isinstance(address, str):
             address = self.registers[address].address
+        if address >= self.size:
+            raise Exception("Invalid Address for this interface.")
         return address + self.base_address
 
     def write(self, _address: int | str, data: bytes):
@@ -286,25 +341,33 @@ class VIFace:
         address = self._get_address(_address)
         return self.av.read(address, size)
 
-    def write_reg(self, address: int | str, data: int | float, dtype: DType = None):
+    def write_reg(self, _address: int | str, *data: int | float, dtype: DType = None):
         """"""
         if dtype is None:
             dtype = self.dtype
 
-        bdata = struct.pack(f"<{dtype.name}", data)
-        return self.write(address, bdata)
+        address = self._get_address(_address)
+        return self.av.write_reg(address, *data, dtype=dtype)
 
-    def read_reg(self, address: int | str, dtype: DType = None) -> int | float:
+    def read_reg(self, _address: int | str, n: int = 1, dtype: DType = None):
         if dtype is None:
             dtype = self.dtype
-        ack = self.read(address, dtype_size(self.dtype))
-        return struct.unpack(f"<{dtype.name}", ack.data)[0]
+        address = self._get_address(_address)
+        return self.av.read_reg(address, dtype, n=n)
 
     def __getitem__(self, address: int | str) -> int | float:
-        return self.read_reg(address)
+        ack = self.read_reg(address)
+        if ack.error != ErrorCode.NoError:
+            raise Exception(f"Read Ack Error: {ack.error.name}")
+        return ack.data
 
-    def __setitem__(self, address: int | str, data: int | float):
-        self.write_reg(address, data)
+    def __setitem__(
+        self, address: int | str, data: int | float | Sequence[int | float]
+    ):
+        ack = self.write_reg(address, *iterany(data))
+        for a in iterany(ack):
+            if a.error != ErrorCode.NoError:
+                raise Exception(f"Read Ack Error: {ack.error.name}")
 
     @property
     def size(self) -> int:
@@ -315,4 +378,89 @@ class VIFace:
         return self.meta.base_address
 
     def __iter__(self):
-        return iter(range(0, self.size, dtype_size(self.dtype)))
+        return iter(range(0, self.size, self.dtype.size))
+
+
+def dtype_lookup(s: str) -> DType:
+    return DType._value2member_map_[s]
+
+
+def dtype_cnv(dtype: DType, d: str) -> int | float:
+    if dtype.name in ["f", "d"]:
+        return float(d)
+    else:
+        return int(d)
+
+
+@dataclass
+class Args:
+    command: str  # write or read
+    address: int
+    data: list[int | float]
+    n: int = 1
+    dtype: str = None
+    interface: str = None
+    verbose: bool = False
+
+    @classmethod
+    def parse_args(cls, cli_args: list[str] = None):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "command",
+            type=str,
+            choices=["write", "read"],
+            help="write or read command.",
+        )
+        parser.add_argument("-address", type=int, help="Command address")
+        parser.add_argument("-data", nargs="+", help="Write data")
+        parser.add_argument(
+            "-n", type=int, default=1, help="Read a number of registers."
+        )
+        parser.add_argument("-dtype", type=str, default=None, help="DType")
+        parser.add_argument(
+            "-interface",
+            type=str,
+            default=None,
+            help="Address will be relative to this interface.",
+        )
+        parser.add_argument("-verbose", action="store_true", help="verbose output")
+        return cls(**vars(parser.parse_args(cli_args)))
+
+
+def main(cli_args: list[str] = None):
+    args = Args.parse_args(cli_args)
+    # print(args)
+
+    with Avril(timeout=0.05) as av:
+        if args.interface:
+            iface = av.get_interface(args.interface)
+            dtype = dtype_lookup(args.dtype) if args.dtype else iface.dtype
+            wr_func = iface.write_reg
+            rd_func = iface.read_reg
+        else:
+            dtype = dtype_lookup(args.dtype)
+            wr_func = av.write_reg
+            rd_func = av.read_reg
+
+        # Execute command
+        if args.command == "write":
+            data = [dtype_cnv(dtype, d) for d in args.data]
+            ack = wr_func(args.address, *data, dtype=dtype)
+        elif args.command == "read":
+            ack = rd_func(args.address, dtype=dtype, n=args.n)
+
+        # Check errors
+        for a in iterany(ack):
+            if a.error != ErrorCode.NoError:
+                raise Exception(f"Ack Error: {a}")
+
+        if args.command == "read":
+            msg = (
+                "\n".join([str(a) for a in iterany(ack)])
+                if args.verbose
+                else ", ".join([str(a.data) for a in iterany(ack)])
+            )
+        elif args.command == "write":
+            msg = "\n".join([str(a) for a in iterany(ack)]) if args.verbose else ""
+
+        print(msg)

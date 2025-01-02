@@ -7,8 +7,10 @@
 
 typedef enum dErrorCodes
 {
-    dErrNone = 0,       // No error.
-    dErrOverflow,       // The write/read command would overflow the interface's address space
+    dErrNone = 0, // No error.
+    dErrOverflow, // The write/read command would overflow the interface's address space
+    dErrInvalidMode,
+    dErrInvalidCommand,
     dErrInvalidAddress, // The address was not found within the mmi's address space.
     dErrReadOnly,       // The interface does not support write commands.
     dErrWriteOnly,      // The interface does not support read commands.
@@ -20,5 +22,6 @@ typedef enum dErrorCodes
     dErrSizeAlign32,
     dErrSizeAlign64,
     dErrSizeAlignN,
+    dErrKeyNotFound,
 
-} dErrorCodes;
+}dErrorCodes;

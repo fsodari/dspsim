@@ -1,20 +1,18 @@
 import logging
 
-logger = logging.getLogger(__name__)
 
 import subprocess
 from pathlib import Path
 from functools import cache, cached_property
 import os
-import sys
 import json
 import shutil
 from tempfile import TemporaryDirectory
 
-from dataclasses import dataclass, field
 from dspsim.config import Parameter, Port, ModuleConfig
-from typing import Literal
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @cache

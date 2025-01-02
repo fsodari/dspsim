@@ -15,7 +15,7 @@ VMMIMeta vmmi_meta_create(VMMI vmmi, uint32_t reserve_size)
     self->vmmi_ref = vmmi;
 
     // Read-only.
-    mmi_initx((MMI)self, mmi_fread_only_err, vmmi_meta_read, reserve_size);
+    mmi_init((MMI)self, mmi_fread_only_err, vmmi_meta_read, reserve_size, dX);
 
     return self;
 }

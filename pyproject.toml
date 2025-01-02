@@ -54,6 +54,7 @@ Homepage = "https://github.com/fsodari/dspsim"
 # Main command line interface.
 dspsim = "dspsim.main:main"
 psoc = "dspsim.psoc_creator:main"
+avril = "dspsim.avril:main"
 # Generate binding code for modules.
 
 #---------------------------------------------------------------------------------------------------#

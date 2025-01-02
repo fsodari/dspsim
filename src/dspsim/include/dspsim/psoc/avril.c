@@ -1,8 +1,8 @@
-#include "FreeRTOS.h"
-#include "task.h"
-
 #include "dspsim/psoc/avril.h"
+#include "dspsim/psoc/avril_msg.h"
 #include "dspsim/psoc/usb_serial.h"
+#include "dspsim/psoc/cdict.h"
+
 #include <string.h>
 
 struct AvrilDef
@@ -12,7 +12,7 @@ struct AvrilDef
     uint32_t max_msg_size;
     uint32_t max_modes;
     uint32_t n_modes;
-    MMI *modes;
+    Dict modes;
     uint8_t *msg_buf;
     TaskHandle_t task_ref;
 };
@@ -27,16 +27,19 @@ Avril avril_start(uint32_t max_modes, uint32_t max_msg_size, uint32_t priority)
     self->max_msg_size = max_msg_size;
     self->max_modes = max_modes;
     self->n_modes = 0;
-    self->modes = pvPortMalloc(self->max_modes * sizeof(*self->modes));
+
+    self->modes = dict_createl(8);
     self->msg_buf = pvPortMalloc(max_msg_size);
 
     xTaskCreate(&AvrilTask, "", configMINIMAL_STACK_SIZE, self, priority, &self->task_ref);
     return self;
 }
 
-void avril_add_mode(Avril self, uint32_t mode_id, MMI mode_interface)
+dErrorCodes avril_add_mode(Avril self, uint32_t mode_id, MMI mode_interface)
 {
-    self->modes[mode_id] = mode_interface;
+    // self->modes[mode_id] = mode_interface;
+    dErrorCodes error = dict_set(self->modes, &mode_id, &mode_interface, sizeof(mode_interface));
+    return error;
 }
 
 MessageBufferHandle_t avril_tx_msg_buf(Avril self)
@@ -57,8 +60,10 @@ typedef struct CmdHeader
     uint32_t address;
 } CmdHeader;
 
-static uint32_t nop_ack(CmdHeader *header, uint8_t *dst)
+static uint32_t nop_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
+    (void)error;
+    
     header->command = AvrilNopAck;
     header->size = 0;
     memcpy(dst, header, sizeof(*header));
@@ -77,14 +82,33 @@ static uint32_t write_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 
 static uint32_t read_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
-    uint32_t data_size = header->size;
+    uint32_t data_size = error == dErrNone ? header->size : 0;
 
     header->command = AvrilReadAck;
     header->size = sizeof(error) + data_size;
+
     memcpy(dst, header, sizeof(*header));
     dst += sizeof(*header);
     memcpy(dst, &error, sizeof(error));
     return sizeof(CmdHeader) + sizeof(error) + data_size;
+}
+
+uint32_t _ack(CmdHeader *header, uint32_t error, uint8_t *dst)
+{
+    if (header->command == AvrilNop)
+    {
+        return nop_ack(header, error, dst);
+    }
+    else if (header->command == AvrilWrite)
+    {
+        return write_ack(header, error, dst);
+    }
+    else if (header->command == AvrilRead)
+    {
+        return read_ack(header, error, dst);
+    } else {
+        return 0;
+    }
 }
 
 void AvrilTask(void *_self)
@@ -100,12 +124,15 @@ void AvrilTask(void *_self)
             uint8_t *data = self->msg_buf + sizeof(CmdHeader);
 
             uint32_t error = 0;
-            MMI mode = self->modes[header->mode];
+            // MMI mode = self->modes[header->mode];
+            MMI mode;
+            dict_getl(self->modes, header->mode, &mode);
+            
             uint32_t response_size = 0;
             switch (header->command)
             {
             case AvrilNop:
-                response_size = nop_ack(header, self->msg_buf);
+                response_size = nop_ack(header, 0, self->msg_buf);
                 break;
             case AvrilWrite:
                 if (header->size == (received - sizeof(CmdHeader)))

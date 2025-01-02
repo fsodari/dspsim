@@ -1,7 +1,8 @@
 #include "dspsim/psoc/mmi.h"
 #include "dspsim/psoc/mmi_iter.h"
+#include <stdlib.h>
 
-void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, uint32_t dtype)
+void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, DType dtype)
 {
     self->write = write;
     self->read = read;
@@ -13,11 +14,19 @@ void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, uin
 // Standardized functions that mmis can use.
 uint32_t mmi_fread_only_err(void *self, uint32_t address, const void *src, uint32_t size)
 {
+    (void)self;
+    (void)address;
+    (void)src;
+    (void)size;
     return dErrReadOnly;
 }
 
 uint32_t mmi_fwrite_only_err(void *self, uint32_t address, void *dst, uint32_t size)
 {
+    (void)self;
+    (void)address;
+    (void)dst;
+    (void)size;
     return dErrWriteOnly;
 }
 

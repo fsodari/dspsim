@@ -4,6 +4,8 @@ from pathlib import Path
 import functools as _functools
 import numpy as np
 import jinja2
+from typing import Iterable
+
 
 def cmake_dir() -> Path:
     return Path(__file__).parent / "lib/cmake/dspsim"
@@ -21,6 +23,12 @@ def lib_dir() -> Path:
     return Path(__file__).parent / "lib"
 
 
+def iterany[T](a: T | Iterable[T]) -> Iterable[T]:
+    """Pass either a single item or an iterable and return an iterable."""
+    if isinstance(a, Iterable):
+        return a
+    else:
+        return iter((a,))
 
 
 _template_env = jinja2.Environment(
