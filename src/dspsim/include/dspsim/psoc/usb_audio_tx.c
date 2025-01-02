@@ -37,6 +37,8 @@ void usb_audio_tx_cfg_change_cb(void *_self)
 {
     USBAudioTx self = _self;
 
+    // Configure sample rate?
+
     USBFS_ReadOutEP(self->tx_ep, self->tx_ep_buf, self->tx_ep_buf_size);
     USBFS_EnableOutEP(self->tx_ep);
     USBFS_LoadInEP(self->fb_ep, self->fb_ep_buf, sizeof(self->fb_ep_buf));

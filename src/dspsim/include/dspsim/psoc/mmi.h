@@ -9,8 +9,6 @@
 #include <stdint.h>
 
 extern uint8_t *mmi_swap_buf;
-uint32_t mmi_dtype_size(uint32_t dtype);
-
 // Interfaces must implement these function types.
 typedef uint32_t (*mmi_write_ft)(void *self, uint32_t address, const void *src, uint32_t size);
 typedef uint32_t (*mmi_read_ft)(void *self, uint32_t address, void *dst, uint32_t size);

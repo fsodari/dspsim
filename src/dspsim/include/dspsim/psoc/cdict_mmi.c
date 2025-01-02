@@ -4,14 +4,19 @@
 uint32_t dict_mmi_write(void *_self, uint32_t address, const void *src, uint32_t size);
 uint32_t dict_mmi_read(void *_self, uint32_t address, void *dst, uint32_t size);
 
+void dict_mmi_iter_next(MIter iter)
+{
+}
+
 DictMMI dict_mmi_create(uint32_t n_bins, uint32_t n_regs, DType dtype)
 {
     DictMMI self = pvPortMalloc(sizeof(*self));
 
     self->dict = dict_create(n_bins, hash_32);
-    
+
     mmi_init((MMI)self, dict_mmi_write, dict_mmi_read, n_regs * dtype_size(dtype), dtype);
-    
+    // self->base.next = dict_mmi_iter_next;
+
     return self;
 }
 

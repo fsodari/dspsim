@@ -1,3 +1,11 @@
+/*
+    Standardized data types. stdint, float, double, strings.
+
+    The underlying representation is a uint32_t. The lower 16 bits represent the size.
+    The upper 16 bits represent the type class/id. int, float, str, etc.
+
+    Data types can be extended by using an used id.
+*/
 #pragma once
 #include <stdint.h>
 
@@ -34,7 +42,7 @@ typedef enum DType
     dcomplex64 = DTYPE_CMPLX_ID | 16,
     dcomplex128 = DTYPE_CMPLX_ID | 32,
 
-    // Strings are on the top bit (and only top bit) set;
+    // Strings are on the top bit (and only top bit) set; The size defines the max string size.
     dstr4 = DTYPE_STR_ID | 4,   // 4 byte string.
     dstr8 = DTYPE_STR_ID | 8,   // 8 byte string
     dstr16 = DTYPE_STR_ID | 16, // 16 byte string
