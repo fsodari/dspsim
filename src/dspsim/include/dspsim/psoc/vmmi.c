@@ -17,7 +17,7 @@ VMMI vmmi_create(uint32_t max_interfaces)
     self->itable_size = 0;
     self->next_address = 0;
 
-    mmi_initx((MMI)self, vmmi_write, vmmi_read, 0);
+    mmi_init((MMI)self, vmmi_write, vmmi_read, 0, dX);
 
     return self;
 }

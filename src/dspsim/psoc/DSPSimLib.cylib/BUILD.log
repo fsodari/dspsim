@@ -1,6 +1,6 @@
---------------- Build Started: 01/01/2025 00:29:10 Project: DSPSimLib, Configuration: ARM GCC 5.4-2016-q2-update Release ---------------
+--------------- Build Started: 01/01/2025 20:55:35 Project: DSPSimLib, Configuration: ARM GCC 5.4-2016-q2-update Release ---------------
 Project 2 of 3: Compiling...
 The compile step is up to date, no work needs to be done.
 Project 2 of 3: Library Generation...
 The library generation step is up to date, no work needs to be done.
---------------- Build Succeeded: 01/01/2025 00:29:10 ---------------
+--------------- Build Succeeded: 01/01/2025 20:55:35 ---------------

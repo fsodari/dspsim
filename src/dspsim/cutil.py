@@ -1,9 +1,3 @@
-from dspsim._util import ErrorCode, DType, AvrilCommand, AvrilMode, dtype_size
+from dspsim._util import ErrorCode, DType, AvrilCommand, AvrilMode
 
-__all__ = [
-    "ErrorCode",
-    "DType",
-    "AvrilCommand",
-    "AvrilMode",
-    "dtype_size"
-]
+__all__ = ["ErrorCode", "DType", "AvrilCommand", "AvrilMode"]

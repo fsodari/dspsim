@@ -74,17 +74,28 @@
 
 */
 #pragma once
-#include "dspsim/psoc/avril_defs.h"
 #include "dspsim/psoc/mmi.h"
-#include "FreeRTOS.h"
-#include "message_buffer.h"
-#include "task.h"
+
 #include <stdint.h>
+
+typedef enum AvrilCommand
+{
+    AvrilNop,
+    AvrilWrite,
+    AvrilRead,
+    AvrilNopAck,
+    AvrilWriteAck,
+    AvrilReadAck,
+} AvrilCommand;
+
+typedef enum AvrilMode
+{
+    AvrilVmmi,
+    AvrilBootload,
+    AvrilVMeta,
+} AvrilMode;
 
 typedef struct AvrilDef *Avril;
 
 Avril avril_start(uint32_t n_modes, uint32_t max_msg_size, uint32_t priority);
-void avril_add_mode(Avril self, uint32_t mode_id, MMI mode_interface);
-
-MessageBufferHandle_t avril_tx_msg_buf(Avril self);
-MessageBufferHandle_t avril_rx_msg_buf(Avril self);
+enum dErrorCodes avril_add_mode(Avril self, uint32_t mode_id, MMI mode_interface);

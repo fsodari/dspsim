@@ -11,8 +11,12 @@ import serial
 import serial.tools.list_ports
 
 from dspsim.cutil import ErrorCode, DType, AvrilCommand, AvrilMode
-from typing import Sequence, Iterable
+from dspsim.util import iterany
+
+from typing import Sequence
 import time
+import argparse
+
 
 if sys.platform == "win32":
     import serial.win32
@@ -35,6 +39,38 @@ def find_device(pid: int):
     ports = list(serial.tools.list_ports.comports())
 
     return [port.device for port in ports if port.pid == pid]
+
+
+_fmt_lookup_tbl = {
+    DType.x: "x",
+    DType.int8: "b",
+    DType.uint8: "B",
+    DType.int16: "h",
+    DType.uint16: "H",
+    DType.int32: "l",
+    DType.uint32: "L",
+    DType.int64: "q",
+    DType.uint64: "Q",
+    DType.float: "f",
+    DType.double: "d",
+    DType.str4: "4s",
+    DType.str8: "8s",
+    DType.str16: "16s",
+    DType.str32: "32s",
+    DType.str64: "64s",
+}
+
+
+def fmt_lookup(dtype: DType):
+    return _fmt_lookup_tbl[dtype]
+
+
+def unpack_dtype(b: bytes, dtype: DType):
+    return struct.unpack(f"<{fmt_lookup(dtype)}", b)[0]
+
+
+def pack_dtype(x, dtype: DType) -> bytes:
+    return struct.pack(f"<{fmt_lookup(dtype)}", x)
 
 
 @dataclass
@@ -111,6 +147,10 @@ class VMetaEntry:
         return f"VMetaEntry(base_address={self.base_address}, size={self.size}, dtype={self.dtype.name}, name={self.name})"
 
 
+VMetaEntrySize = 28
+VMetaReserveSize = 4096
+
+
 @dataclass
 class VReg:
     address: int
@@ -124,12 +164,25 @@ class VRegMap(YAMLWizard):
     interfaces: dict[str, dict[str, VReg]]
 
 
+def serial_read_delim(
+    device: serial.Serial, delim: bytes = b"\0", timeout: float = 1.0
+) -> bytes:
+    buf = b""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        new_byte = device.read()
+        buf += new_byte
+        if new_byte == delim:
+            break
+
+    return buf
+
+
 class Avril:
     mode: AvrilMode
     pid: int
     port: str
     device: serial.Serial
-    chunk_size: int = 48
 
     def __init__(
         self,
@@ -147,7 +200,6 @@ class Avril:
             write_timeout=write_timeout,
             inter_byte_timeout=inter_byte_timeout,
         )
-        self.chunk_size = 44
         self.meta_address = 0
 
     def __str__(self):
@@ -157,41 +209,18 @@ class Avril:
         time.sleep(0.2)
         self.device.port = self.port
         self.device.open()
-        self.device.flush()
         return self
 
     def __exit__(self, *args):
         self.device.flush()
         self.device.close()
 
-    def _serial_send(self, b: bytes, chunk: bool = True):
-        """"""
-        chunk_size = self.chunk_size if chunk else len(b)
-        remain = len(b)
-        while remain > 0:
-            ssize = chunk_size if remain > chunk_size else remain
-            self.device.write(b[:ssize])
-            remain -= ssize
-            b = b[ssize:]
-
-    def _serial_read(self, size: int, chunk: bool = True):
-        """"""
-        chunk_size = self.chunk_size if chunk else size
-        b = b""
-        while size > 0:
-            ssize = chunk_size if size > chunk_size else size
-            b += self.device.read(ssize)
-            size -= ssize
-        return b
-
-    def write(
-        self, address: int, data: bytes, msg_id: int = None, chunk: bool = True
-    ) -> AvrilAck:
+    def write(self, address: int, data: bytes, msg_id: int = None) -> AvrilAck:
         cmd = AvrilMessage(
             AvrilCommand.Write, self.mode, msg_id, len(data), address, data
         )
-        self._serial_send(cmd.encode(), chunk=chunk)
-        response = self._serial_read(cobs.max_encoded_length(16) + 1)
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
         ack = AvrilAck.decode(response)
         return ack
 
@@ -207,9 +236,8 @@ class Avril:
         ack: list[AvrilAck] = [
             self.write(
                 address + i * dtype.size,
-                struct.pack(f"<{dtype.name}", d),
+                pack_dtype(d, dtype),
                 msg_id,
-                chunk=False,
             )
             for i, d in enumerate(data)
         ]
@@ -217,15 +245,11 @@ class Avril:
             return ack[0]
         return (*ack,)
 
-    def read(
-        self, address: int, size: int, msg_id: int = None, chunk: bool = True
-    ) -> AvrilAck:
+    def read(self, address: int, size: int, msg_id: int = None) -> AvrilAck:
         """Read data. Data is contained in the ack packet."""
         cmd = AvrilMessage(AvrilCommand.Read, self.mode, msg_id, size, address)
-        self._serial_send(cmd.encode())
-
-        expected_length = cobs.max_encoded_length(16 + size) + 1
-        response = self._serial_read(expected_length, chunk)
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
         ack = AvrilAck.decode(response)
         return ack
 
@@ -234,11 +258,9 @@ class Avril:
         single = n == 1
         ack: list[AvrilAck] = []
         for i in range(n):
-            ack.append(
-                self.read(address + i * dtype.size, dtype.size, msg_id, chunk=False)
-            )
+            ack.append(self.read(address + i * dtype.size, dtype.size, msg_id))
             ack[-1].data = (
-                struct.unpack(f"<{dtype.name}", ack[-1].data)[0]
+                unpack_dtype(ack[-1].data, dtype)
                 if ack[-1].error == ErrorCode.NoError
                 else b""
             )
@@ -249,12 +271,10 @@ class Avril:
     def read_meta(self, id: int, mode: AvrilMode = None) -> VMetaEntry:
         if mode is None:
             mode = AvrilMode.VMeta
-        addr = id * 28
-        cmd = AvrilMessage(AvrilCommand.Read, mode, None, 28, addr)
-        self._serial_send(cmd.encode())
-
-        expected_length = cobs.max_encoded_length(16 + 28) + 1
-        response = self._serial_read(expected_length)
+        addr = id * VMetaEntrySize
+        cmd = AvrilMessage(AvrilCommand.Read, mode, None, VMetaEntrySize, addr)
+        self.device.write(cmd.encode())
+        response = serial_read_delim(self.device)
 
         ack = AvrilAck.decode(response)
         return VMetaEntry.unpack(ack.data)
@@ -262,13 +282,12 @@ class Avril:
     def read_all_meta(self, mode: AvrilMode = None) -> dict[str, VMetaEntry]:
         """"""
         all_meta = {}
-        max = int(4096 / 28)
+        max = int(VMetaReserveSize / VMetaEntrySize)
         for i in range(max):
             try:
                 entry = self.read_meta(i, mode)
                 all_meta[entry.name] = entry
             except Exception:
-                # print(f"{e}")
                 break
         return all_meta
 
@@ -309,6 +328,8 @@ class VIFace:
         # If the address is a string, look up the address in the registers
         if isinstance(address, str):
             address = self.registers[address].address
+        if address >= self.size:
+            raise Exception("Invalid Address for this interface.")
         return address + self.base_address
 
     def write(self, _address: int | str, data: bytes):
@@ -343,14 +364,9 @@ class VIFace:
     def __setitem__(
         self, address: int | str, data: int | float | Sequence[int | float]
     ):
-        if isinstance(data, Sequence) or isinstance(data, Iterable):
-            ack = self.write_reg(address, *data)
-            for a in ack:
-                if a.error != ErrorCode.NoError:
-                    raise Exception(f"Read Ack Error: {ack.error.name}")
-        else:
-            ack = self.write_reg(address, data)
-            if ack.error != ErrorCode.NoError:
+        ack = self.write_reg(address, *iterany(data))
+        for a in iterany(ack):
+            if a.error != ErrorCode.NoError:
                 raise Exception(f"Read Ack Error: {ack.error.name}")
 
     @property
@@ -365,12 +381,8 @@ class VIFace:
         return iter(range(0, self.size, self.dtype.size))
 
 
-import argparse
-
-
 def dtype_lookup(s: str) -> DType:
-    idx = list(DType._member_map_.keys()).index(s)
-    return list(DType._member_map_.values())[idx]
+    return DType._value2member_map_[s]
 
 
 def dtype_cnv(dtype: DType, d: str) -> int | float:
@@ -423,42 +435,32 @@ def main(cli_args: list[str] = None):
         if args.interface:
             iface = av.get_interface(args.interface)
             dtype = dtype_lookup(args.dtype) if args.dtype else iface.dtype
+            wr_func = iface.write_reg
+            rd_func = iface.read_reg
         else:
             dtype = dtype_lookup(args.dtype)
+            wr_func = av.write_reg
+            rd_func = av.read_reg
+
+        # Execute command
         if args.command == "write":
             data = [dtype_cnv(dtype, d) for d in args.data]
-            if args.interface:
-                ack = iface.write_reg(args.address, *data, dtype=dtype)
-            else:
-                ack = av.write_reg(args.address, *data, dtype=dtype)
-
+            ack = wr_func(args.address, *data, dtype=dtype)
         elif args.command == "read":
-            if args.interface:
-                ack = iface.read_reg(args.address, args.n, dtype=dtype)
-            else:
-                ack = av.read_reg(args.address, dtype, args.n)
+            ack = rd_func(args.address, dtype=dtype, n=args.n)
 
         # Check errors
-        if isinstance(ack, Iterable):
-            for a in ack:
-                if a.error != ErrorCode.NoError:
-                    raise Exception(f"Ack Error: {a}")
-        else:
-            if ack.error != ErrorCode.NoError:
-                raise Exception(f"Ack Error: {ack}")
+        for a in iterany(ack):
+            if a.error != ErrorCode.NoError:
+                raise Exception(f"Ack Error: {a}")
 
-        if isinstance(ack, Iterable):
-            if args.command == "read":
-                msg = (
-                    "\n".join([str(a) for a in ack])
-                    if args.verbose
-                    else ", ".join([str(a.data) for a in ack])
-                )
-            elif args.command == "write":
-                msg = "\n".join([str(a) for a in ack]) if args.verbose else ""
-        else:
-            if args.command == "read":
-                msg = f"{ack}" if args.verbose else ack.data
-            elif args.command == "write":
-                msg = f"{ack}" if args.verbose else ""
+        if args.command == "read":
+            msg = (
+                "\n".join([str(a) for a in iterany(ack)])
+                if args.verbose
+                else ", ".join([str(a.data) for a in iterany(ack)])
+            )
+        elif args.command == "write":
+            msg = "\n".join([str(a) for a in iterany(ack)]) if args.verbose else ""
+
         print(msg)

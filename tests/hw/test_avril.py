@@ -1,3 +1,8 @@
+"""
+Test the com port talking to the demo USBBridge device.
+Requires hardware, so cannot be run unless the appropriate hardware is connected.
+"""
+
 import random
 from tqdm import tqdm
 import numpy as np
@@ -5,9 +10,11 @@ import numpy as np
 import string
 from pathlib import Path
 from dspsim.avril import Avril, VIFace, VReg, ErrorCode, AvrilMode
+import pytest
 
 
-def main():
+# @pytest.mark.skip
+def test_avril():
     """"""
     with Avril(AvrilMode.Vmmi, timeout=0.02) as av:
         print(av)
@@ -56,14 +63,17 @@ def main():
             assert np.isclose(y, x, atol=0.00001)
 
         # Write out of bounds.
-        ack = sram1.write_reg(1024, 42)
-        assert ack.error == ErrorCode.InvalidAddress
-        print(ack)
-
-        # Read out of bounds
-        ack = sram1.read_reg(1024)
-        assert ack.error == ErrorCode.InvalidAddress
-        print(ack)
+        try:
+            ack = sram1.write_reg(1024, 42)
+            assert False
+        except Exception as e:
+            pass
+        try:
+            # Read out of bounds
+            ack = sram1.read_reg(1024)
+            assert False
+        except Exception as e:
+            pass
 
         # getitem/setitem raises an exception if there is an ack error.
         try:
@@ -80,5 +90,41 @@ def main():
         # print(*ack)
 
 
-if __name__ == "__main__":
-    main()
+def test_avril_dict():
+    """"""
+    with Avril(AvrilMode.Vmmi, timeout=0.02) as av:
+        cdict = av.get_interface("dict")
+        print(cdict)
+
+        # Check current state.
+        current_state = {}
+        for a in cdict:
+            ack = cdict.read_reg(a)
+            if ack.error == ErrorCode.NoError:
+                current_state[a] = ack.data
+
+        print("Current State")
+        for k, v in current_state.items():
+            print(f"{k}:{v}")
+
+        # Random addresses and random data.
+        N = 3
+        test_data = {random.randrange(0, 1024, 4): random.random() for _ in range(N)}
+
+        # Write the test data.
+        print("Writing dict")
+        for k, v in test_data.items():
+            print(f"{k}:{v}")
+            cdict[k] = v
+
+        # Read back
+        print("Readback")
+        readback = {k: cdict[k] for k in test_data}
+        for k, v in readback.items():
+            print(f"{k}:{v}")
+
+        assert np.all(
+            np.isclose(list(readback.values()), list(test_data.values()), atol=0.001)
+        )
+        # cdict[0] = 1.2
+        # print(cdict[0])

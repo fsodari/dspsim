@@ -1,9 +1,9 @@
 # from dspsim._framework import *
 
 # from dspsim._framework import get_context_factory
-from dspsim._framework import Context
+from dspsim._framework import Context, global_context
 from dspsim._framework import Model
-from dspsim._framework import Signal8, Signal16, Signal32, Signal64
+from dspsim._framework import Clock, Signal8, Signal16, Signal32, Signal64
 # from dspsim._framework import SignalU8, SignalU16, SignalU32, SignalU64
 
 from dspsim._framework import Dff8, Dff16, Dff32, Dff64

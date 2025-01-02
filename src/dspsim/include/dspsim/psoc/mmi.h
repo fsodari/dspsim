@@ -5,12 +5,11 @@
 */
 #pragma once
 #include "dspsim/psoc/error_codes.h"
-#include "dspsim/psoc/mmi_dtypes.h"
+#include "dspsim/psoc/dtypes.h"
 #include <stdint.h>
-#include <stdlib.h>
 
 extern uint8_t *mmi_swap_buf;
-static inline uint32_t mmi_dtype_size(uint32_t dtype) { return abs(dtype) & 0xFFFF; }
+uint32_t mmi_dtype_size(uint32_t dtype);
 
 // Interfaces must implement these function types.
 typedef uint32_t (*mmi_write_ft)(void *self, uint32_t address, const void *src, uint32_t size);
@@ -25,22 +24,11 @@ struct MMIDef
     mmi_write_ft write;
     mmi_read_ft read;
     uint32_t size;
-    uint32_t dtype;
+    DType dtype;
     miter_next_ft next;
 };
 
-void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, uint32_t dtype);
-#define mmi_initx(self, write, read, size) mmi_init(self, write, read, size, MMI_x);
-#define mmi_initb(self, write, read, size) mmi_init(self, write, read, size, MMI_b);
-#define mmi_initB(self, write, read, size) mmi_init(self, write, read, size, MMI_B);
-#define mmi_inith(self, write, read, size) mmi_init(self, write, read, size, MMI_h);
-#define mmi_initH(self, write, read, size) mmi_init(self, write, read, size, MMI_H);
-#define mmi_initl(self, write, read, size) mmi_init(self, write, read, size, MMI_l);
-#define mmi_initL(self, write, read, size) mmi_init(self, write, read, size, MMI_L);
-#define mmi_initq(self, write, read, size) mmi_init(self, write, read, size, MMI_q);
-#define mmi_initQ(self, write, read, size) mmi_init(self, write, read, size, MMI_Q);
-#define mmi_initf(self, write, read, size) mmi_init(self, write, read, size, MMI_f);
-#define mmi_initd(self, write, read, size) mmi_init(self, write, read, size, MMI_d);
+void mmi_init(MMI self, mmi_write_ft write, mmi_read_ft read, uint32_t size, DType dtype);
 
 static inline uint32_t mmi_write(MMI self, uint32_t address, const void *src, uint32_t size) { return self->write(self, address, src, size); }
 static inline uint32_t mmi_read(MMI self, uint32_t address, void *dst, uint32_t size) { return self->read(self, address, dst, size); }

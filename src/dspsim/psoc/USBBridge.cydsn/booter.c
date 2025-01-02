@@ -7,10 +7,10 @@
 #include <project.h>
 
 uint32_t booter_write(void *self, uint32_t address, const void *src, uint32_t amount);
-uint32_t booter_read(void *self, uint32_t address, void *dst, uint32_t amount);
 
 void do_bootload(TimerHandle_t id)
 {
+    (void)id;
 #ifdef CY_BOOTLOADABLE_Bootloadable_H
     Bootloadable_Load();
 #endif
@@ -21,7 +21,7 @@ Booter booter_create(int32_t password)
     Booter self = pvPortMalloc(sizeof(*self));
     self->password = password;
 
-    mmi_initl((MMI)self, booter_write, booter_read, sizeof(self->password));
+    mmi_init((MMI)self, booter_write, mmi_fwrite_only_err, sizeof(self->password), dint32);
     self->delay_timer = xTimerCreate("", pdMS_TO_TICKS(10), pdFALSE, 0, &do_bootload);
     return self;
 }
@@ -50,15 +50,6 @@ uint32_t booter_write(void *_self, uint32_t address, const void *src, uint32_t a
     {
         error = 1;
     }
-
-    return error;
-}
-
-uint32_t booter_read(void *_self, uint32_t address, void *dst, uint32_t amount)
-{
-    Booter self = _self;
-    (void)self;
-    uint32_t error = 0;
 
     return error;
 }

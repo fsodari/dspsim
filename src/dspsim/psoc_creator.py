@@ -91,7 +91,7 @@ class PSoCCreatorConfig(YAMLWizard):
         print(f"Bootloading {project}")
         if not recovery:
             with Avril(avril.AvrilMode.Bootload) as av:
-                ack: AvrilAck = av.write_reg(0, password, dtype=DType.L)
+                ack: AvrilAck = av.write_reg(0, password, dtype=DType.int32)
                 if ack.error != ErrorCode.NoError:
                     raise Exception(f"Enter Bootload Failed: {ack.error.name}")
             time.sleep(0.5)

@@ -1,3 +1,5 @@
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include "project_config.h"
 // #include "project.h"
@@ -6,15 +8,15 @@
 
 #include "dspsim/psoc/usb.h"
 #include "dspsim/psoc/avril.h"
+#include "dspsim/psoc/avril_msg.h"
 #include "dspsim/psoc/vmmi.h"
 #include "dspsim/psoc/vmmi_meta.h"
 #include "dspsim/psoc/sram.h"
 #include "dspsim/psoc/mmi_iter.h"
 #include "dspsim/psoc/cobs.h"
 #include "booter.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
+#include "dspsim/psoc/cdict.h"
+#include "dspsim/psoc/cdict_mmi.h"
 
 // Blink led task.
 void start_blinky();
@@ -31,7 +33,8 @@ void vApplicationDaemonTaskStartupHook(void)
 {
     // All interfaces to be used in the vmmi. The map will probably be a generated code file eventually?
     // Sram interfaces for demonstration.
-    Sram sram0 = sram_create(1024, MMI_l);
+    DictMMI dict = dict_mmi_create(8, 256, dfloat);
+    Sram sram0 = sram_create(1024, dint32);
     {
         MIter sbegin, send, sit;
         int32_t i = 0;
@@ -42,7 +45,7 @@ void vApplicationDaemonTaskStartupHook(void)
         }
         endfor_miter(sbegin, send, sit);
     }
-    Sram sram1 = sram_create(1024, MMI_f);
+    Sram sram1 = sram_create(1024, dfloat);
 
     // Virtual MMI Interface
     VMMI vmmi = vmmi_create(VMMI_N_INTERFACES);
@@ -50,6 +53,7 @@ void vApplicationDaemonTaskStartupHook(void)
     VMMIMeta vmeta = vmmi_meta_create(vmmi, VMMI_META_RESERVE_SIZE);
 
     vmmi_register(vmmi, (MMI)vmeta, "vmeta"); // Metadata can be instantiated as part of the virtual interface.
+    vmmi_register(vmmi, (MMI)dict, "dict");
     vmmi_register(vmmi, (MMI)sram0, "sram0");
     vmmi_register(vmmi, (MMI)sram1, "sram1");
 
