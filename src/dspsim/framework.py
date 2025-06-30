@@ -14,7 +14,7 @@ import functools as _functools
 from dspsim import util as _util
 from typing import TypeVar
 
-from dspsim.config import Port as _Port
+from dspsim.vmodel_info import Port as _Port
 
 SignalT = (
     Signal8 | Signal16 | Signal32 | Signal64

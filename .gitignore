@@ -19,6 +19,7 @@ install
 *.so
 traces
 archive
+.archive
 logs
 
 # PSoC Ignored Files

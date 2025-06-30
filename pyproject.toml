@@ -21,7 +21,7 @@ requires-python = ">=3.12"
 # Needed for code generation and building modules.
 dependencies = [
     "scikit-build-core>=0.10.7",
-    "nanobind>=2.4.0",
+    "nanobind>=2.7.0",
     "jinja2>=3.1.4",
     "numpy>=2.1.3",
     "dataclass-wizard[toml, yaml]>=0.30.1",
@@ -55,6 +55,8 @@ Homepage = "https://github.com/fsodari/dspsim"
 dspsim = "dspsim.main:main"
 psoc = "dspsim.psoc_creator:main"
 avril = "dspsim.avril:main"
+pyverilator = "dspsim.verilator:verilator_cli"
+
 # Generate binding code for modules.
 
 #---------------------------------------------------------------------------------------------------#
@@ -97,11 +99,11 @@ IIR8 = { source = "IIR.sv", parameters = { ORDER = 8, COEFQ = 15 } }
 [build-system]
 requires = [
     "scikit-build-core>=0.10.7",
-    "nanobind>=2.4.0",
+    "nanobind>=2.7.0",
     "verilator-dspsim>=5.30.9",
     "numpy>=2.1.3",
     "jinja2>=3.1.4",
-    "dataclass-wizard[toml]>=0.30.1",
+    "dataclass-wizard[toml]==0.22.2",
 ]
 build-backend = "scikit_build_core.build"
 

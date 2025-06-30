@@ -8,7 +8,7 @@
 
 #include "dspsim/psoc/usb.h"
 #include "dspsim/psoc/avril.h"
-#include "dspsim/psoc/avril_msg.h"
+//#include "dspsim/psoc/avril_msg.h"
 #include "dspsim/psoc/vmmi.h"
 #include "dspsim/psoc/vmmi_meta.h"
 #include "dspsim/psoc/sram.h"
