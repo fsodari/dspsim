@@ -10,7 +10,16 @@ import sys
 import serial
 import serial.tools.list_ports
 
-from dspsim.cutil import ErrorCode, DType, AvrilCommand, AvrilMode
+from dspsim.cutil import (
+    ErrorCode,
+    DType,
+    AvrilCommand,
+    AvrilMode,
+    unpack_dtype,
+    pack_dtype,
+    cnv_dtype,
+    dtype_lookup_name,
+)
 from dspsim.util import iterany
 
 from typing import Sequence
@@ -41,38 +50,6 @@ def find_device(pid: int):
     return [port.device for port in ports if port.pid == pid]
 
 
-_fmt_lookup_tbl = {
-    DType.x: "x",
-    DType.int8: "b",
-    DType.uint8: "B",
-    DType.int16: "h",
-    DType.uint16: "H",
-    DType.int32: "l",
-    DType.uint32: "L",
-    DType.int64: "q",
-    DType.uint64: "Q",
-    DType.float: "f",
-    DType.double: "d",
-    DType.str4: "4s",
-    DType.str8: "8s",
-    DType.str16: "16s",
-    DType.str32: "32s",
-    DType.str64: "64s",
-}
-
-
-def fmt_lookup(dtype: DType):
-    return _fmt_lookup_tbl[dtype]
-
-
-def unpack_dtype(b: bytes, dtype: DType):
-    return struct.unpack(f"<{fmt_lookup(dtype)}", b)[0]
-
-
-def pack_dtype(x, dtype: DType) -> bytes:
-    return struct.pack(f"<{fmt_lookup(dtype)}", x)
-
-
 @dataclass
 class AvrilMessage:
     command: AvrilCommand
@@ -93,8 +70,16 @@ class AvrilMessage:
 
     @classmethod
     def from_bytes(cls, b: bytes):
-        _cmd, _mode, msg_id, size, addr = struct.unpack(cls._fmt, b[:12])
-        return cls(AvrilCommand(_cmd), AvrilMode(_mode), msg_id, size, addr, b[12:])
+        _header_offset = 12
+        _cmd, _mode, msg_id, size, addr = struct.unpack(cls._fmt, b[:_header_offset])
+        return cls(
+            AvrilCommand(_cmd),
+            AvrilMode(_mode),
+            msg_id,
+            size,
+            addr,
+            b[_header_offset:],
+        )
 
     def to_bytes(self) -> bytes:
         _cmd = self.command.value
@@ -167,6 +152,7 @@ class VRegMap(YAMLWizard):
 def serial_read_delim(
     device: serial.Serial, delim: bytes = b"\0", timeout: float = 1.0
 ) -> bytes:
+    """Collect bytes until the delimeter is detected, then return the collected buffer."""
     buf = b""
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -236,7 +222,7 @@ class Avril:
         ack: list[AvrilAck] = [
             self.write(
                 address + i * dtype.size,
-                pack_dtype(d, dtype),
+                pack_dtype(d, dtype=dtype),
                 msg_id,
             )
             for i, d in enumerate(data)
@@ -260,7 +246,7 @@ class Avril:
         for i in range(n):
             ack.append(self.read(address + i * dtype.size, dtype.size, msg_id))
             ack[-1].data = (
-                unpack_dtype(ack[-1].data, dtype)
+                unpack_dtype(ack[-1].data, dtype)[0]
                 if ack[-1].error == ErrorCode.NoError
                 else b""
             )
@@ -381,17 +367,6 @@ class VIFace:
         return iter(range(0, self.size, self.dtype.size))
 
 
-def dtype_lookup(s: str) -> DType:
-    return DType._value2member_map_[s]
-
-
-def dtype_cnv(dtype: DType, d: str) -> int | float:
-    if dtype.name in ["f", "d"]:
-        return float(d)
-    else:
-        return int(d)
-
-
 @dataclass
 class Args:
     command: str  # write or read
@@ -434,17 +409,17 @@ def main(cli_args: list[str] = None):
     with Avril(timeout=0.05) as av:
         if args.interface:
             iface = av.get_interface(args.interface)
-            dtype = dtype_lookup(args.dtype) if args.dtype else iface.dtype
+            dtype = dtype_lookup_name(args.dtype) if args.dtype else iface.dtype
             wr_func = iface.write_reg
             rd_func = iface.read_reg
         else:
-            dtype = dtype_lookup(args.dtype)
+            dtype = dtype_lookup_name(args.dtype)
             wr_func = av.write_reg
             rd_func = av.read_reg
 
         # Execute command
         if args.command == "write":
-            data = [dtype_cnv(dtype, d) for d in args.data]
+            data = [cnv_dtype(d, dtype) for d in args.data]
             ack = wr_func(args.address, *data, dtype=dtype)
         elif args.command == "read":
             ack = rd_func(args.address, dtype=dtype, n=args.n)

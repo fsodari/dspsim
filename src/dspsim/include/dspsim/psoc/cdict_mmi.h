@@ -16,3 +16,7 @@ struct DictMMIDef
 };
 
 DictMMI dict_mmi_create(uint32_t n_bins, uint32_t n_regs, DType dtype);
+
+// Dict Iterators.
+MIter dict_mmi_begin(DictMMI self);
+MIter dict_mmi_end(DictMMI self);

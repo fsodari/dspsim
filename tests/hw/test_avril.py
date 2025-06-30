@@ -13,7 +13,7 @@ from dspsim.avril import Avril, VIFace, VReg, ErrorCode, AvrilMode
 import pytest
 
 
-# @pytest.mark.skip
+@pytest.mark.skip
 def test_avril():
     """"""
     with Avril(AvrilMode.Vmmi, timeout=0.02) as av:
@@ -90,6 +90,7 @@ def test_avril():
         # print(*ack)
 
 
+@pytest.mark.skip
 def test_avril_dict():
     """"""
     with Avril(AvrilMode.Vmmi, timeout=0.02) as av:

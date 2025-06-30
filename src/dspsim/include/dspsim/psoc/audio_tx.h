@@ -15,10 +15,11 @@ struct AudioTxDef
     uint8_t dma_ch;
 };
 
-// Monitor the buffer size
+// Monitor the buffer size, enable the stream when half full, disable on overflow/underflow.
 typedef struct AudioTxMonitorDef *AudiTxMonitor;
 struct AudioTxMonitorDef
 {
+    CBuf cbuf;
 };
 
 AudioTx audio_tx_start(MessageBufferHandle_t msg_buf, QueueHandle_t fb_buf, uint32_t buffer_size);

@@ -1,5 +1,5 @@
 #include "dspsim/psoc/avril.h"
-#include "dspsim/psoc/avril_msg.h"
+#include "dspsim/psoc/avril.h"
 #include "dspsim/psoc/usb_serial.h"
 #include "dspsim/psoc/cdict.h"
 
@@ -63,7 +63,7 @@ typedef struct CmdHeader
 static uint32_t nop_ack(CmdHeader *header, uint32_t error, uint8_t *dst)
 {
     (void)error;
-    
+
     header->command = AvrilNopAck;
     header->size = 0;
     memcpy(dst, header, sizeof(*header));
@@ -106,7 +106,9 @@ uint32_t _ack(CmdHeader *header, uint32_t error, uint8_t *dst)
     else if (header->command == AvrilRead)
     {
         return read_ack(header, error, dst);
-    } else {
+    }
+    else
+    {
         return 0;
     }
 }
@@ -127,7 +129,7 @@ void AvrilTask(void *_self)
             // MMI mode = self->modes[header->mode];
             MMI mode;
             dict_getl(self->modes, header->mode, &mode);
-            
+
             uint32_t response_size = 0;
             switch (header->command)
             {

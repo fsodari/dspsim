@@ -16,7 +16,7 @@ import numpy as np
 
 from dataclass_wizard import JSONWizard
 
-from dspsim.config import Parameter, ModuleConfig
+from dspsim.vmodel_info import Parameter, ModuleConfig
 from dspsim import util
 
 from typing import Literal
@@ -77,6 +77,8 @@ def _find_source(
         if source.stem == src.stem:
             return src
 
+    raise FileNotFoundError(f"{source} not found.")
+
 
 @dataclass
 class Config(JSONWizard):
@@ -135,7 +137,7 @@ class Config(JSONWizard):
                 # Add to the set.
                 found = _find_source(
                     Path(filename),
-                    global_sources,
+                    list(global_sources),
                     global_includes,
                     pyproject_path,
                 )
@@ -146,7 +148,7 @@ class Config(JSONWizard):
             model_name: _get_abs_path(
                 _find_source(
                     Path(model.get("source", model_name)),
-                    global_sources,
+                    list(global_sources),
                     global_includes + model.get("include_dirs", []),
                     pyproject_path,
                 ),
@@ -170,9 +172,12 @@ class Config(JSONWizard):
             _errors[name] = _source
             # if name == "FifoAsync":
             #     _errors.append(1)
-            all_modules[name] = ModuleConfig.from_verilator(
+            all_modules[name] = ModuleConfig.load_model(
                 _source,
-                parameters=global_parameters | model_parameters,
+                parameters={
+                    k: v.value
+                    for k, v in (global_parameters | model_parameters).items()
+                },
                 trace=model.get("trace", global_trace),
                 include_dirs=global_includes + model_includes,
                 verilator_args=global_vargs + model.get("verilator_args", []),
@@ -182,7 +187,7 @@ class Config(JSONWizard):
         return cls(
             parameters=global_parameters,
             include_dirs=global_includes,
-            sources=global_sources,
+            sources=list(global_sources),
             trace=global_trace,
             verilator_args=global_vargs,
             models=all_modules,
@@ -215,11 +220,11 @@ def run_generate_model(pyproject_path: Path, json_tool_cfg: Path, output_dir: Pa
             # raise Exception(model.port_info())
             fp.write(render_template("model.cpp.jinja", model=model, trace=model.trace))
 
-    from .config import _vvalue_str
+    from .vmodel_info import _vvalue_str
 
     # Convert valid parameters to str values. Arrays are not allowed over command line or cmake.
     for model in config.models.values():
-        model.parameters = {
+        model.parameters = {  # type:ignore
             k: _vvalue_str(v.value)
             for k, v in model.parameters.items()
             if not v.value.shape
@@ -233,16 +238,16 @@ class ArgsGenerate:
     pyproject: Path
     tool_cfg: Path
     output_dir: Path
-    func: Callable = None
+    func: Callable | None = None
 
     @classmethod
-    def create_parser(cls, subparser: argparse.ArgumentParser = None):
+    def create_parser(cls, subparser: argparse.ArgumentParser | None = None):
         """"""
         help_str = "Generate code from templates."
         if subparser is None:
             parser = argparse.ArgumentParser("dspsim-generate")
         else:
-            parser = subparser.add_parser("generate", help=help_str)
+            parser = subparser.add_parser("generate", help=help_str)  # type:ignore
         parser.add_argument(
             "--pyproject",
             type=Path,
@@ -261,13 +266,13 @@ class ArgsGenerate:
         return parser
 
     @classmethod
-    def parse_args(cls, cli_args: list[str] = None):
+    def parse_args(cls, cli_args: list[str] | None = None):
         parser = cls.create_parser()
         cargs = parser.parse_args(cli_args)
         return cls(**vars(cargs))
 
 
-def main(cli_args: list[str] = None):
+def main(cli_args: list[str] | None = None):
     """"""
     args = ArgsGenerate.parse_args(cli_args)
     # create console handler and set level to debug

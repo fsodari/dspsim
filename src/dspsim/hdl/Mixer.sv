@@ -42,6 +42,7 @@
     i2s_in1_r ->                                            -> i2s_out1_r
 
 */
+
 module Mixer #(
     parameter DW = 24,
     parameter CFGAW = 32,

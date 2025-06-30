@@ -11,7 +11,7 @@ extern "C"
 {
 #include "dspsim/psoc/error_codes.h"
 #include "dspsim/psoc/dtypes.h"
-#include "dspsim/psoc/avril.h"
+#include "dspsim/psoc/avril_defs.h"
 }
 
 namespace nb = nanobind;
