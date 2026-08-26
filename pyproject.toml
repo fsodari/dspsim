@@ -43,6 +43,7 @@ dev = [
     "scipy>=1.14.1",
     "mkdocs>=1.6.1",
     "tqdm>=4.67.1",
+    "setuptools>=84.0.0",
 ]
 
 # Available on github. Wheels and sdist published to pypi.org
@@ -106,6 +107,8 @@ requires = [
     "dataclass-wizard[toml]==0.22.2",
 ]
 build-backend = "scikit_build_core.build"
+[tool.uv.extra-build-dependencies]
+cyflash = ["setuptools"]
 
 [tool.scikit-build]
 cmake.args = ["-Wno-dev"]                 # silence cmake warning about verilator package name.
