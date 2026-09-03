@@ -68,8 +68,7 @@ target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
 
-# Install stubs.
-dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
+
 
 # ### Library Module ###
 # # Create library module using dspsim utilities.
@@ -109,6 +108,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
               ${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake
         DESTINATION ${INSTALL_CMAKEDIR})
 
+# Install stubs.
+dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 
 # # Testing
 # enable_testing()
