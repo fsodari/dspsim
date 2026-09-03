@@ -46,3 +46,5 @@ logs
 **/*.cydsn/*.rpt
 **/*.cydsn.svd
 **/*.cylib/*.log
+
+.proj_archive
