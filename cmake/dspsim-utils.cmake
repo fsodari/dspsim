@@ -19,5 +19,6 @@ function(dspsim_add_stub name output_dir)
         OUTPUT ${stubs_dir}/${name}.pyi
         PYTHON_PATH $<TARGET_FILE_DIR:${name}>
         MARKER_FILE ${marker_file}
-        INSTALL_TIME)
+        INSTALL_TIME
+        VERBOSE)
 endfunction()

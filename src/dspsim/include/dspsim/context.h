@@ -43,11 +43,10 @@ namespace dspsim
         // Obtain the global context.
         static ContextPtr obtain();
 
+        static ContextPtr global_context();
+
     private:
         int _id;
         std::vector<std::shared_ptr<Model>> _models;
-
-        // Global context pointer. Models will self-register with the global context.
-        static inline ContextPtr _global_context = std::make_shared<Context>();
     };
 }

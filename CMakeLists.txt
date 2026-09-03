@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 4.0)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
-find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+if (WIN32)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
+else()
+    find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+endif()
 message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 # message(STATUS "Python version: ${Python_VERSION}")
 # message(STATUS "Python include dir: ${Python_INCLUDE_DIRS}")
@@ -18,15 +28,28 @@ set(DSPSIM_DATA_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/data)
 
 # Install paths
 include(GNUInstallDirs)
-set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR})
+if (WIN32)
+    set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME})
+    set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME})
+else()
+    set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR})
+    set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_BINDIR})
+endif()
 set(INSTALL_INCLUDEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_INCLUDEDIR})
 set(INSTALL_DATADIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR})
 set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
 set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/cmake)
 
 # RPath
-set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+if (WIN32)
+    # set(CMAKE_SKIP_BUILD_RPATH True)
+    # set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+else()
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
 
 # Include dspsim utilities
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
@@ -55,6 +78,7 @@ dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 #     STUBS_DIR ${SKBUILD_PROJECT_NAME}
 #     INSTALL_DIR ${SKBUILD_PROJECT_NAME})
 
+
 # Install core library and export targets.
 install(TARGETS dspsim-core
     EXPORT dspsim-core-targets
@@ -73,7 +97,7 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/dspsim-config.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
   INSTALL_DESTINATION ${INSTALL_CMAKEDIR}
-  PATH_VARS INSTALL_CMAKEDIR INSTALL_LIBDIR INSTALL_INCLUDEDIR INSTALL_HDLDIR)
+  PATH_VARS INSTALL_CMAKEDIR INSTALL_LIBDIR INSTALL_BINDIR INSTALL_INCLUDEDIR INSTALL_HDLDIR)
 
 # CMake package version.
 write_basic_package_version_file(

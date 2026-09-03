@@ -3,6 +3,14 @@
 
 namespace dspsim
 {
+    // Global context pointer. Models will self-register with the global context.
+    static ContextPtr _global_context = std::make_shared<Context>();
+
+    ContextPtr Context::global_context()
+    {
+        return _global_context;
+    }
+
     Context::Context() : _id(0)
     {
     }
