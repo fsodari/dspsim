@@ -14,7 +14,6 @@ function(dspsim_add_stub name output_dir)
     endif()
 
     # Generate stub with nanobind. Do this at install time so that it can find the dspsim._framework module and get the types from it.
-    message(STATUS "Stubgen Target File Dir: $<TARGET_FILE_DIR:${name}>")
     if (WIN32)
         set(PYTHON_PATH "${CMAKE_INSTALL_PREFIX}/${SKBUILD_PROJECT_NAME}")
     else()
@@ -26,5 +25,5 @@ function(dspsim_add_stub name output_dir)
         PYTHON_PATH ${PYTHON_PATH}
         MARKER_FILE ${marker_file}
         INSTALL_TIME
-        VERBOSE)
+    )
 endfunction()
