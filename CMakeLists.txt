@@ -1,21 +1,19 @@
 cmake_minimum_required(VERSION 4.0)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
+# Force release build.
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-if (WIN32)
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
-else()
-    find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
-endif()
+# Simplest way of exporting symbols for windows.
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# Windows requires the Python SABIModule component.
+find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
-# message(STATUS "Python version: ${Python_VERSION}")
-# message(STATUS "Python include dir: ${Python_INCLUDE_DIRS}")
 
+# Find nanobind package.
 find_package(nanobind CONFIG REQUIRED)
 message(STATUS "Found nanobind: ${nanobind_DIR}")
 
@@ -28,27 +26,24 @@ set(DSPSIM_DATA_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/data)
 
 # Install paths
 include(GNUInstallDirs)
-if (WIN32)
-    set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME})
-    set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME})
-else()
-    set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_LIBDIR})
-    set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_BINDIR})
-endif()
+set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME})
+set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME})
 set(INSTALL_INCLUDEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_INCLUDEDIR})
 set(INSTALL_DATADIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR})
 set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
 set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/cmake)
 
 # RPath
-if (WIN32)
-    # set(CMAKE_SKIP_BUILD_RPATH True)
-    # set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-    set(CMAKE_INSTALL_RPATH "$ORIGIN")
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_INSTALL_RPATH "$ORIGIN")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# Set warning level
+if (MSVC)
+    # warning level 4
+    add_compile_options(/W4)
 else()
-    set(CMAKE_INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+    # additional warnings
+    add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # Include dspsim utilities
@@ -57,18 +52,16 @@ include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 # Build dspsim core library
 add_subdirectory(${DSPSIM_SRC_DIR})
 
-# Framework module
+# Build _framework module
 nanobind_add_module(_framework
     NB_DOMAIN dspsim
     BACKEND_MODULE nanobind_backend
-    ${DSPSIM_SRC_DIR}/_framework.cpp
-)
+    NB_DOMAIN dspsim
+    ${DSPSIM_SRC_DIR}/_framework.cpp)
 target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 # Install extension
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-
-
 
 # ### Library Module ###
 # # Create library module using dspsim utilities.
@@ -108,7 +101,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
               ${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake
         DESTINATION ${INSTALL_CMAKEDIR})
 
-# Install stubs.
+# Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 
 # # Testing
