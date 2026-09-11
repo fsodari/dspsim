@@ -1,7 +1,4 @@
 #include <dspsim/model.h>
-#include <string>
-#include <format>
-#include <ranges>
 
 namespace dspsim
 {
@@ -9,8 +6,4 @@ namespace dspsim
     {
     }
 
-    const std::string Model::repr() const
-    {
-        return std::format("Model(id={})", _id);
-    }
 }

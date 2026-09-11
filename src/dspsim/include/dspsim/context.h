@@ -5,7 +5,8 @@
 namespace dspsim
 {
     // Forward declaration of Model class
-    class Model;
+    // class Model;
+    using ModelPtr = std::shared_ptr<class Model>;
     using ContextPtr = std::shared_ptr<class Context>;
     /*
         Context contains a vector of all the models.
@@ -21,37 +22,48 @@ namespace dspsim
     */
     class Context
     {
-    public:
+        // Simulator can access the context's time.
+        friend class Simulator;
+
+    private:
         Context();
+
+    public:
         ~Context();
 
-        // Return a string representation of the context.
-        const std::string repr() const;
+        /*
+            Properties
+        */
 
-        // Register a model with the context.
-        void register_model(std::shared_ptr<Model> model);
-
-        void clear();
-        // Complete the design. Assign ids to every model.
-        void elaborate();
-
-        // Run an eval cycle on all models in the context.
-        void eval();
-
+        // Context id
         int id() const { return _id; }
 
-        const std::vector<std::shared_ptr<Model>> &models() const { return _models; }
+        const std::vector<ModelPtr> &models() const { return _models; }
 
-        // Reset the global context to a new context.
-        static ContextPtr reset();
+        double time() const { return _time; }
+
+        /*
+            Methods
+        */
+        // Register a model with the context.
+        void register_model(ModelPtr model);
+
+        // Clear all models from the context.
+        void clear();
+
+        /*
+            Static Methods
+        */
         // Obtain the global context.
         static ContextPtr obtain();
 
-        static ContextPtr global_context();
+        // Set the global context to nullptr. New designs will create a new context.
+        static void reset_global_context();
 
     private:
         int _id;
         int _next_model_id;
-        std::vector<std::shared_ptr<Model>> _models;
+        std::vector<ModelPtr> _models;
+        double _time;
     };
 }

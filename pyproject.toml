@@ -21,7 +21,6 @@ dependencies = [
     "nanobind-backend>=1.0.0",
     "verilator-dspsim>=5.50.1",
     "numpy>=2.5.2",
-    "pydantic>=2.13.5",
 ]
 
 [project.scripts]

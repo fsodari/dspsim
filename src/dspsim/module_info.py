@@ -1,4 +1,4 @@
-"""Module information."""
+"""HDL Module information."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,8 +44,5 @@ class Port:
 class ModuleInfo:
     name: str
     source: Path
-    # source_filename: Path
-    # source_realpath: Path
-
     parameters: dict[str, Parameter]
     ports: dict[str, Port]
