@@ -17,25 +17,12 @@ struct PyModel : public Model
 
     void eval_step() override
     {
-        NB_OVERRIDE(eval_step);
+        NB_OVERRIDE_PURE(eval_step);
     }
 
     void eval_end_step() override
     {
         NB_OVERRIDE(eval_end_step);
-    }
-};
-
-class AModel : public Model
-{
-public:
-    void eval_step() override
-    {
-        std::cout << "AModel eval_step called" << std::endl;
-    }
-    void eval_end_step() override
-    {
-        std::cout << "AModel eval_end_step called" << std::endl;
     }
 };
 
@@ -46,6 +33,8 @@ NB_MODULE(_framework, m)
     // Bind the Context class
     nb::class_<Context>(m, "Context")
         .def(nb::new_(&Context::obtain))
+        .def("__repr__", &Context::repr)
+        .def("__str__", &Context::repr)
         .def_static("reset", &Context::reset)
         .def_static("obtain", &Context::obtain)
         .def("clear", &Context::clear)
@@ -61,8 +50,11 @@ NB_MODULE(_framework, m)
 
     // Bind the Model class
     nb::class_<Model, PyModel>(m, "Model")
-        // .def(nb::new_(&Model::create<Model>))
         .def(nb::init<>())
+        .def("__repr__", &Model::repr)
+        .def("__str__", &Model::repr)
+        .def("eval_step", &Model::eval_step)
+        .def("eval_end_step", &Model::eval_end_step)
         .def_prop_ro("id", &Model::id)
         .def_prop_ro("context", &Model::context);
 }

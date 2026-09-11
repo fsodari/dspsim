@@ -6,6 +6,8 @@ def test_context_obtain():
     assert context is not None
     assert isinstance(context, Context)
 
+    print(context)
+
     # Ensure obtaining another context returns the same instance
     another_context = Context()
     assert context is another_context
@@ -15,3 +17,4 @@ def test_context_obtain():
     new_context = Context()
     assert new_context is not context
     assert isinstance(new_context, Context)
+    print(new_context)

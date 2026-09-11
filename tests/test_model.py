@@ -22,10 +22,12 @@ def test_model_initialization():
         assert isinstance(some_model, Model)
         assert some_model.context is not None
         assert isinstance(some_model.context, Context)
+        print(some_model)
 
         amodel = SomeModel()
         assert amodel is not None
         assert isinstance(amodel, Model)
+        print(amodel)
 
         assert (
             some_model.context is context
@@ -43,3 +45,5 @@ def test_model_initialization():
         assert some_model.eval_end_step_called == N
         assert amodel.eval_step_called == N
         assert amodel.eval_end_step_called == N
+
+        print(context)

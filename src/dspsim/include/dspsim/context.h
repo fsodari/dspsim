@@ -23,11 +23,15 @@ namespace dspsim
     {
     public:
         Context();
-        ~Context() { clear(); }
+        ~Context();
+
+        // Return a string representation of the context.
+        const std::string repr() const;
+
         // Register a model with the context.
         void register_model(std::shared_ptr<Model> model);
 
-        void clear() { _models.clear(); }
+        void clear();
         // Complete the design. Assign ids to every model.
         void elaborate();
 
@@ -36,7 +40,7 @@ namespace dspsim
 
         int id() const { return _id; }
 
-        std::vector<std::shared_ptr<Model>> &models() { return _models; }
+        const std::vector<std::shared_ptr<Model>> &models() const { return _models; }
 
         // Reset the global context to a new context.
         static ContextPtr reset();
@@ -47,6 +51,7 @@ namespace dspsim
 
     private:
         int _id;
+        int _next_model_id;
         std::vector<std::shared_ptr<Model>> _models;
     };
 }

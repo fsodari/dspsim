@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 4.0)
 project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Force release build.
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)

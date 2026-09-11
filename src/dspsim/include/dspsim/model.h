@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/context.h>
+#include <string>
 
 namespace dspsim
 {
@@ -11,7 +12,9 @@ namespace dspsim
     public:
         Model();
 
-        virtual void eval_step() {}
+        virtual const std::string repr() const;
+
+        virtual void eval_step() = 0;
         virtual void eval_end_step() {}
 
         int id() const { return _id; }
