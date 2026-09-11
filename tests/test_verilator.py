@@ -1,5 +1,8 @@
-from dspsim import verilator
 from pathlib import Path
+
+import verilator
+
+from dspsim import verilate
 
 
 def test_verilator_root():
@@ -15,12 +18,12 @@ def test_verilator_bin():
 
 
 def test_verilator_version():
-    result = verilator.verilator(["--version"], capture_output=True, check=True)
+    result = verilator.verilator(["--version"], capture_output=True)
     assert result.returncode == 0
     print(result.stdout.decode())
 
 
 def test_verilator_json():
     src_file = Path("src/dspsim/hdl/SimpleModel.sv")
-    result = verilator.verilate_json(sources=[src_file])
+    result = verilate.verilate_json(sources=[src_file])
     print(result)

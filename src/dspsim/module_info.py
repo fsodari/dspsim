@@ -3,30 +3,49 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy.typing as npt
+type ParamValueT = int | float | str | list["ParamValueT"]
 
-# from typing import
+_cnv_type_table: dict[str, type[int | str | float]] = {
+    "bit": int,
+    "logic": int,
+    "int": int,
+    "real": float,
+    "string": str,
+}
+
+
+@dataclass
+class DType:
+    keyword: str
+    width: int | None
+    signed: bool
+    shape: tuple[int, ...]
+
+    @property
+    def cnv_type(self) -> type[int | str | float]:
+        return _cnv_type_table[self.keyword]
 
 
 @dataclass
 class Parameter:
     name: str
-    value: str | int | float | npt.ArrayLike
-    shape: tuple[int, ...]
+    dtype: DType
+    value: ParamValueT
 
 
 @dataclass
 class Port:
     name: str
-    width: int
+    dtype: DType
     direction: str
-    signed: bool
-    shape: tuple[int, ...]
 
 
 @dataclass
-class Module:
+class ModuleInfo:
     name: str
     source: Path
+    # source_filename: Path
+    # source_realpath: Path
+
     parameters: dict[str, Parameter]
     ports: dict[str, Port]
