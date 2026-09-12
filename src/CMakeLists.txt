@@ -3,8 +3,7 @@ add_library(dspsim-core SHARED
     ${DSPSIM_SRC_DIR}/model.cpp
     ${DSPSIM_SRC_DIR}/signal.cpp
     ${DSPSIM_SRC_DIR}/dff.cpp
-    ${DSPSIM_SRC_DIR}/clock.cpp
-    ${DSPSIM_SRC_DIR}/simulator.cpp)
+    ${DSPSIM_SRC_DIR}/clock.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)

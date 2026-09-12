@@ -1,7 +1,7 @@
 import threading
 import time
 
-from dspsim.framework import Context, Model, Simulator
+from dspsim.framework import Context, Model
 
 
 class SomeModel(Model):
@@ -39,11 +39,9 @@ def test_model_initialization():
             )  # Ensure the model is registered in the context
 
         # Create simulator
-        sim = Simulator(context)
-
         N = 5
         for _ in range(N):
-            sim.eval()
+            context.eval()
         assert some_model.eval_step_called == N
         assert some_model.eval_end_step_called == N
         assert amodel.eval_step_called == N
@@ -58,10 +56,9 @@ def test_multithreaded_models():
         with Context() as context:
             with context.construct():
                 models = [SomeModel() for _ in range(30)]
-            sim = Simulator(context)
             N = 100
             for _ in range(N):
-                sim.eval()
+                context.eval()
                 time.sleep(0.01)
             for model in models:
                 assert model.eval_step_called == N
@@ -78,6 +75,6 @@ def test_cleanup():
     ctx = Context()
     a = SomeModel()
     SomeModel()
-    sim = Simulator(ctx)
-    sim.run(10)
+    for _ in range(10):
+        ctx.eval()
     # No need to explicitly clear() the context.

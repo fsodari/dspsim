@@ -8,7 +8,6 @@ from dspsim.framework import (
     Signal16,
     Signal32,
     Signal64,
-    Simulator,
     signal,
 )
 

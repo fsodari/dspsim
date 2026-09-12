@@ -3,7 +3,6 @@
 #include <dspsim/dff.h>
 #include <dspsim/port.h>
 #include <dspsim/clock.h>
-#include <dspsim/simulator.h>
 #include <dspsim/vmodel.h>
 
 #include <nanobind/nanobind.h>
@@ -125,6 +124,8 @@ NB_MODULE(_framework, m)
         // Methods
         .def("register_model", &Context::register_model)
         .def("clear", &Context::clear)
+        .def("eval", &Context::eval)
+        .def("run", &Context::run, nb::arg("time_inc"))
         // Static Methods
         .def_static("obtain", &Context::obtain)
         .def_static("reset_global_context", &Context::reset_global_context);
@@ -162,14 +163,6 @@ NB_MODULE(_framework, m)
     bind_dff_class<uint16_t>(m, "Dff16");
     bind_dff_class<uint32_t>(m, "Dff32");
     bind_dff_class<uint64_t>(m, "Dff64");
-
-    nb::class_<Simulator>(m, "Simulator")
-        .def(nb::init<ContextPtr, const std::string &, const std::string &>(), nb::arg("context"), nb::arg("time_unit") = "1ns", nb::arg("time_precision") = "1ns")
-        // Properties
-        .def_prop_ro("context", &Simulator::context)
-        // Methods
-        .def("eval", &Simulator::eval)
-        .def("run", &Simulator::run, nb::arg("time_step"));
 
     nb::class_<SimpleModel, Model>(m, "SimpleModel")
         .def(nb::new_(&SimpleModel::create), nb::arg("clk"), nb::arg("rst"), nb::arg("i"), nb::arg("o"))

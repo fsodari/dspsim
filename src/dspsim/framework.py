@@ -16,7 +16,6 @@ from dspsim._framework import (
     Signal16,
     Signal32,
     Signal64,
-    Simulator,
 )
 from dspsim._framework import Context as _Context
 from dspsim._framework import Model as _Model
@@ -111,6 +110,5 @@ __all__ = [
     "Signal16",
     "Signal32",
     "Signal64",
-    "Simulator",
     "signal",
 ]

@@ -1,7 +1,7 @@
 #include <dspsim/context.h>
 #include <dspsim/model.h>
+#include "timestrings.h"
 #include <format>
-#include <chrono>
 
 namespace dspsim
 {
@@ -35,6 +35,28 @@ namespace dspsim
         _models.clear();
     }
 
+    void Context::eval()
+    {
+        for (auto &model : _models)
+        {
+            model->eval_step();
+        }
+        for (auto &model : _models)
+        {
+            model->eval_end_step();
+        }
+    }
+
+    void Context::run(uint64_t time_inc)
+    {
+        uint64_t n_steps = static_cast<uint64_t>(time_inc * _time_step);
+        for (uint64_t i = 0; i < n_steps; ++i)
+        {
+            eval();
+            _time++;
+        }
+    }
+
     int Context::get_next_model_id()
     {
         return _next_model_id++;
@@ -49,6 +71,8 @@ namespace dspsim
     {
         _time_unit = time_unit;
         _time_precision = time_precision;
+
+        _time_step = calc_time_step(_time_unit, _time_precision);
     }
 
     ContextPtr Context::obtain()

@@ -64,6 +64,9 @@ namespace dspsim
         // Clear all models from the context.
         void clear();
 
+        void eval();
+        void run(uint64_t time_inc);
+
     private:
         int get_next_model_id();
 
@@ -84,5 +87,6 @@ namespace dspsim
         uint64_t _time;
         std::string _time_unit;
         std::string _time_precision;
+        uint64_t _time_step;
     };
 }
