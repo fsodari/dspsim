@@ -2,6 +2,7 @@ add_library(dspsim-core SHARED
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/model.cpp
     ${DSPSIM_SRC_DIR}/signal.cpp
+    ${DSPSIM_SRC_DIR}/dff.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
     ${DSPSIM_SRC_DIR}/simulator.cpp)
 

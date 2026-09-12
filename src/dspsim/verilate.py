@@ -167,7 +167,7 @@ def parse_module_json(model_data, metadata):
         s["origName"]: Port(
             name=s["origName"],
             dtype=_parse_dtype(types_table[s["dtypep"]], types_table),
-            direction=s["direction"],
+            direction=str(s["direction"]).lower(),
         )
         for s in statements
         if s.get("varType", "") == "PORT"

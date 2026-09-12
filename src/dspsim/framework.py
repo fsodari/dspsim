@@ -6,11 +6,20 @@ This module provides the Context and Model classes for building and simulating m
 import threading
 from contextlib import contextmanager
 
-from dspsim._framework import Clock, Signal8, Signal16, Signal32, Signal64, Simulator
+from dspsim._framework import (
+    Clock,
+    Dff8,
+    Dff16,
+    Dff32,
+    Dff64,
+    Signal8,
+    Signal16,
+    Signal32,
+    Signal64,
+    Simulator,
+)
 from dspsim._framework import Context as _Context
 from dspsim._framework import Model as _Model
-
-global_context_lock = threading.Lock()
 
 
 class Context(_Context):
@@ -22,9 +31,10 @@ class Context(_Context):
     """
 
     locked: bool = False
+    _global_context_lock: threading.Lock = threading.Lock()
 
     def __new__(cls):
-        global_context_lock.acquire()
+        Context._global_context_lock.acquire()
         inst = super().__new__(cls)
         inst.locked = True
         return inst
@@ -43,10 +53,10 @@ class Context(_Context):
         self.release()
 
     def release(self):
-        if self.locked and global_context_lock.locked():
+        if self.locked and Context._global_context_lock.locked():
             self.reset_global_context()
             self.locked = False
-            global_context_lock.release()
+            Context._global_context_lock.release()
 
     @contextmanager
     def construct(self):
@@ -92,6 +102,10 @@ def signal(init: int = 0, width: int = 32, is_signed: bool = False):
 __all__ = [
     "Clock",
     "Context",
+    "Dff8",
+    "Dff16",
+    "Dff32",
+    "Dff64",
     "Model",
     "Signal8",
     "Signal16",

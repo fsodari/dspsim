@@ -1,5 +1,6 @@
 #include <dspsim/dspsim.h>
 #include <dspsim/signal.h>
+#include <dspsim/dff.h>
 #include <dspsim/port.h>
 #include <dspsim/clock.h>
 #include <dspsim/simulator.h>
@@ -16,7 +17,8 @@
 #include <cstdint>
 
 #include <VSimpleModel.h>
-#include <verilated_vcd_c.h>
+// #include <verilated_vcd_c.h>
+#include <verilated_fst_c.h>
 
 #include <iostream>
 
@@ -54,10 +56,20 @@ auto bind_signal_class(nb::module_ &m, const char *name)
         .def_prop_rw("d", &Signal<T>::d, &Signal<T>::set_d)
         .def_prop_ro("q", &Signal<T>::q);
 }
-
-class SimpleModel : public VModel<VSimpleModel, VerilatedVcdC>
+template <typename T>
+auto bind_dff_class(nb::module_ &m, const char *name)
 {
+    return nb::class_<Dff<T>, Signal<T>>(m, name)
+        .def(nb::new_(&Dff<T>::create), nb::arg("clk"), nb::arg("width") = default_bitwidth<T>::value, nb::arg("init") = 0, nb::arg("is_signed") = false)
+        // Properties
+        .def_prop_ro("width", &Dff<T>::width)
+        .def_prop_ro("is_signed", &Dff<T>::is_signed)
+        .def_prop_rw("d", &Dff<T>::d, &Dff<T>::set_d)
+        .def_prop_ro("q", &Dff<T>::q);
+}
 
+class SimpleModel : public VModel<VSimpleModel, VerilatedFstC>
+{
 protected:
     InputPtr<uint8_t> _clk;
     InputPtr<uint8_t> _rst;
@@ -142,7 +154,14 @@ NB_MODULE(_framework, m)
     // Clock
     nb::class_<Clock, Signal<uint8_t>>(m, "Clock")
         .def(nb::new_(&Clock::create), nb::arg("period"))
-        .def_prop_ro("period", &Clock::period);
+        .def_prop_ro("period", &Clock::period)
+        .def_prop_ro("posedge", &Clock::posedge);
+
+    // Dff
+    bind_dff_class<uint8_t>(m, "Dff8");
+    bind_dff_class<uint16_t>(m, "Dff16");
+    bind_dff_class<uint32_t>(m, "Dff32");
+    bind_dff_class<uint64_t>(m, "Dff64");
 
     nb::class_<Simulator>(m, "Simulator")
         .def(nb::init<ContextPtr, const std::string &, const std::string &>(), nb::arg("context"), nb::arg("time_unit") = "1ns", nb::arg("time_precision") = "1ns")

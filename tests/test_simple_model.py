@@ -2,7 +2,7 @@ from pathlib import Path
 
 from dspsim._framework import SimpleModel
 
-from dspsim.framework import Clock, Context, Signal8, Simulator
+from dspsim.framework import Clock, Context, Dff8, Signal8, Simulator
 
 
 def test_simple_model():
@@ -10,8 +10,8 @@ def test_simple_model():
     with Context() as ctx:
         with ctx.construct():
             clk = Clock(10)
-            rst = Signal8()
-            i = Signal8()
+            rst = Dff8(clk, 1)
+            i = Dff8(clk)
             o1 = Signal8()
             o2 = Signal8()
 
@@ -20,8 +20,14 @@ def test_simple_model():
 
         sim = Simulator(ctx)
         # Trace functions be called after sim.
-        a.trace(Path("traces") / "a.vcd")
-        b.trace(Path("traces") / "b.vcd")
+        a.trace(Path("traces") / "a.trace")
+        b.trace(Path("traces") / "b.trace")
+
+        rst.d = 1
+        sim.run(100)
+        rst.d = 0
+        sim.run(10)
+
         for iter in range(10):
             i.d = iter
             sim.run(10)

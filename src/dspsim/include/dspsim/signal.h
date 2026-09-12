@@ -41,6 +41,13 @@ namespace dspsim
         virtual void eval_step() override {}
         virtual void eval_end_step() override;
 
+    protected:
+        void _sync()
+        {
+            *this->_q = *this->_d;
+        }
+
+    public:
         /*
             Static Methods
         */
@@ -57,7 +64,6 @@ namespace dspsim
     protected:
         T _d_local, _q_local;
         T *_d, *_q;
-        T _q_prev;
     };
 
     using Signal8 = Signal<uint8_t>;

@@ -50,7 +50,7 @@ if (MSVC)
     add_compile_options(/W4)
 else()
     # additional warnings
-    add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable)
+    add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
 endif()
 
 # Include dspsim utilities
@@ -70,7 +70,8 @@ target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 # Verilated models
 verilate(_framework
     SOURCES ${DSPSIM_HDL_DIR}/SimpleModel.sv
-    TRACE_VCD
+    # TRACE_VCD
+    TRACE_FST
     VERILATOR_ARGS --quiet)
 
 # Install extension

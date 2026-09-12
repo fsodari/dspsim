@@ -14,7 +14,6 @@ namespace dspsim
         _q_local = init;
         _d = &_d_local;
         _q = &_q_local;
-        _q_prev = init;
     }
 
     template <typename T>
@@ -31,8 +30,7 @@ namespace dspsim
     template <typename T>
     void Signal<T>::eval_end_step()
     {
-        _q_prev = *_q;
-        *_q = *_d;
+        _sync();
     }
 
     template class Signal<uint8_t>;
