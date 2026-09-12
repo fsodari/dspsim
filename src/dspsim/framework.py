@@ -6,9 +6,9 @@ This module provides the Context and Model classes for building and simulating m
 import threading
 from contextlib import contextmanager
 
+from dspsim._framework import Clock, Signal8, Signal16, Signal32, Signal64, Simulator
 from dspsim._framework import Context as _Context
 from dspsim._framework import Model as _Model
-from dspsim._framework import Simulator
 
 global_context_lock = threading.Lock()
 
@@ -34,12 +34,6 @@ class Context(_Context):
 
         # Calling clear here prevents nanobind leak warnings.
         self.clear()
-
-    def __repr__(self):
-        return f"<Context id={self.id}>"
-
-    def __str__(self):
-        return self.__repr__()
 
     def __enter__(self):
         return self
@@ -70,8 +64,8 @@ class Model(_Model):
     Use Python models in a simulation. Subclasses of this class MUST call super().__init__() in their constructor.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, kind: str = "model"):
+        super().__init__(kind)
         # Register the model with its context.
         self.context.register_model(self)
 
@@ -82,4 +76,27 @@ class Model(_Model):
         return self.__repr__()
 
 
-__all__ = ["Context", "Model", "Simulator"]
+def signal(init: int = 0, width: int = 32, is_signed: bool = False):
+    if width <= 8:
+        return Signal8(init, width, is_signed)
+    elif width <= 16:
+        return Signal16(init, width, is_signed)
+    elif width <= 32:
+        return Signal32(init, width, is_signed)
+    elif width <= 64:
+        return Signal64(init, width, is_signed)
+    else:
+        raise ValueError("Unsupported signal width")
+
+
+__all__ = [
+    "Clock",
+    "Context",
+    "Model",
+    "Signal8",
+    "Signal16",
+    "Signal32",
+    "Signal64",
+    "Simulator",
+    "signal",
+]

@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace dspsim
 {
@@ -22,6 +23,8 @@ namespace dspsim
     */
     class Context
     {
+        // Model can access the context's next model id.
+        friend class Model;
         // Simulator can access the context's time.
         friend class Simulator;
 
@@ -40,7 +43,17 @@ namespace dspsim
 
         const std::vector<ModelPtr> &models() const { return _models; }
 
-        double time() const { return _time; }
+        uint64_t time() const { return _time; }
+        const std::string &time_unit() const { return _time_unit; }
+        const std::string &time_precision() const { return _time_precision; }
+
+        /*
+            Methods
+        */
+        void set_timescale(const std::string &time_unit, const std::string &time_precision);
+
+        //
+        const std::string repr() const;
 
         /*
             Methods
@@ -51,6 +64,10 @@ namespace dspsim
         // Clear all models from the context.
         void clear();
 
+    private:
+        int get_next_model_id();
+
+    public:
         /*
             Static Methods
         */
@@ -64,6 +81,8 @@ namespace dspsim
         int _id;
         int _next_model_id;
         std::vector<ModelPtr> _models;
-        double _time;
+        uint64_t _time;
+        std::string _time_unit;
+        std::string _time_precision;
     };
 }

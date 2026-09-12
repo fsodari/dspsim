@@ -25,6 +25,6 @@ def test_verilator_version():
 
 
 def test_verilator_json():
-    src_file = Path(__file__).parent / "test_modules" / "SimpleModel.sv"
+    src_file = dspsim.hdl_dir() / "SimpleModel.sv"
     result = verilate.verilate_json(sources=[src_file])
     print(result)

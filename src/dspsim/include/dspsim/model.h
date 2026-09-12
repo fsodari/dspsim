@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/context.h>
+#include <string>
 
 namespace dspsim
 {
@@ -9,27 +10,43 @@ namespace dspsim
         friend class Context;
 
     public:
-        Model();
+        Model(const std::string &kind = "model");
 
+        /*
+            Properties
+        */
+        ContextPtr context() const { return _context; }
+        int id() const { return _id; }
+        const std::string &kind() const { return _kind; }
+
+        int parent_id() const { return _parent_id; }
+        void set_parent_id(int parent_id) { _parent_id = parent_id; }
+
+        /*
+            Methods
+        */
         virtual void eval_step() = 0;
         virtual void eval_end_step() {}
 
-        int id() const { return _id; }
-        ContextPtr context() const { return _context; }
+        //
+        virtual const std::string repr() const;
 
         template <typename T, typename... Args>
-        static ModelPtr create(Args &&...args)
+        static auto create(Args &&...args)
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
-            // auto m = std::shared_ptr<T>(new T(std::forward<Args>(args)...));
             // Register the model with the context.
-            m->_context->register_model(m);
+            m->context()->register_model(m);
             return m;
         }
 
     private:
         ContextPtr _context;
         int _id;
+
+    protected:
+        std::string _kind;
+        int _parent_id;
     };
 
 }

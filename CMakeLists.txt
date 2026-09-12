@@ -20,6 +20,10 @@ message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 find_package(nanobind CONFIG REQUIRED)
 message(STATUS "Found nanobind: ${nanobind_DIR}")
 
+# Find verilator
+find_package(verilator REQUIRED)
+message(STATUS "Found verilator: ${verilator_DIR}")
+
 # dspsim paths.
 set(DSPSIM_PKG_DIR ${CMAKE_SOURCE_DIR}/src/dspsim)
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
@@ -46,7 +50,7 @@ if (MSVC)
     add_compile_options(/W4)
 else()
     # additional warnings
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable)
 endif()
 
 # Include dspsim utilities
@@ -62,6 +66,13 @@ nanobind_add_module(_framework
     NB_DOMAIN dspsim
     ${DSPSIM_SRC_DIR}/_framework.cpp)
 target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
+
+# Verilated models
+verilate(_framework
+    SOURCES ${DSPSIM_HDL_DIR}/SimpleModel.sv
+    TRACE_VCD
+    VERILATOR_ARGS --quiet)
+
 # Install extension
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})

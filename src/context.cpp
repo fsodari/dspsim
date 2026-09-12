@@ -1,5 +1,7 @@
 #include <dspsim/context.h>
 #include <dspsim/model.h>
+#include <format>
+#include <chrono>
 
 namespace dspsim
 {
@@ -9,7 +11,12 @@ namespace dspsim
     // Initialize each new context with a new id.
     static int next_context_id = 0;
 
-    Context::Context() : _id(next_context_id++), _next_model_id(0), _time(0)
+    Context::Context()
+        : _id(next_context_id++),
+          _next_model_id(0),
+          _time(0),
+          _time_unit("1ns"),
+          _time_precision("1ns")
     {
     }
 
@@ -20,13 +27,28 @@ namespace dspsim
 
     void Context::register_model(ModelPtr model)
     {
-        model->_id = _next_model_id++;
         _models.push_back(model);
     }
 
     void Context::clear()
     {
         _models.clear();
+    }
+
+    int Context::get_next_model_id()
+    {
+        return _next_model_id++;
+    }
+
+    const std::string Context::repr() const
+    {
+        return std::format("Context(id={}, time={})", _id, _time);
+    }
+
+    void Context::set_timescale(const std::string &time_unit, const std::string &time_precision)
+    {
+        _time_unit = time_unit;
+        _time_precision = time_precision;
     }
 
     ContextPtr Context::obtain()
