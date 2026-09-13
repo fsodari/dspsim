@@ -37,6 +37,7 @@ class ProjectConfig:
     name: str
     include_dspsim_library: bool
     sources: list[Path]
+    exclude_sources: list[Path]
     include_dirs: list[Path]
     parameters: dict[str, Parameter]
     trace: Literal["vcd", "fst"] | None
@@ -48,56 +49,61 @@ class ProjectConfig:
         with open(source, "rb") as f:
             config = tomllib.load(f)["tool"]["dspsim"]
 
-        global_sources = [
+        globbed_sources = [
             Path(g) for s in config.get("sources", []) for g in glob.glob(s)
         ]
-        global_include_dirs = [
+        # remove exclude sources from global sources
+        exclude_sources = [
+            Path(g) for s in config.get("exclude_sources", []) for g in glob.glob(s)
+        ]
+        globbed_sources = [s for s in globbed_sources if s not in exclude_sources]
+        _global_include_dirs = [
             Path(g) for i in config.get("include_dirs", []) for g in glob.glob(i)
         ]
         if config.get("include_dspsim_library", False):
-            global_include_dirs.append(dspsim.hdl_dir())
-        global_parameters = {
-            k: Parameter(k, "", False, v)
+            _global_include_dirs.append(dspsim.hdl_dir())
+        _global_parameters = {
+            k: Parameter(k, "", False, -1, v)
             for k, v in config.get("parameters", {}).items()
         }
-        global_trace = config.get("trace", None)
+        _global_trace = config.get("trace", None)
 
         # Populate default models
         default_models: dict[str, ModuleInfo] = {}
-        for s in global_sources:
-            default_model = load_model_info(s, global_include_dirs)
+        for s in globbed_sources:
+            default_model = load_model_info(s, _global_include_dirs)
             param_overrides = {
                 k: v
-                for k, v in global_parameters.items()
+                for k, v in _global_parameters.items()
                 if k in default_model.parameters
             }
-            default_model = load_model_info(s, global_include_dirs, param_overrides)
-            default_model.trace = global_trace
+            default_model = load_model_info(s, _global_include_dirs, param_overrides)
+            default_model.trace = _global_trace
             default_models[default_model.name] = default_model
 
         # Go through extra/override models
-        for model_config in config.get("models", []):
-            model_includes = global_include_dirs + [
+        for model_name, model_config in config.get("models", {}).items():
+            model_includes = _global_include_dirs + [
                 Path(p) for p in model_config.get("include_dirs", [])
             ]
 
-            if model_config["name"] in default_models:
+            if model_name in default_models:
                 # Apply parameter overrides
                 for k, v in model_config.get("parameters", {}).items():
-                    default_models[model_config["name"]].parameters[k] = Parameter(
-                        k, "", False, v
+                    default_models[model_name].parameters[k] = Parameter(
+                        k, "", False, -1, v
                     )
 
                 # Reload module with parameter overrides.
-                default_models[model_config["name"]] = load_model_info(
-                    Path(default_models[model_config["name"]].source),
+                default_models[model_name] = load_model_info(
+                    Path(default_models[model_name].source),
                     model_includes,
-                    default_models[model_config["name"]].parameters,
+                    default_models[model_name].parameters,
                 )
                 # Apply trace override if specified in the model configuration.
-                default_models[model_config["name"]].trace = global_trace
+                default_models[model_name].trace = _global_trace
                 if "trace" in model_config:
-                    default_models[model_config["name"]].trace = model_config["trace"]
+                    default_models[model_name].trace = model_config["trace"]
 
             else:
                 # Add new model if it doesn't exist in default models.
@@ -107,7 +113,7 @@ class ProjectConfig:
                 )
 
                 # Apply parameter overrides
-                for k, p in global_parameters.items():
+                for k, p in _global_parameters.items():
                     if k in default_model.parameters:
                         default_model.parameters[k].value = p.value
                 for k, v in model_config.get("parameters", {}).items():
@@ -123,17 +129,44 @@ class ProjectConfig:
                     model_includes,
                     default_model.parameters,
                 )
-                default_model.name = model_config["name"]
-                default_model.trace = global_trace
+                default_model.name = model_name
+                default_model.trace = _global_trace
                 if "trace" in model_config:
                     default_model.trace = model_config["trace"]
                 default_models[default_model.name] = default_model
         return cls(
             name=config.get("name", ""),
-            sources=global_sources,
-            include_dirs=global_include_dirs,
-            parameters=global_parameters,
-            trace=global_trace,
+            sources=globbed_sources,
+            exclude_sources=exclude_sources,
+            include_dirs=_global_include_dirs,
+            parameters=_global_parameters,
+            trace=_global_trace,
             include_dspsim_library=config.get("include_dspsim_library", False),
             models=default_models,
         )
+
+    def report(self) -> str:
+        """Print a nicely formatted string of all the project configuration."""
+        report_lines = [
+            f"Project Name: {self.name}",
+            f"Include DSPSim Library: {self.include_dspsim_library}",
+            f"Sources:\n  {'\n  '.join(str(s) for s in self.sources)}",
+            f"Include Dirs:\n  {'\n  '.join(str(d) for d in self.include_dirs)}",
+            f"Global Trace: {self.trace}",
+            "Global Parameters:",
+        ]
+        for k, v in self.parameters.items():
+            report_lines.append(f"  {k}: {v}")
+        report_lines.append("Models:")
+        for model_name, model in self.models.items():
+            report_lines.append(f"  {model_name}:")
+            report_lines.append(f"    Name: {model.name}")
+            report_lines.append(f"    Source: {model.source}")
+            report_lines.append(f"    Trace: {model.trace}")
+            report_lines.append("    Parameters:")
+            for k, v in model.parameters.items():
+                report_lines.append(f"      {k}: {v}")
+            report_lines.append("    Ports:")
+            for k, v in model.ports.items():
+                report_lines.append(f"      {k}: {v}")
+        return "\n".join(report_lines)

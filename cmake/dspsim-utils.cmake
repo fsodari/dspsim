@@ -43,3 +43,29 @@ function(dspsim_add_stub name output_dir)
         INSTALL_TIME
     )
 endfunction()
+
+# Generate a dspsim module with nanobind bindings and Verilated models.
+function(dspsim_add_module name pyproject_path output_dir)
+    set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/${name}.dir)
+    # Install dspsim_generate module
+    dspsim_generate(
+        ${pyproject_path}
+        ${gen_dir})
+
+    nanobind_add_module(${name}
+        NB_DOMAIN dspsim
+        BACKEND_MODULE nanobind_backend
+        NB_DOMAIN dspsim
+        ${gen_dir}/${name}.cpp)
+    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+
+    # Verilated models
+    include(${gen_dir}/${name}_include.cmake)
+
+    # Install extension
+    install(TARGETS ${name}
+        LIBRARY DESTINATION ${output_dir})
+
+    # Generate stubs for the module
+    dspsim_add_stub(${name} ${output_dir})
+endfunction()

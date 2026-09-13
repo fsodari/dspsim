@@ -3,7 +3,7 @@
 #include <dspsim/dff.h>
 #include <dspsim/port.h>
 #include <dspsim/clock.h>
-#include <dspsim/vmodel.h>
+// #include <dspsim/vmodel.h>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -11,8 +11,6 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/trampoline.h>
-
-#include "SimpleModel.h"
 
 namespace nb = nanobind;
 using namespace dspsim;
@@ -135,7 +133,4 @@ NB_MODULE(_framework, m)
     bind_dff_class<uint16_t>(m, "Dff16");
     bind_dff_class<uint32_t>(m, "Dff32");
     bind_dff_class<uint64_t>(m, "Dff64");
-
-    //
-    bind_SimpleModel(m);
 }

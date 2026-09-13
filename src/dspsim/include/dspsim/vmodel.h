@@ -1,8 +1,6 @@
 #pragma once
 #include <dspsim/model.h>
 #include <verilated.h>
-// #include <verilated_vcd_c.h>
-// #include <verilated_fst_c.h>
 #include <memory>
 #include <filesystem>
 

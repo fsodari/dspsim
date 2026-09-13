@@ -1,0 +1,2 @@
+--trace-fst 
+-GDW=16 

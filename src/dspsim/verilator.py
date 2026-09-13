@@ -277,6 +277,7 @@ def parse_module_json(model_data, metadata):
             name=s["origName"],
             keyword=_parse_dtype(types_table[s["dtypep"]], types_table).keyword,
             signed=_parse_dtype(types_table[s["dtypep"]], types_table).signed,
+            width=_parse_dtype(types_table[s["dtypep"]], types_table).width,
             value=_parse_param_value(s["valuep"][0], types_table),
         )
         for s in statements

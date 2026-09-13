@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from dspsim._framework import SimpleModel
+from dspsim.library import SimpleModel
 
-from dspsim.framework import Clock, Context, Dff8, Signal8
+from dspsim.framework import Clock, Context, Dff8, Dff32, Signal32
 
 
 def test_simple_model():
@@ -11,17 +11,17 @@ def test_simple_model():
         with ctx.construct():
             clk = Clock(10, name="clk")
             rst = Dff8(clk, 1, name="rst")
-            i = Dff8(clk, name="i")
-            o1 = Signal8(name="o1")
-            o2 = Signal8(name="o2")
+            i = Dff32(clk, name="i")
+            o1 = Signal32(name="o1")
+            o2 = Signal32(name="o2")
 
             a = SimpleModel(clk, rst, i, o1, name="a")
             b = SimpleModel(clk, rst, o1, o2, name="b")
 
         # Trace functions be called after context timescale is set.
         ctx.set_timescale("1ns", "1ns")
-        # a.trace(Path("traces") / "a.trace")
-        # b.trace(Path("traces") / "b.trace")
+        a.trace(Path("traces") / "a.trace")
+        b.trace(Path("traces") / "b.trace")
 
         rst.d = 1
         ctx.run(100)
@@ -36,7 +36,3 @@ def test_simple_model():
         # print(f"a id: {a.id}, b id: {b.id}")
         for m in ctx.models:
             print(m)
-        # a.close()
-        # b.close()
-    print("Here?")
-    # ctx.clear()

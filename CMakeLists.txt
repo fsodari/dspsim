@@ -68,24 +68,9 @@ nanobind_add_module(_framework
     ${DSPSIM_SRC_DIR}/_framework.cpp)
 target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 
-# Verilated models
-verilate(_framework
-    SOURCES ${DSPSIM_HDL_DIR}/SimpleModel.sv
-    # TRACE_VCD
-    TRACE_FST
-    VERILATOR_ARGS --quiet)
-
 # Install extension
 install(TARGETS _framework
     LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
-
-# ### Library Module ###
-# # Create library module using dspsim utilities.
-# dspsim_add_module(_library
-#     CONFIG ${CMAKE_SOURCE_DIR}/pyproject.toml
-#     STUBS_DIR ${SKBUILD_PROJECT_NAME}
-#     INSTALL_DIR ${SKBUILD_PROJECT_NAME})
-
 
 # Install core library and export targets.
 install(TARGETS dspsim-core
@@ -125,7 +110,5 @@ dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 # Update PYTHONPATH in environment so the generate command can be run
 set(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/src/")
 
-# # Install dspsim_generate module
-# dspsim_generate(
-#     ${CMAKE_SOURCE_DIR}/pyproject.toml
-#     ${CMAKE_BINARY_DIR})
+# Generate and build the library module.
+dspsim_add_module(library ${CMAKE_SOURCE_DIR}/pyproject.toml ${SKBUILD_PROJECT_NAME})
