@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-set(DSPSIM_GENERATE_CMD python -m dspsim.generate)
+set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
 
 # Run the dspsim.generate command.
 function(dspsim_generate pyproject_path outdir)

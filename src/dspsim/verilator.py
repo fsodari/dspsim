@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 
 from dspsim.module_info import ModuleInfo, Parameter, ParamValueT, Port
@@ -29,7 +30,10 @@ def verilator_root() -> Path:
 
 
 def verilator_bin() -> Path:
-    return verilator_root() / "bin" / "verilator"
+    if sys.platform == "win32":
+        return verilator_root() / "bin" / "verilator_bin.exe"
+    else:
+        return verilator_root() / "bin" / "verilator"
 
 
 def verilator(args: list[str], capture_output: bool = False, check: bool = False):
@@ -155,7 +159,14 @@ def verilate_json(
         with open(Path(odir) / f"V{sources[0].stem}.tree.json") as f:
             model_data = json.load(f)
 
-        # Read the metadata file.
+        # Read the metadata file.        
+        if sys.platform == "win32":
+            # Replace backslashes with forward slashes in the metadata file on Windows.
+            with open(Path(odir) / f"V{sources[0].stem}.tree.meta.json", "r") as f:
+                _dirty_windows_paths = f.read()
+                _dirty_windows_paths = _dirty_windows_paths.replace("\\", "/")
+                with open(Path(odir) / f"V{sources[0].stem}.tree.meta.json", "w") as f:
+                    f.write(_dirty_windows_paths)
         with open(Path(odir) / f"V{sources[0].stem}.tree.meta.json") as f:
             metadata = json.load(f)
 

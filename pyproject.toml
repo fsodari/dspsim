@@ -82,7 +82,7 @@ exclude_sources = ["src/dspsim/hdl/HellModel.sv"]
 include_dirs = []
 include_dspsim_library = true
 # Can use fst on linux.
-trace = "fst"
+trace = "vcd"
 # parameters = { DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }
 
 # Global parameters applied to all modules.

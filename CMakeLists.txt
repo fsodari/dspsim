@@ -47,7 +47,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 # Set warning level
 if (MSVC)
     # warning level 4
-    add_compile_options(/W4)
+    add_compile_options(/W2)
 else()
     # additional warnings
     add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)

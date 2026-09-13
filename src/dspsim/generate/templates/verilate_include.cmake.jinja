@@ -1,6 +1,6 @@
 {% for model in config.models.values() %}
 verilate({{config.name}}
-    SOURCES {{ model.source }}
+    SOURCES {{ model.source.as_posix() }}
     PREFIX V{{ model.name }}
     {%if model.trace == "vcd"-%}
     TRACE_VCD

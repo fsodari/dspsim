@@ -134,3 +134,8 @@ NB_MODULE(_framework, m)
     bind_dff_class<uint32_t>(m, "Dff32");
     bind_dff_class<uint64_t>(m, "Dff64");
 }
+
+double sc_time_stamp(void)
+{
+    return 0.0;
+}

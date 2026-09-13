@@ -27,3 +27,9 @@ NB_MODULE({{config.name}}, m)
     bind_{{model}}(m);
     {%-endfor%}
 }
+
+// SystemC time stamp function. Needed for windows builds to compile without link errors.
+double sc_time_stamp(void)
+{
+    return 0.0;
+}
