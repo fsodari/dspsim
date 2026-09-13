@@ -107,11 +107,15 @@ class ProjectConfig:
                 )
 
                 # Apply parameter overrides
-                for k, p in default_model.parameters.items():
-                    if k in global_parameters:
-                        p.value = global_parameters[k].value
-                    if k in model_config.get("parameters", {}):
-                        p.value = model_config["parameters"][k]
+                for k, p in global_parameters.items():
+                    if k in default_model.parameters:
+                        default_model.parameters[k].value = p.value
+                for k, v in model_config.get("parameters", {}).items():
+                    if k not in default_model.parameters:
+                        raise KeyError(
+                            f"Parameter '{k}' not found in model '{default_model.name}'"
+                        )
+                    default_model.parameters[k].value = v
 
                 # Reload model
                 default_model = load_model_info(

@@ -86,12 +86,12 @@ parameters = { DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }
 [[tool.dspsim.models]]
 name = "SimpleModel" # Overriding existing module.
 source = "SimpleModel.sv"
-parameters = { DW = 32 }
+parameters = { DW = 32}
 
 [[tool.dspsim.models]]
 name = "SimpleModel16" # Creating new module
 source = "SimpleModel.sv"
-parameters = { DW = 16 }
+parameters = { DW = 16, X = 42}
 
 # # Global parameter defaults. Applied to all models. Models can override this value.
 # [tool.dspsim.parameters]
