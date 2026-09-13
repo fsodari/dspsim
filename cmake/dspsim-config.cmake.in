@@ -1,7 +1,8 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(nanobind)
+find_dependency(Python COMPONENTS Interpreter Development.Module Development.SABIModule)
+find_dependency(nanobind CONFIG)
 find_dependency(verilator)
 
 include(${CMAKE_CURRENT_LIST_DIR}/dspsim-core-targets.cmake)

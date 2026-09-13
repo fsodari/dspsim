@@ -56,7 +56,6 @@ endif()
 # Include dspsim utilities
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 
-# message(FATAL_ERROR "Python Path: $ENV{PYTHONPATH}")
 # Build dspsim core library
 add_subdirectory(${DSPSIM_SRC_DIR})
 

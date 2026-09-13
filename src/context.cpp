@@ -18,6 +18,7 @@ namespace dspsim
           _time_unit("1ns"),
           _time_precision("1ns")
     {
+        set_timescale(_time_unit, _time_precision);
     }
 
     Context::~Context()
