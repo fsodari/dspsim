@@ -1,0 +1,33 @@
+[project]
+name = "some_example"
+version = "0.0.1"
+description = ""
+requires-python = ">=3.14"
+dependencies = [
+    "dspsim[verilator]",
+]
+
+[tool.uv.sources]
+dspsim = { path = "../../../dspsim" }
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build"
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "src/**/*.{h,c,hpp,cpp,v,sv}" },
+    { file = "CMakeLists.txt" },
+    {file = "src/CMakeLists.txt"}
+]
+
+[build-system]
+requires = [
+    "scikit-build-core>=1.0.3",
+    "nanobind>=3.0.1",
+    "nanobind-backend>=1.0.0",
+    "dspsim[verilator]",
+]
+build-backend = "scikit_build_core.build"
+

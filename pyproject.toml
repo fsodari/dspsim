@@ -19,8 +19,12 @@ requires-python = ">=3.14"
 dependencies = [
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    "verilator-dspsim>=5.50.1",
     "numpy>=2.5.2",
+]
+
+[project.optional-dependencies]
+verilator = [
+    "verilator-dspsim>=5.52.0",
 ]
 
 [project.scripts]
@@ -29,6 +33,7 @@ dspsim = "dspsim:main"
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build"
+wheel.packages = ["src/dspsim"]
 
 [tool.uv]
 cache-keys = [
@@ -45,7 +50,7 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.5",
     "scikit-build-core>=1.0.3",
-    "verilator-dspsim>=5.50.1",
+    "verilator-dspsim>=5.52.0",
 ]
 
 [build-system]
@@ -53,7 +58,61 @@ requires = [
     "scikit-build-core>=1.0.3",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    "verilator-dspsim>=5.50.1",
+    "verilator-dspsim>=5.52.0",
 ]
 build-backend = "scikit_build_core.build"
 
+
+# Generate binding code for modules.
+
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#
+
+# dspsim tool configuration for the library module.
+[tool.dspsim]
+name = "dspsim_library"
+# Use all sources in the dspsim/hdl directory.
+sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
+include_dirs = []
+include_dspsim_library = true
+# Can use fst on linux.
+trace = "vcd"
+parameters = { DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }
+# models = [
+#     {name = "SimpleModel", source = "SimpleModel.sv", parameters = { DW = 32 } },
+#     {name = "SimpleModel16", source = "SimpleModel.sv", parameters = { DW = 16 } },
+# ]
+
+[[tool.dspsim.models]]
+name = "SimpleModel" # Overriding existing module.
+source = "SimpleModel.sv"
+parameters = { DW = 32 }
+
+[[tool.dspsim.models]]
+name = "SimpleModel16" # Creating new module
+source = "SimpleModel.sv"
+parameters = { DW = 16 }
+
+# # Global parameter defaults. Applied to all models. Models can override this value.
+# [tool.dspsim.parameters]
+# DW = 24    # Stream data width
+# CFGAW = 32 # Config address width
+# CFGDW = 32 # Config data width
+# COEFW = 18 # Coefficient width
+# COEFQ = 16 # Coefficient fixed-point q
+
+# Configure one of the default models or create models with different parameters.
+# [tool.dspsim.models]
+# SimpleModel = {name = "SimpleModel", source = "SimpleModel.sv", parameters = { DW = 32 } }
+# SimpleModel16 = {name = "SimpleModel16", source = "SimpleModel.sv", parameters = { DW = 16 } }
+# AsyncSync8 = { name = "AsyncSync8", source = "AsyncSync.sv", parameters = { DW = 8 } }
+# FifoAsync8 = { name = "FifoAsync8", source = "FifoAsync.sv", parameters = { DW = 8 } }
+# WbRegs64 = { name = "WbRegs64", source = "WbRegs.sv", parameters = { N_CTL = 64, N_STS = 64 } }
+# WbRegs256 = { name = "WbRegs256", source = "WbRegs.sv", parameters = { N_CTL = 256, N_STS = 256 } }
+# WbRegs1024 = { name = "WbRegs1024", source = "WbRegs.sv", parameters = { N_CTL = 1024, N_STS = 1024 } }
+# IIR2 = { source = "IIR.sv", parameters = { ORDER = 2 } }
+# IIR4 = { source = "IIR.sv", parameters = { ORDER = 4, COEFQ = 15 } }
+# IIR6 = { source = "IIR.sv", parameters = { ORDER = 6, COEFQ = 15 } }
+# IIR8 = { source = "IIR.sv", parameters = { ORDER = 8, COEFQ = 15 } }
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#

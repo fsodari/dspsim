@@ -21,6 +21,7 @@ traces
 archive
 .archive
 logs
+obj_dir/
 
 # PSoC Ignored Files
 # Ignore all but TopDesign, project file, design wide resources, main.c, and cyapicallbacks.h

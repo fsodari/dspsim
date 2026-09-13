@@ -4,8 +4,8 @@
 namespace dspsim
 {
     template <typename T>
-    Signal<T>::Signal(int width, T init, bool is_signed)
-        : Model("signal"),
+    Signal<T>::Signal(int width, T init, bool is_signed, const std::string &name)
+        : Model("signal", name),
           _width(width),
           _is_signed(is_signed),
           _parent_id(-1)
@@ -24,7 +24,7 @@ namespace dspsim
     template <typename T>
     const std::string Signal<T>::repr() const
     {
-        return std::format("Signal(id={}, kind={}, width={}, is_signed={}, parent_id={})", id(), kind(), width(), is_signed(), parent_id());
+        return std::format("Signal(id={}, kind={}, width={}, is_signed={}, name={}, parent_id={})", id(), kind(), width(), is_signed(), name(), parent_id());
     }
 
     template <typename T>

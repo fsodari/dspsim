@@ -2,9 +2,10 @@
 namespace dspsim
 {
     template <typename T>
-    Dff<T>::Dff(ClockPtr clk, int width, T init, bool is_signed)
-        : Signal<T>(width, init, is_signed), _clk(clk), _update(false)
+    Dff<T>::Dff(ClockPtr clk, int width, T init, bool is_signed, const std::string &name)
+        : Signal<T>(width, init, is_signed, name), _clk(clk), _update(false)
     {
+        this->_kind = "dff";
     }
 
     template <typename T>

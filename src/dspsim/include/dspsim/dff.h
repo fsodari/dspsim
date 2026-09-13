@@ -9,13 +9,13 @@ namespace dspsim
     class Dff : public Signal<T>
     {
     public:
-        Dff(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        Dff(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "");
         virtual void eval_step() override;
         virtual void eval_end_step() override;
 
-        static auto create(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        static auto create(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "")
         {
-            return Model::create<Dff<T>>(clk, width, init, is_signed);
+            return Model::create<Dff<T>>(clk, width, init, is_signed, name);
         }
 
     protected:

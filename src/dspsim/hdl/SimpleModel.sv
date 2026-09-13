@@ -1,13 +1,15 @@
-module SimpleModel (
+module SimpleModel #(
+    parameter int DW = 8
+) (
     input logic clk,
     input logic rst,
-    input logic [7:0] i,
-    output logic [7:0] o
+    input logic [DW-1:0] i,
+    output logic [DW-1:0] o
 );
 
   always @(posedge clk) begin
     if (rst) begin
-      o <= 8'b0;
+      o <= {DW{1'b0}};
     end else begin
       o <= i;
     end

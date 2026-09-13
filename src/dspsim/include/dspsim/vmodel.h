@@ -21,10 +21,14 @@ namespace dspsim
         std::unique_ptr<TraceType> tracep;
 
     public:
-        VModel() : Model("vmodel")
+        VModel(const std::string &name = "") : Model("vmodel", name)
         {
             vcontext = std::make_unique<VerilatedContext>();
             top = std::make_unique<V>(vcontext.get());
+        }
+        ~VModel()
+        {
+            close();
         }
 
         void eval_step() override
@@ -60,7 +64,10 @@ namespace dspsim
 
         void close()
         {
-            tracep->close();
+            if (tracep)
+            {
+                tracep->close();
+            }
         }
     };
 
@@ -75,7 +82,7 @@ namespace dspsim
         std::unique_ptr<V> top;
 
     public:
-        VModel() : Model("vmodel")
+        VModel(const std::string &name = "") : Model("vmodel", name)
         {
             vcontext = std::make_unique<VerilatedContext>();
             top = std::make_unique<V>(vcontext.get());
@@ -90,14 +97,14 @@ namespace dspsim
             top->eval_end_step();
         }
 
-        void trace(const fs::path &trace_path, int levels = 99, int options = 0)
-        {
-            // No tracing available for this specialization.
-        }
-        void close()
-        {
-            // No tracing available for this specialization.
-        }
+        // void trace(const fs::path &trace_path, int levels = 99, int options = 0)
+        // {
+        //     // No tracing available for this specialization.
+        // }
+        // void close()
+        // {
+        //     // No tracing available for this specialization.
+        // }
     };
 
 } // namespace dspsim

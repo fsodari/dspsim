@@ -10,7 +10,7 @@ namespace dspsim
         friend class Context;
 
     public:
-        Model(const std::string &kind = "model");
+        Model(const std::string &kind = "model", const std::string &name = "");
 
         /*
             Properties
@@ -18,6 +18,8 @@ namespace dspsim
         ContextPtr context() const { return _context; }
         int id() const { return _id; }
         const std::string &kind() const { return _kind; }
+        const std::string &name() const { return _name; }
+        void set_name(const std::string &name) { _name = name; }
 
         int parent_id() const { return _parent_id; }
         void set_parent_id(int parent_id) { _parent_id = parent_id; }
@@ -46,6 +48,7 @@ namespace dspsim
 
     protected:
         std::string _kind;
+        std::string _name;
         int _parent_id;
     };
 

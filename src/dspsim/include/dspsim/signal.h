@@ -19,7 +19,7 @@ namespace dspsim
     class Signal : public Model
     {
     public:
-        Signal(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        Signal(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "");
         ~Signal();
 
         /*
@@ -51,9 +51,9 @@ namespace dspsim
         /*
             Static Methods
         */
-        static auto create(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        static auto create(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "")
         {
-            return Model::create<Signal<T>>(width, init, is_signed);
+            return Model::create<Signal<T>>(width, init, is_signed, name);
         }
 
     private:

@@ -9,12 +9,9 @@ module Skid #(
     output logic s_axis_tready,
     output logic [DW-1:0] m_axis_tdata,
     output logic m_axis_tvalid,
-    input logic m_axis_tready,
-
-    output logic foo
+    input logic m_axis_tready
 );
 
-  assign foo = s_axis_tvalid & s_axis_tready;
   logic [DW-1:0] skid_tdata = 0;
   logic skid_tvalid = 0;
 
@@ -61,13 +58,4 @@ module Skid #(
     end
   end
 
-endmodule
-
-module Foo (
-    input  logic clk,
-    output logic b
-);
-  always @(posedge clk) begin
-    b <= ~b;
-  end
 endmodule

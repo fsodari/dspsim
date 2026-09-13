@@ -56,6 +56,7 @@ endif()
 # Include dspsim utilities
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 
+# message(FATAL_ERROR "Python Path: $ENV{PYTHONPATH}")
 # Build dspsim core library
 add_subdirectory(${DSPSIM_SRC_DIR})
 
@@ -119,6 +120,12 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
 
-# # Testing
-# enable_testing()
-# add_subdirectory(tests EXCLUDE_FROM_ALL)
+########## Build Library Module ##########
+
+# Update PYTHONPATH in environment so the generate command can be run
+set(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/src/")
+
+# # Install dspsim_generate module
+# dspsim_generate(
+#     ${CMAKE_SOURCE_DIR}/pyproject.toml
+#     ${CMAKE_BINARY_DIR})

@@ -12,8 +12,8 @@ namespace dspsim
         T &top_sig;
 
     public:
-        Input(SignalPtr<T> _sig, T &_top_sig, int parent_id = -1)
-            : Model("input"), sig(_sig), top_sig(_top_sig)
+        Input(SignalPtr<T> _sig, T &_top_sig, int parent_id = -1, const std::string &name = "")
+            : Model("input", name), sig(_sig), top_sig(_top_sig)
         {
             top_sig = sig->d();
             set_parent_id(parent_id);
@@ -35,7 +35,7 @@ namespace dspsim
         T &top_sig;
 
     public:
-        Output(SignalPtr<T> _sig, T &top_sig, int parent_id = -1) : Model("output"), sig(_sig), top_sig(top_sig)
+        Output(SignalPtr<T> _sig, T &top_sig, int parent_id = -1, const std::string &name = "") : Model("output", name), sig(_sig), top_sig(top_sig)
         {
             set_parent_id(parent_id);
             // sig->bind_output(&top_sig);

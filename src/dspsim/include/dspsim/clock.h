@@ -6,7 +6,7 @@ namespace dspsim
     class Clock : public Signal<uint8_t>
     {
     public:
-        Clock(int period);
+        Clock(int period, const std::string &name = "");
         virtual void eval_step() override;
         virtual void eval_end_step() override;
 
@@ -14,9 +14,9 @@ namespace dspsim
 
         bool posedge() const { return q() && !_q_prev; }
 
-        static auto create(int period)
+        static auto create(int period, const std::string &name = "")
         {
-            return Model::create<Clock>(period);
+            return Model::create<Clock>(period, name);
         }
 
     private:

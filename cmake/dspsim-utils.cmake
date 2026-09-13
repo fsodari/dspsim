@@ -1,5 +1,21 @@
 include_guard(GLOBAL)
 
+set(DSPSIM_GENERATE_CMD python -m dspsim.generate)
+
+# Run the dspsim.generate command.
+function(dspsim_generate pyproject_path outdir)
+    message(DEBUG "dspsim_generate()...")
+    message(${DSPSIM_GENERATE_CMD})
+    # Add custom command? This would need to rerun whenever any verilog module changes.. hmm.
+    execute_process(COMMAND ${DSPSIM_GENERATE_CMD}
+        --pyproject ${pyproject_path}
+        --output-dir ${outdir}
+        RESULT_VARIABLE gen_result)
+    if (gen_result)
+        message(FATAL_ERROR "DSPSIM Generate Script failed. ${gen_result}")
+    endif()
+endfunction()
+
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.

@@ -2,7 +2,7 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(nanobind)
-# find_dependency(verilator)
+find_dependency(verilator)
 
 include(${CMAKE_CURRENT_LIST_DIR}/dspsim-core-targets.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/dspsim-utils.cmake)
