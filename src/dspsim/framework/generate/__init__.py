@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jinja2
 
-from dspsim.project import ProjectConfig
+from dspsim.framework.project import ProjectConfig
 
 
 @dataclass

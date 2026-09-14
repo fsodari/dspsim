@@ -3,14 +3,14 @@
 import json
 import os
 import subprocess
+import sys
 from collections.abc import Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 from tempfile import TemporaryDirectory
 
-from dspsim.module_info import ModuleInfo, Parameter, ParamValueT, Port
+from dspsim.framework.module_info import ModuleInfo, Parameter, ParamValueT, Port
 
 try:
     # Check if verilator package was installed. VERILATOR_ROOT is set when this is imported.
@@ -159,7 +159,7 @@ def verilate_json(
         with open(Path(odir) / f"V{sources[0].stem}.tree.json") as f:
             model_data = json.load(f)
 
-        # Read the metadata file.        
+        # Read the metadata file.
         if sys.platform == "win32":
             # Replace backslashes with forward slashes in the metadata file on Windows.
             with open(Path(odir) / f"V{sources[0].stem}.tree.meta.json", "r") as f:

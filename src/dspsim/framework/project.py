@@ -35,7 +35,6 @@ def load_model_info(
 @dataclass
 class ProjectConfig:
     name: str
-    include_dspsim_library: bool
     sources: list[Path]
     exclude_sources: list[Path]
     include_dirs: list[Path]
@@ -60,8 +59,7 @@ class ProjectConfig:
         _global_include_dirs = [
             Path(g) for i in config.get("include_dirs", []) for g in glob.glob(i)
         ]
-        if config.get("include_dspsim_library", False):
-            _global_include_dirs.append(dspsim.hdl_dir())
+
         _global_parameters = {
             k: Parameter(k, "", False, -1, v)
             for k, v in config.get("parameters", {}).items()
@@ -141,7 +139,6 @@ class ProjectConfig:
             include_dirs=_global_include_dirs,
             parameters=_global_parameters,
             trace=_global_trace,
-            include_dspsim_library=config.get("include_dspsim_library", False),
             models=default_models,
         )
 
@@ -149,7 +146,6 @@ class ProjectConfig:
         """Print a nicely formatted string of all the project configuration."""
         report_lines = [
             f"Project Name: {self.name}",
-            f"Include DSPSim Library: {self.include_dspsim_library}",
             f"Sources:\n  {'\n  '.join(str(s) for s in self.sources)}",
             f"Include Dirs:\n  {'\n  '.join(str(d) for d in self.include_dirs)}",
             f"Global Trace: {self.trace}",

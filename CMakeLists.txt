@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
-project(${SKBUILD_PROJECT_NAME} LANGUAGES CXX)
+project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,25 +20,27 @@ message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 find_package(nanobind CONFIG REQUIRED)
 message(STATUS "Found nanobind: ${nanobind_DIR}")
 
-# Find verilator
-find_package(verilator REQUIRED)
-message(STATUS "Found verilator: ${verilator_DIR}")
+# # Find verilator
+# find_package(verilator REQUIRED)
+# message(STATUS "Found verilator: ${verilator_DIR}")
 
 # dspsim paths.
-set(DSPSIM_PKG_DIR ${CMAKE_SOURCE_DIR}/src/dspsim)
+# set(DSPSIM_PKG_DIR ${CMAKE_SOURCE_DIR}/src/dspsim)
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/include)
-set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
-set(DSPSIM_DATA_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/data)
+set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/framework/include)
+# set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
+# set(DSPSIM_DATA_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/data)
+set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME}/framework)
 
 # Install paths
 include(GNUInstallDirs)
-set(INSTALL_LIBDIR ${SKBUILD_PROJECT_NAME})
-set(INSTALL_BINDIR ${SKBUILD_PROJECT_NAME})
-set(INSTALL_INCLUDEDIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_INCLUDEDIR})
-set(INSTALL_DATADIR ${SKBUILD_PROJECT_NAME}/${CMAKE_INSTALL_DATADIR})
-set(INSTALL_HDLDIR ${SKBUILD_PROJECT_NAME}/hdl)
-set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/cmake)
+set(INSTALL_CMAKEDIR ${DSPSIM_INSTALL_DIR}/cmake)
+# set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/cmake)
+set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
+set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
+set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
+# set(INSTALL_DATADIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_DATADIR})
+# set(INSTALL_HDLDIR ${DSPSIM_INSTALL_DIR}/hdl)
 
 # RPath
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
@@ -69,7 +71,7 @@ target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 
 # Install extension
 install(TARGETS _framework
-    LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
+    LIBRARY DESTINATION ${DSPSIM_INSTALL_DIR})
 
 # Install core library and export targets.
 install(TARGETS dspsim-core
@@ -89,7 +91,7 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/dspsim-config.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
   INSTALL_DESTINATION ${INSTALL_CMAKEDIR}
-  PATH_VARS INSTALL_CMAKEDIR INSTALL_LIBDIR INSTALL_BINDIR INSTALL_INCLUDEDIR INSTALL_HDLDIR)
+  PATH_VARS INSTALL_CMAKEDIR INSTALL_LIBDIR INSTALL_BINDIR INSTALL_INCLUDEDIR)
 
 # CMake package version.
 write_basic_package_version_file(
@@ -102,12 +104,12 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
         DESTINATION ${INSTALL_CMAKEDIR})
 
 # Install stubs. Call last so that all targets are installed when this is run.
-dspsim_add_stub(_framework ${SKBUILD_PROJECT_NAME})
+dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
 ########## Build Library Module ##########
 
-# Update PYTHONPATH in environment so the generate command can be run
-set(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/src/")
+# # Update PYTHONPATH in environment so the generate command can be run
+# set(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/src/")
 
-# Generate and build the library module.
-dspsim_add_module(library ${CMAKE_SOURCE_DIR}/pyproject.toml ${SKBUILD_PROJECT_NAME})
+# # Generate and build the library module.
+# dspsim_add_module(library ${CMAKE_SOURCE_DIR}/pyproject.toml ${SKBUILD_PROJECT_NAME})

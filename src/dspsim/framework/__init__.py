@@ -1,12 +1,25 @@
-"""
-Framework module for dspsim.
-This module provides the Context and Model classes for building and simulating models.
-"""
+# import importlib.metadata
+from pathlib import Path
+
+# __version__ = importlib.metadata.version(str(__package__))
+# __version__ = "0.4.0"
+
+
+def include_dir() -> Path:
+    """Return the path to the include directory."""
+    return Path(__file__).parent / "include"
+
+
+def version() -> str:
+    import importlib.metadata
+
+    return importlib.metadata.version(str(__package__))
+
 
 import threading
 from contextlib import contextmanager
 
-from dspsim._framework import (
+from dspsim.framework._framework import (
     Clock,
     Dff8,
     Dff16,
@@ -17,8 +30,8 @@ from dspsim._framework import (
     Signal32,
     Signal64,
 )
-from dspsim._framework import Context as _Context
-from dspsim._framework import Model as _Model
+from dspsim.framework._framework import Context as _Context
+from dspsim.framework._framework import Model as _Model
 
 
 class Context(_Context):

@@ -3,14 +3,14 @@ requires = [
     "scikit-build-core>=1.0.3",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    "verilator-dspsim>=5.52.0",
-    "jinja2>=3.1.6",
+    # "verilator-dspsim>=5.52.0",
+    # "jinja2>=3.1.6",
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "dspsim"
-version = "0.4.0"
+version = "0.5.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -45,6 +45,7 @@ dspsim = "dspsim:main"
 minimum-version = "build-system.requires"
 build-dir = "build"
 wheel.packages = ["src/dspsim"]
+# wheel.install-dir = "dspsim/framework"
 
 [tool.uv]
 cache-keys = [
@@ -76,11 +77,10 @@ dev = [
 [tool.dspsim]
 name = "library"
 # Use all sources in the dspsim/hdl directory.
-sources = ["src/dspsim/hdl/*.sv", "src/dspsim/hdl/*.v"]
-exclude_sources = ["src/dspsim/hdl/HellModel.sv"]
+sources = ["tests/test_modules/*.sv", "tests/test_modules/*.v"]
+exclude_sources = ["tests/test_modules/HellModel.sv"]
 # sources = ["src/dspsim/hdl/SimpleModel.sv"]
-include_dirs = []
-include_dspsim_library = true
+include_dirs = ["tests/test_modules"]
 # Can use fst on linux.
 trace = "vcd"
 # parameters = { DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }

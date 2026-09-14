@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from dspsim.project import ProjectConfig
+from dspsim.framework.project import ProjectConfig
 
 
 def test_read_project_config():

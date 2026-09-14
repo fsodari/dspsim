@@ -20,7 +20,7 @@ NB_MODULE({{config.name}}, m)
     m.doc() = "{{config.name}} module";
 
     // Import dspsim._framework into the current module. Needed for proper type-stubs.
-    auto _framework = m.import_("dspsim._framework");
+    auto _framework = m.import_("dspsim.framework._framework");
 
     // Bind all generated modules here.
     {% for model in config.models %}
