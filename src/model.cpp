@@ -1,10 +1,19 @@
-#include "dspsim/model.h"
-
+#include <dspsim/model.h>
+#include <format>
 namespace dspsim
 {
-    Model::Model() : m_context(Context::obtain().get())
+    Model::Model(const std::string &kind, const std::string &name)
+        : _context(Context::obtain()),
+          _id(_context->get_next_model_id()),
+          _kind(kind),
+          _name(name),
+          _parent_id(-1)
     {
-        // m_context->register_model(this);
-        m_context->m_models.push_back(this);
     }
-} // namespace dspsim
+
+    const std::string Model::repr() const
+    {
+        return std::format("Model(id={}, kind={}, name={}, parent={}, context={})", id(), kind(), name(), parent_id(), context()->id());
+    }
+
+}

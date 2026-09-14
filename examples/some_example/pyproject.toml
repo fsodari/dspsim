@@ -1,45 +1,60 @@
 [build-system]
 requires = [
-    "scikit-build-core>=0.10.7",
-    "nanobind>=2.4.0",
-    "dspsim>=0.3.3",
-    "verilator-dspsim>=5.30.9",
+    "scikit-build-core>=1.0.3",
+    "nanobind>=3.0.1",
+    "nanobind-backend>=1.0.0",
+    "dspsim[verilator]",
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "some_example"
-version = "0.0.3"
-description = "Add your description here"
-
+version = "0.0.1"
+description = ""
+requires-python = ">=3.14"
 dependencies = [
-    "scikit-build-core>=0.10.7",
-    "nanobind>=2.4.0",
-    "dspsim>=0.3.3",
-    "verilator-dspsim>=5.30.9",
+    "dspsim[verilator]",
 ]
-requires-python = ">=3.12"
 
-[project.scripts]
-some_example = "some_example.__main__:main"
+[tool.uv.sources]
+dspsim = { path = "../../../dspsim" }
 
-### dspsim tool configuration ###
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build"
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "src/**/*.{h,c,hpp,cpp,v,sv}" },
+    { file = "CMakeLists.txt" },
+    {file = "src/CMakeLists.txt"}
+]
+
+
+# Generate binding code for modules.
+
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#
+
+# dspsim tool configuration for the library module.
 [tool.dspsim]
-sources = ["src/some_example/hdl/*.sv"]
+name = "library"
+# Use all sources in the dspsim/hdl directory.
+sources = ["src/some_example/hdl/*.sv", "src/dspsim/hdl/*.v"]
+include_dirs = []
+include_dspsim_library = true
+# Can use fst on linux.
 trace = "vcd"
 
+# Global parameters applied to all modules.
 [tool.dspsim.parameters]
 DW = 24
 
-[tool.scikit-build]
-# Use the package's package config when building.
-cmake.args = ["-Wno-dev"]
-cmake.build-type = "Release"
-
-minimum-version = "build-system.requires"
-# build-dir = "build/{wheel_tag}"
-wheel.packages = ["src/some_example"]
-wheel.py-api = "cp312"
-
 [dependency-groups]
-dev = ["pytest>=8.3.4"]
+dev = [
+    "pytest>=9.1.1",
+]
+
+#---------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------------------------------------------------#

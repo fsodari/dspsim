@@ -1,17 +1,37 @@
-"""
-Test the verilator utilities in the dspsim package.
-"""
-
-from dspsim.vmodel_info import ModuleConfig
+import os
 from pathlib import Path
-from dspsim.util import render_template
+
+from dspsim.framework import verilator
 
 
-def test_model_gen():
-    """"""
-    source = Path("src/dspsim/hdl/SomeModel.sv")
+def test_verilator_root():
+    root = verilator.verilator_root()
+    assert root.exists()
 
-    model = ModuleConfig.load_model(source, parameters={}, verilator_args=[])
+    # Ensure VERILATOR_ROOT exists in env and matches verilator_root()
+    assert verilator.verilator_root() == Path(os.environ["VERILATOR_ROOT"])
 
-    model_gen = render_template("model.cpp.jinja", model=model, trace="vcd")
-    print(model_gen)
+
+def test_verilator_bin():
+    bin_path = verilator.verilator_bin()
+    assert bin_path.exists()
+
+
+def test_verilator_version():
+    result = verilator.verilator(["--version"], capture_output=True)
+    assert result.returncode == 0
+
+
+def test_verilator_json():
+    hdl_dir = Path(__file__).parent / "test_modules"
+    src_file = hdl_dir / "SimpleModel.sv"
+    model_data, metadata = verilator.verilate_json(
+        sources=[src_file], include_dirs=[hdl_dir]
+    )
+
+    # Check that the top-level module name is correct.
+    name = model_data["modulesp"][0]["name"]
+    assert name == "SimpleModel"
+
+    # Check that the metadata contains the expected source file.
+    assert src_file == Path(metadata["files"]["e"]["filename"])

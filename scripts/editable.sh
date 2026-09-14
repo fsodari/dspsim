@@ -1,1 +1,2 @@
-uv pip install --reinstall dspsim --no-build-isolation -Cbuild-dir=build --config-settings=editable.rebuild=true -v -e .
+#!/usr/bin/env bash
+uv sync -v -Ceditable.rebuild=true --no-build-isolation

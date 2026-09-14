@@ -1,0 +1,66 @@
+#pragma once
+#include <dspsim/vmodel.h>
+// Include verilated model header
+#include <V{{model.name}}.h>
+// nanobind for binding function.
+#include <nanobind/nanobind.h>
+
+{%if model.trace == "fst"%}#include <verilated_fst_c.h>{%elif model.trace == "vcd"%}#include <verilated_vcd_c.h>{%endif%}
+
+class {{model.name}} : public dspsim::VModel<V{{model.name}}{%if model.trace == "fst"%}, VerilatedFstC{%elif model.trace == "vcd"%}, VerilatedVcdC{%else%}{%endif%}>
+{
+protected:
+    // Ports
+    {%-for port in model.ports.values()%}
+    dspsim::{{port.direction.capitalize()}}Ptr<uint{{port.stdint_size}}_t> _{{port.name}};
+    {%-endfor%}
+
+public:
+    // Parameters
+    {%-for param in model.parameters.values()%}
+    inline static const {{param.ctype}} {{param.name}} = {{param.cpp_val}};
+    {%-endfor%}
+
+    {{model.name}}(
+        {%-for port in model.ports.values()%}
+        dspsim::SignalPtr<uint{{port.stdint_size}}_t> {{port.name}},
+        {%-endfor%}
+        const std::string &name = "")
+        : VModel<V{{model.name}}{%if model.trace == "fst"%}, VerilatedFstC{%elif model.trace == "vcd"%}, VerilatedVcdC{%else%}{%endif%}>(name)
+    {
+        {%-for port in model.ports.values()%}
+        _{{port.name}} = dspsim::Model::create<dspsim::{{port.direction.capitalize()}}<uint{{port.stdint_size}}_t>>({{port.name}}, top->{{port.name}}, id(), "{{port.name}}");
+        {%-endfor%}
+
+        this->_kind = "{{model.name}}";
+    }
+
+    static auto create(
+        {%-for port in model.ports.values()%}
+        dspsim::SignalPtr<uint{{port.stdint_size}}_t> {{port.name}},
+        {%-endfor%}
+        const std::string &name = "")
+    {
+        return dspsim::Model::create<{{model.name}}>({%-for port in model.ports.values()%}{{port.name}},{%-endfor%}name);
+    }
+};
+
+static inline auto bind_{{model.name}}(nanobind::module_ &_m)
+{
+    return nanobind::class_<{{model.name}}, dspsim::Model>(_m, "{{model.name}}")
+        .def(nanobind::new_(&{{model.name}}::create),
+            {%-for port in model.ports.values()%}
+            nanobind::arg("{{port.name}}"),
+            {%-endfor%}
+            nanobind::kw_only(),
+            nanobind::arg("name") = "")
+        {%-for param in model.parameters.values()%}
+        .def_ro_static("{{param.name}}", &{{model.name}}::{{param.name}})
+        {%-endfor%}
+        {%-if model.trace == "vcd" or model.trace == "fst" %}
+        .def("trace", &{{model.name}}::trace,
+            nanobind::arg("trace_path"),
+            nanobind::arg("levels") = 99,
+            nanobind::arg("options") = 0)
+        .def("close", &{{model.name}}::close){% endif %};
+}
