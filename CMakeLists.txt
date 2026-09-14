@@ -63,6 +63,7 @@ add_subdirectory(${DSPSIM_SRC_DIR})
 
 # Build _framework module
 nanobind_add_module(_framework
+    FREE_THREADED
     NB_DOMAIN dspsim
     BACKEND_MODULE nanobind_backend
     NB_DOMAIN dspsim

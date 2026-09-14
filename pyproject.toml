@@ -73,37 +73,6 @@ dev = [
 #---------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------#
 
-# dspsim tool configuration for the library module.
-[tool.dspsim]
-name = "library"
-# Use all sources in the dspsim/hdl directory.
-sources = ["tests/test_modules/*.sv", "tests/test_modules/*.v"]
-exclude_sources = ["tests/test_modules/HellModel.sv"]
-# sources = ["src/dspsim/hdl/SimpleModel.sv"]
-include_dirs = ["tests/test_modules"]
-# Can use fst on linux.
-trace = "vcd"
-# parameters = { DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }
-
-# Global parameters applied to all modules.
-[tool.dspsim.parameters]
-DW = 24
-CFGAW = 32
-CFGDW = 32
-COEFW = 18
-COEFQ = 16
-
-[tool.dspsim.models]
-SimpleModel = {source = "SimpleModel.sv", parameters = { DW = 32 } }
-SimpleModel16 = {source = "SimpleModel.sv", parameters = { DW = 16 } }
-
-[tool.dspsim.models.SimpleModel8]
-source = "SimpleModel.sv"
-parameters = { DW = 8 }
-trace = "None"
-
-#---------------------------------------------------------------------------------------------------#
-#---------------------------------------------------------------------------------------------------#
 
 ###
 ### Cibuildwheel config
@@ -114,13 +83,13 @@ trace = "None"
 # 64 bit builds
 archs = ["auto64"]
 # Python3.12+. Older versions should work?
-# build = ["cp312-*"]
+build = ["cp314-*"]
 # Don't build arm. Use only > cp39, no PyPy. Not using musl anywhere so no musl (it works though?)
 skip = ["*cp314t*","*-win_arm64", "*musllinux*"]
 
 # Run pytest to ensure that the package was build correctly
 test-command = "pytest {project}/tests"
-test-requires = "pytest"
+test-requires = "pytest verilator-dspsim"
 build-verbosity = 1
 
 ###
