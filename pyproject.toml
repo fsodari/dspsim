@@ -104,3 +104,25 @@ trace = "None"
 
 #---------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------------------------------------------------#
+
+###
+### Cibuildwheel config
+###
+[tool.cibuildwheel]
+# This version seems to work best. Need to use gcc13 for local builds.
+# manylinux-x86_64-image = "manylinux_2_28"
+# 64 bit builds
+archs = ["auto64"]
+# Python3.12+. Older versions should work?
+build = ["cp312-*"]
+# Don't build arm. Use only > cp39, no PyPy. Not using musl anywhere so no musl (it works though?)
+skip = ["*-win_arm64", "*musllinux*"]
+
+# Run pytest to ensure that the package was build correctly
+test-command = "pytest {project}/tests"
+test-requires = "pytest"
+build-verbosity = 1
+
+###
+###
+###
