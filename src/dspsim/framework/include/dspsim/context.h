@@ -23,6 +23,8 @@ namespace dspsim
     */
     class Context
     {
+        friend class ContextFactory;
+
         // Model can access the context's next model id.
         friend class Model;
         // Simulator can access the context's time.
@@ -89,4 +91,24 @@ namespace dspsim
         std::string _time_precision;
         uint64_t _time_step;
     };
+
+    class ContextFactory
+    {
+    public:
+        ContextFactory();
+
+        // Obtain the current active context
+        ContextPtr obtain();
+        // Reset the active context.
+        void reset();
+
+    private:
+        int _next_context_id;
+        ContextPtr _active_context;
+    };
+
+    using ContextFactoryPtr = std::shared_ptr<ContextFactory>;
+    ContextFactoryPtr get_global_context_factory();
+    void set_global_context_factory(ContextFactoryPtr factory);
+    void reset_global_context_factory();
 }

@@ -5,14 +5,14 @@
 
 namespace dspsim
 {
-    // Global context pointer. Models will self-register with the global context.
-    static ContextPtr _global_context = nullptr;
+    // // Global context pointer. Models will self-register with the global context.
+    // static ContextPtr _global_context = nullptr;
 
-    // Initialize each new context with a new id.
-    static int next_context_id = 0;
+    // // Initialize each new context with a new id.
+    // static int next_context_id = 0;
 
     Context::Context()
-        : _id(next_context_id++),
+        : _id(-1),
           _next_model_id(0),
           _time(0),
           _time_unit("1ns"),
@@ -78,15 +78,58 @@ namespace dspsim
 
     ContextPtr Context::obtain()
     {
-        if (_global_context == nullptr)
-        {
-            _global_context = std::shared_ptr<Context>(new Context());
-        }
-        return _global_context;
+        // if (_global_context == nullptr)
+        // {
+        //     _global_context = std::shared_ptr<Context>(new Context());
+        // }
+        // return _global_context;
+        return get_global_context_factory()->obtain();
     }
 
     void Context::reset_global_context()
     {
-        _global_context = nullptr;
+        get_global_context_factory()->reset();
+    }
+
+    // Context Factory
+    ContextFactory::ContextFactory()
+        : _next_context_id(0),
+          _active_context(nullptr)
+    {
+    }
+
+    ContextPtr ContextFactory::obtain()
+    {
+        if (_active_context == nullptr)
+        {
+            _active_context = std::shared_ptr<Context>(new Context());
+            _active_context->_id = _next_context_id++;
+        }
+        return _active_context;
+    }
+
+    void ContextFactory::reset()
+    {
+        _active_context = nullptr;
+    }
+
+    static ContextFactoryPtr _global_context_factory = nullptr;
+
+    ContextFactoryPtr get_global_context_factory()
+    {
+        if (!_global_context_factory)
+        {
+            _global_context_factory = std::make_shared<ContextFactory>();
+        }
+        return _global_context_factory;
+    }
+
+    void set_global_context_factory(ContextFactoryPtr factory)
+    {
+        _global_context_factory = factory;
+    }
+    void reset_global_context_factory()
+    {
+        _global_context_factory = nullptr;
     }
 }
