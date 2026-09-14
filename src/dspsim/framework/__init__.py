@@ -16,6 +16,7 @@ def version() -> str:
     return importlib.metadata.version(str(__package__))
 
 
+import atexit
 import threading
 from contextlib import contextmanager
 
@@ -29,9 +30,15 @@ from dspsim.framework._framework import (
     Signal16,
     Signal32,
     Signal64,
+    get_global_context_factory,
+    reset_global_context_factory,
+    set_global_context_factory,
 )
 from dspsim.framework._framework import Context as _Context
 from dspsim.framework._framework import Model as _Model
+
+# Prevent nb leak warnings.
+atexit.register(reset_global_context_factory)
 
 
 class Context(_Context):
@@ -123,5 +130,8 @@ __all__ = [
     "Signal16",
     "Signal32",
     "Signal64",
+    "get_global_context_factory",
+    "reset_global_context_factory",
+    "set_global_context_factory",
     "signal",
 ]

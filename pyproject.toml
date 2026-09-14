@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "dspsim"
-version = "0.5.0"
+version = "0.5.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -92,9 +92,9 @@ test-command = "pytest {project}/tests"
 test-requires = "pytest verilator-dspsim"
 build-verbosity = 1
 
-# Skip repair step only on Windows. Does this work?
-[tool.cibuildwheel.windows]
-repair-wheel-command = ""
+# # Skip repair step only on Windows. Does this work?
+# [tool.cibuildwheel.windows]
+# repair-wheel-command = ""
 
 ###
 ###

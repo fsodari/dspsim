@@ -1,4 +1,5 @@
-add_library(dspsim-core SHARED
+# add_library(dspsim-core SHARED
+add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/model.cpp
     ${DSPSIM_SRC_DIR}/signal.cpp

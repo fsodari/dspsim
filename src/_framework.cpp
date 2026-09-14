@@ -92,6 +92,14 @@ NB_MODULE(_framework, m)
         .def_static("obtain", &Context::obtain)
         .def_static("reset_global_context", &Context::reset_global_context);
 
+    nb::class_<ContextFactory>(m, "ContextFactory")
+        .def("obtain", &ContextFactory::obtain)
+        .def("reset", &ContextFactory::reset);
+
+    m.def("set_global_context_factory", &set_global_context_factory, nb::arg("context_factory"));
+    m.def("get_global_context_factory", &get_global_context_factory);
+    m.def("reset_global_context_factory", &reset_global_context_factory);
+
     // Bind the Model class
     nb::class_<Model, PyModel>(m, "Model")
         .def(nb::init<const std::string &, const std::string &>(),
