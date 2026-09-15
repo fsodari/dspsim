@@ -3,8 +3,6 @@ requires = [
     "scikit-build-core>=1.0.3",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    # "verilator-dspsim>=5.52.0",
-    # "jinja2>=3.1.6",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -39,7 +37,7 @@ verilator = [
 ]
 
 [project.scripts]
-dspsim = "dspsim:main"
+dspsim = "dspsim.framework.cli:main"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

@@ -20,31 +20,17 @@ message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 find_package(nanobind CONFIG REQUIRED)
 message(STATUS "Found nanobind: ${nanobind_DIR}")
 
-# # Find verilator
-# find_package(verilator REQUIRED)
-# message(STATUS "Found verilator: ${verilator_DIR}")
-
 # dspsim paths.
-# set(DSPSIM_PKG_DIR ${CMAKE_SOURCE_DIR}/src/dspsim)
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/framework/include)
-# set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/hdl)
-# set(DSPSIM_DATA_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/data)
 set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME}/framework)
 
 # Install paths
 include(GNUInstallDirs)
 set(INSTALL_CMAKEDIR ${DSPSIM_INSTALL_DIR}/cmake)
-# set(INSTALL_CMAKEDIR ${SKBUILD_PROJECT_NAME}/cmake)
 set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
 set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
 set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
-# set(INSTALL_DATADIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_DATADIR})
-# set(INSTALL_HDLDIR ${DSPSIM_INSTALL_DIR}/hdl)
-
-# # RPath
-# set(CMAKE_INSTALL_RPATH "$ORIGIN")
-# set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Set warning level
 if (MSVC)
@@ -106,11 +92,3 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
 
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
-
-########## Build Library Module ##########
-
-# # Update PYTHONPATH in environment so the generate command can be run
-# set(ENV{PYTHONPATH} "${CMAKE_SOURCE_DIR}/src/")
-
-# # Generate and build the library module.
-# dspsim_add_module(library ${CMAKE_SOURCE_DIR}/pyproject.toml ${SKBUILD_PROJECT_NAME})

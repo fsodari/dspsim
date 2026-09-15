@@ -10,6 +10,11 @@ def include_dir() -> Path:
     return Path(__file__).parent / "include"
 
 
+def cmake_dir() -> Path:
+    """Return the path to the CMake directory."""
+    return Path(__file__).parent / "cmake"
+
+
 def version() -> str:
     import importlib.metadata
 
@@ -131,7 +136,6 @@ __all__ = [
     "Signal32",
     "Signal64",
     "get_global_context_factory",
-    "reset_global_context_factory",
-    "set_global_context_factory",
+    # "set_global_context_factory",
     "signal",
 ]

@@ -1,4 +1,3 @@
-# add_library(dspsim-core SHARED
 add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/model.cpp
@@ -13,6 +12,3 @@ set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(dspsim-core PUBLIC
     $<BUILD_INTERFACE:${DSPSIM_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>)
-
-# target_include_directories(dspsim-core PUBLIC
-#     ${DSPSIM_INCLUDE_DIR})
