@@ -16,7 +16,7 @@ public:
 
     Dff(ModuleName name) : Module(name)
     {
-        sensitivity_list << clk.pos();
+        always << clk.pos();
     }
 
     void eval() override

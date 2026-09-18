@@ -38,7 +38,7 @@ namespace dspsim
     class Signal : public SignalBase
     {
     public:
-        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        Signal(const std::string &name, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
         ~Signal();
 
         Signal<T> &init(const T &value);

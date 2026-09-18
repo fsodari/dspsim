@@ -19,7 +19,7 @@ public:
     // SomeModule(ModuleName name) : Module(name)
     DSPSIM_CTOR(SomeModule)
     {
-        sensitivity_list << a << b;
+        always << a << b;
     }
 
     void eval() override
@@ -45,7 +45,7 @@ public:
     // SyncModel(ModuleName name) : Module(name)
     DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
     {
-        sensitivity_list << clk.pos();
+        always << clk.pos();
 
         // If active model is inputs's parent, bind signal to
 

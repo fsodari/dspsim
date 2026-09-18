@@ -1,5 +1,5 @@
 #pragma once
-#include <dspsim/model.h>
+#include <dspsim/module.h>
 #include <verilated.h>
 #include <memory>
 #include <filesystem>
@@ -11,7 +11,7 @@ namespace dspsim
     class NoTrace;
 
     template <typename V, typename TraceType = NoTrace>
-    class VModel : public Model
+    class VModel : public Module
     {
     protected:
         std::unique_ptr<VerilatedContext> vcontext;
@@ -19,7 +19,7 @@ namespace dspsim
         std::unique_ptr<TraceType> tracep;
 
     public:
-        VModel(const std::string &name = "") : Model("vmodel", name)
+        VModel(ModuleName name) : Module(name)
         {
             vcontext = std::make_unique<VerilatedContext>();
             top = std::make_unique<V>(vcontext.get());
@@ -29,26 +29,24 @@ namespace dspsim
             close();
         }
 
-        void eval_step() override
+        void eval() override
         {
+            top->eval_step();
+        }
+
+        void update() override
+        {
+            top->eval_end_step();
             if (tracep)
             {
                 tracep->dump(context()->time());
             }
-            top->eval_step();
-        }
-
-        void eval_end_step() override
-        {
-            top->eval_end_step();
         }
 
         void trace(const fs::path &trace_path, int levels = 99, int options = 0)
         {
             if (!tracep)
             {
-                // vcontext->timeunit(context()->time_unit().c_str());
-                // vcontext->timeprecision(context()->time_precision().c_str());
                 vcontext->traceEverOn(true);
                 tracep = std::make_unique<TraceType>();
 
@@ -73,14 +71,14 @@ namespace dspsim
         Specialization for no tracing.
     */
     template <typename V>
-    class VModel<V, NoTrace> : public Model
+    class VModel<V, NoTrace> : public Module
     {
     protected:
         std::unique_ptr<VerilatedContext> vcontext;
         std::unique_ptr<V> top;
 
     public:
-        VModel(const std::string &name = "") : Model("vmodel", name)
+        VModel(ModuleName name) : Module(name)
         {
             vcontext = std::make_unique<VerilatedContext>();
             top = std::make_unique<V>(vcontext.get());
@@ -94,15 +92,6 @@ namespace dspsim
         {
             top->eval_end_step();
         }
-
-        // void trace(const fs::path &trace_path, int levels = 99, int options = 0)
-        // {
-        //     // No tracing available for this specialization.
-        // }
-        // void close()
-        // {
-        //     // No tracing available for this specialization.
-        // }
     };
 
 } // namespace dspsim

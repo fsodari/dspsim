@@ -19,7 +19,7 @@ public:
           in("in", in_),
           out("out", out_)
     {
-        sensitivity_list << clk.pos();
+        always << clk.pos();
     }
 
     void eval() override
@@ -46,7 +46,7 @@ public:
           out("out", out_),
           sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
     {
-        sensitivity_list << clk.pos();
+        always << clk.pos();
     }
 
     void eval() override

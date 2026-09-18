@@ -143,11 +143,6 @@ namespace dspsim
     template <typename T>
     void Output<T>::notify(EventType event)
     {
-        // for (auto &port : _bound_ports)
-        // {
-        //     // port->notify(event);
-        //     port->write(_bound_tsignal->read());
-        // }
     }
 
     template <typename T>

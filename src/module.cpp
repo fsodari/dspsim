@@ -6,7 +6,7 @@ namespace dspsim
     Module::Module() : Module(*Context::obtain()->_active_module_name_stack.back())
     {
     }
-    Module::Module(ModuleName &name) : Model(name.name()), sensitivity_list(this)
+    Module::Module(ModuleName &name) : Model(name.name()), always(this)
     {
         context()->_active_module_stack.push_back(this);
     }

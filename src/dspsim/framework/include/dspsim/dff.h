@@ -1,23 +1,19 @@
 #pragma once
-#include <dspsim/model.h>
-#include <dspsim/signal.h>
+#include <dspsim/module.h>
 #include <dspsim/clock.h>
 
 namespace dspsim
 {
     template <typename T>
-    class Dff : public Signal<T>
+    class Dff : public Module
     {
     public:
-        Dff(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "");
-        virtual const std::string kind() const { return "dff"; }
-        static auto create(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "")
-        {
-            return Model::create<Dff<T>>(clk, width, init, is_signed, name);
-        }
+        Input<uint8_t> clk;
+        Input<T> d;
+        Output<T> q;
 
-    protected:
-        ClockPtr _clk;
-        bool _update;
+        Dff(ModuleName name, Signal<uint8_t> &clk_, Signal<T> &d_, Signal<T> &q_);
+
+        void eval() override;
     };
 } // namespace dspsim

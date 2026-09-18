@@ -10,7 +10,7 @@ namespace dspsim
     class Module : public Model
     {
     public:
-        SensitivityList sensitivity_list;
+        SensitivityList always;
 
         Module(ModuleName &name);
         Module();
