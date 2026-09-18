@@ -9,12 +9,6 @@ namespace dspsim
     class PortBase : public Model
     {
     public:
-        enum EventType
-        {
-            Changed,
-            Posedge,
-            Negedge
-        };
         PortBase(const std::string &name);
         virtual const std::string kind() const { return "port"; }
         virtual void notify(EventType event) = 0;

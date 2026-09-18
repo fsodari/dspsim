@@ -67,7 +67,6 @@ namespace dspsim
         int _width;
         bool _is_signed;
         int _parent_id;
-        bool _written = false;
 
     protected:
         T _d, _q;

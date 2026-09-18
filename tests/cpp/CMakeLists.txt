@@ -2,7 +2,8 @@ find_package(Catch2 3 REQUIRED)
 add_executable(tests
     test_dff.cpp
     test_hierarchy.cpp
-    test_submodule.cpp)
+    test_submodule.cpp
+    test_adder_tree.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 
 include(CTest)

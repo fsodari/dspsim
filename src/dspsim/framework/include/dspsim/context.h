@@ -1,6 +1,8 @@
 #pragma once
 #include <dspsim/forward.h>
 #include <dspsim/event.h>
+#include <dspsim/utils/unique_stack.h>
+#include <dspsim/utils/sorted_stack.h>
 #include <memory>
 #include <vector>
 #include <string>
@@ -36,6 +38,7 @@ namespace dspsim
 
     class Context
     {
+
     public:
         Context(int id = -1);
         ~Context();
@@ -77,18 +80,14 @@ namespace dspsim
         //
         void elaborate();
 
-        void eval();
-        void run(uint64_t time_inc);
+        // Compute a single delta cycle.
+        int eval();
+        // Running with time_inc = 0 will run a delta cycle without advancing time.
+        void run(uint64_t time_inc = 0);
 
-        int delta_cycle();
-        void add_to_eval_queue(Model *model);
-        Model *pop_from_eval_queue();
-
-        void add_to_update_queue(Model *model);
-        Model *pop_from_update_queue();
-
-        void add_to_time_event_queue(TimeEvent event);
-        TimeEvent pop_from_time_event_queue();
+        void _push_eval_stack(Model *model) { _eval_stack.push(model); }
+        // void _push_update_stack(Model *model) { _update_stack.push(model); }
+        void _push_time_event_stack(TimeEvent event) { _time_event_stack.push(event); }
 
     public:
         /*
@@ -96,9 +95,10 @@ namespace dspsim
         */
         // Obtain the global context.
         static ContextPtr obtain();
-
         // Set the global context to nullptr. New designs will create a new context.
-        static void reset_global_context();
+        static void reset();
+        // Reset the global context, then obtain a new one.
+        static ContextPtr create();
 
         Module *active_module() const { return _active_module_stack.empty() ? nullptr : _active_module_stack.front(); }
 
@@ -111,14 +111,14 @@ namespace dspsim
 
     private:
         int _id;
-        int _next_model_id;
+        size_t _next_model_id;
         std::vector<Model *> _registered_models;
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
         //
-        std::unordered_set<Model *> _eval_queue;
-        std::unordered_set<Model *> _update_queue;
-        std::deque<TimeEvent> _time_event_queue;
+        UniqueStack<Model *> _eval_stack;
+        UniqueStack<Model *> _update_stack;
+        SortedStack<TimeEvent> _time_event_stack;
 
         uint64_t _time;
         std::string _time_unit;
@@ -135,6 +135,8 @@ namespace dspsim
         ContextPtr obtain();
         // Reset the active context.
         void reset();
+        // Reset the global context, then obtain a new one.
+        ContextPtr create();
 
     private:
         int _next_context_id;

@@ -75,8 +75,7 @@ public:
 
 TEST_CASE("test_hierarchy")
 {
-    Context::reset_global_context();
-    auto ctx = Context::obtain();
+    auto ctx = Context::create();
     ctx->logger->set_level(spdlog::level::warn);
     Clock clk_top{"clk_top", 10};
     Signal<uint8_t> d_top{"d_top"};

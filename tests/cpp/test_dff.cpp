@@ -31,9 +31,8 @@ public:
 
 TEST_CASE("test_dff")
 {
-    Context::reset_global_context();
-    auto ctx = Context::obtain();
-    ctx->logger->set_level(spdlog::level::warn);
+    auto ctx = Context::create();
+    ctx->logger->set_level(spdlog::level::trace);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> d_top{"d_top"};

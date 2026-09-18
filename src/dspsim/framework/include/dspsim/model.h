@@ -11,7 +11,7 @@ namespace dspsim
 
     private:
         ContextPtr _context;
-        int _id;
+        size_t _id;
         std::string _name;
         std::string _hier_name;
         Model *_parent;
@@ -30,7 +30,7 @@ namespace dspsim
             Properties
         */
         ContextPtr context() const { return _context; }
-        int id() const { return _id; }
+        size_t id() const { return _id; }
         virtual const std::string kind() const { return "model"; }
 
         const std::string &name() const { return _name; }

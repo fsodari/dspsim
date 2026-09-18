@@ -62,6 +62,9 @@ namespace dspsim
     {
         _registered_models.clear();
         _owned_models.clear();
+        _eval_stack.clear();
+        _update_stack.clear();
+        _time_event_stack.clear();
     }
 
     void Context::elaborate()
@@ -72,108 +75,64 @@ namespace dspsim
         }
     }
 
-    void Context::add_to_time_event_queue(TimeEvent event)
-    {
-        _time_event_queue.push_back(event);
-    }
-
-    TimeEvent Context::pop_from_time_event_queue()
-    {
-        auto event = _time_event_queue.front();
-        _time_event_queue.pop_front();
-        return event;
-    }
-
-    void Context::eval()
-    {
-    }
-
-    int Context::delta_cycle()
+    int Context::eval()
     {
         int n_iter = 0;
 
         // Run eval cycle.
-        do
+        while (!_eval_stack.empty())
         {
-            // std::vector<Model *> sync_queue;
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
-            int n_evals = 0;
-            int n_syncs = 0;
-            while (!_eval_queue.empty())
+
+            while (!_eval_stack.empty())
             {
-                auto *model = pop_from_eval_queue();
+                auto model = _eval_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
-                // sync_queue.push_back(model);
                 model->eval();
-                ++n_evals;
+
+                // Add the model to the update stack after evaluation.
+                _update_stack.push(model);
             }
-            while (!_update_queue.empty())
+
+            // run update cycle on all models that were evaluated.
+            while (!_update_stack.empty())
             {
-                auto *model = pop_from_update_queue();
+                auto model = _update_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Updating model: {}", model->name());
                 model->update();
-                ++n_syncs;
             }
-        } while (!_eval_queue.empty());
+        }
 
         return n_iter;
     }
 
     void Context::run(uint64_t time_inc)
     {
-        uint64_t remaining_time = time_inc;
-        // uint64_t next_time_step = _time_event_queue.empty() ? _time + remaining_time : _time_event_queue.begin()->time();
         // Compute delta cycle.
-        delta_cycle();
+        eval();
 
-        // Sort the time event queue
-
-        while (!_time_event_queue.empty() and remaining_time > 0)
+        // Evaluate all time steps.
+        while (!_time_event_stack.empty() and time_inc > 0)
         {
-            std::sort(_time_event_queue.begin(), _time_event_queue.end());
             // Advance to the next time step.
-            uint64_t next_time_step = _time_event_queue.front().time_update - _time;
+            uint64_t next_time_step = _time_event_stack.top().time_update - _time;
             // Advance the simulation time to the next time step.
             _time += next_time_step;
+            time_inc -= next_time_step;
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
             do
             {
-                auto event = pop_from_time_event_queue();
+                auto event = _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.subscriber->name());
-                add_to_eval_queue(event.subscriber);
-            } while (!_time_event_queue.empty() && _time_event_queue.front().time_update == _time);
-            // Perform a delta cycle.
-            delta_cycle();
-            remaining_time -= next_time_step;
+                // push_eval_stack(event.subscriber);
+                _eval_stack.push(event.subscriber);
+            } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
+            // Perform a delta cycle at this time step.
+            eval();
         }
-    }
-
-    void Context::add_to_eval_queue(Model *model)
-    {
-        _eval_queue.insert(model);
-    }
-    Model *Context::pop_from_eval_queue()
-    {
-        auto it = _eval_queue.begin();
-        Model *model = *it;
-        _eval_queue.erase(it);
-        return model;
-    }
-
-    void Context::add_to_update_queue(Model *model)
-    {
-        _update_queue.insert(model);
-    }
-
-    Model *Context::pop_from_update_queue()
-    {
-        auto it = _update_queue.begin();
-        Model *model = *it;
-        _update_queue.erase(it);
-        return model;
     }
 
     const std::string Context::repr() const
@@ -186,9 +145,13 @@ namespace dspsim
         return get_global_context_factory()->obtain();
     }
 
-    void Context::reset_global_context()
+    void Context::reset()
     {
         get_global_context_factory()->reset();
+    }
+    ContextPtr Context::create()
+    {
+        return get_global_context_factory()->create();
     }
 
     // Context Factory
@@ -210,6 +173,12 @@ namespace dspsim
     void ContextFactory::reset()
     {
         _active_context = nullptr;
+    }
+
+    ContextPtr ContextFactory::create()
+    {
+        reset();
+        return obtain();
     }
 
     static ContextFactoryPtr _global_context_factory = nullptr;

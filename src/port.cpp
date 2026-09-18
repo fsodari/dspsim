@@ -48,7 +48,7 @@ namespace dspsim
             {
                 // Notify the subscriber
                 SPDLOG_LOGGER_TRACE(context()->logger, "Port {} notifying posedge subscriber: {}", name(), subscriber->name());
-                context()->add_to_eval_queue(subscriber);
+                context()->_push_eval_stack(subscriber);
             }
         }
         else if (event == EventType::Negedge)
@@ -57,17 +57,16 @@ namespace dspsim
             {
                 // Notify the subscriber
                 SPDLOG_LOGGER_TRACE(context()->logger, "Port {} notifying negedge subscriber: {}", name(), subscriber->name());
-                context()->add_to_eval_queue(subscriber);
+                context()->_push_eval_stack(subscriber);
             }
         }
-        else
+
+        // We should only notify a subscriber once. The eval queue is a set so adding again is fine.
+        for (auto subscriber : _changed_subscribers)
         {
-            for (auto subscriber : _changed_subscribers)
-            {
-                // Notify the subscriber
-                SPDLOG_LOGGER_DEBUG(context()->logger, "Port {} notifying changed subscriber: {}", name(), subscriber->name());
-                context()->add_to_eval_queue(subscriber);
-            }
+            // Notify the subscriber
+            SPDLOG_LOGGER_DEBUG(context()->logger, "Port {} notifying changed subscriber: {}", name(), subscriber->name());
+            context()->_push_eval_stack(subscriber);
         }
     }
 
@@ -138,6 +137,7 @@ namespace dspsim
     void Output<T>::bind(Output<T> &port)
     {
         _bound_ports.push_back(&port);
+        _bound_tsignal = port._bound_tsignal;
     }
 
     template <typename T>

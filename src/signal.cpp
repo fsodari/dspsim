@@ -37,14 +37,9 @@ namespace dspsim
     void Signal<T>::write(const T &value)
     {
         _d = value;
+        SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for eval", name());
         // Schedule for eval.
-        // If multiple writes occur, only schedule once and take the last value.
-        if (_written == false)
-        {
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for update", name());
-            context()->add_to_eval_queue(this);
-        }
-        _written = true;
+        context()->_push_eval_stack(this);
     }
 
     template <typename T>
@@ -56,25 +51,28 @@ namespace dspsim
     template <typename T>
     void Signal<T>::eval()
     {
-        _written = false;
         if (_d != _q)
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal eval() value changed: {}", name());
-            context()->add_to_update_queue(this);
         }
     }
 
     template <typename T>
     void Signal<T>::update()
     {
-        PortBase::EventType event = PortBase::EventType::Changed;
+        // If no change, don't update subscribers.
+        if (_d == _q)
+        {
+            return;
+        }
+        EventType event = EventType::Changed;
         if (_d && !_q)
         {
-            event = PortBase::EventType::Posedge;
+            event = EventType::Posedge;
         }
         else if (!_d && _q)
         {
-            event = PortBase::EventType::Negedge;
+            event = EventType::Negedge;
         }
 
         this->_q = this->_d;

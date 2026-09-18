@@ -6,14 +6,12 @@ namespace dspsim
         : Signal<uint8_t>(name, 1, 0, false), _period(period)
     {
         _half_period = _period / 2;
-        context()->add_to_eval_queue(this);
-        // context()->add_to_time_event_queue(TimeEvent(this, context()->time() + _half_period));
+        context()->_push_eval_stack(this);
     }
 
     void Clock::eval()
     {
         this->_d = !this->_q;
-        context()->add_to_time_event_queue(TimeEvent(this, context()->time() + _half_period));
-        context()->add_to_update_queue(this);
+        context()->_push_time_event_stack(TimeEvent(this, context()->time() + _half_period));
     }
 } // namespace dspsim

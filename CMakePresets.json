@@ -16,6 +16,7 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "SKBUILD_PROJECT_NAME": "dspsim",
+                "SKBUILD_PROJECT_VERSION": "0.0.0",
                 "CMAKE_PREFIX_PATH": "${workspaceFolder}/.venv/lib/python3.14/site-packages",
                 "LOG_TRACE": "OFF"
             }
