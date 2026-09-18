@@ -10,9 +10,7 @@ namespace dspsim
     {
     public:
         Dff(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "");
-        virtual void eval_step() override;
-        virtual void eval_end_step() override;
-
+        virtual const std::string kind() const { return "dff"; }
         static auto create(ClockPtr clk, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "")
         {
             return Model::create<Dff<T>>(clk, width, init, is_signed, name);

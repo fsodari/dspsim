@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 4.0)
+# Read project version from version.txt file
+file(READ "${CMAKE_SOURCE_DIR}/version.txt" PROJECT_VERSION)
+string(STRIP "${PROJECT_VERSION}" PROJECT_VERSION)
+set(SKBUILD_PROJECT_VERSION "${PROJECT_VERSION}" CACHE STRING "Project version")
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -12,12 +16,16 @@ endif()
 
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+# spdlog
+find_package(spdlog REQUIRED)
+
 # Windows requires the Python SABIModule component.
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 
 # Find nanobind package.
-find_package(nanobind CONFIG REQUIRED)
+find_package(nanobind REQUIRED)
 message(STATUS "Found nanobind: ${nanobind_DIR}")
 
 # dspsim paths.
@@ -45,7 +53,12 @@ endif()
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 
 # Build dspsim core library
+set(LOG_TRACE OFF CACHE STRING "Set the log level for spdlog")
+
 add_subdirectory(${DSPSIM_SRC_DIR})
+if(${LOG_TRACE})
+    target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+endif()
 
 # Build _framework module
 nanobind_add_module(_framework
@@ -54,6 +67,7 @@ nanobind_add_module(_framework
     BACKEND_MODULE nanobind_backend
     NB_DOMAIN dspsim
     ${DSPSIM_SRC_DIR}/_framework.cpp)
+set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
 target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 
 # Install extension
@@ -92,3 +106,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
 
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
+
+#
+enable_testing()
+add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)

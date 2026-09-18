@@ -9,26 +9,43 @@ namespace dspsim
     {
         friend class Context;
 
+    private:
+        ContextPtr _context;
+        int _id;
+        std::string _name;
+        std::string _hier_name;
+        Model *_parent;
+
     public:
-        Model(const std::string &kind = "model", const std::string &name = "");
+        Model(const std::string &name);
+
+        // Called during elaboration.
+        virtual void finalize() {}
+
+        // Simulation methods.
+        virtual void eval() {}
+        virtual void update() {}
 
         /*
             Properties
         */
         ContextPtr context() const { return _context; }
         int id() const { return _id; }
-        const std::string &kind() const { return _kind; }
+        virtual const std::string kind() const { return "model"; }
+
         const std::string &name() const { return _name; }
         void set_name(const std::string &name) { _name = name; }
 
-        int parent_id() const { return _parent_id; }
-        void set_parent_id(int parent_id) { _parent_id = parent_id; }
+        const std::string hier_name() const { return _hier_name; }
+        Model *parent() const { return _parent; }
+        // int parent_id() const { return _parent_id; }
+        // void set_parent_id(int parent_id) { _parent_id = parent_id; }
 
-        /*
-            Methods
-        */
-        virtual void eval_step() = 0;
-        virtual void eval_end_step() {}
+        // /*
+        //     Methods
+        // */
+        // virtual void eval_step() = 0;
+        // virtual void eval_end_step() {}
 
         //
         virtual const std::string repr() const;
@@ -38,18 +55,9 @@ namespace dspsim
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
             // Register the model with the context.
-            m->context()->register_model(m);
+            m->context()->own_model(m);
             return m;
         }
-
-    private:
-        ContextPtr _context;
-        int _id;
-
-    protected:
-        std::string _kind;
-        std::string _name;
-        int _parent_id;
     };
 
 }

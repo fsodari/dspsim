@@ -6,24 +6,24 @@ namespace dspsim
     class Clock : public Signal<uint8_t>
     {
     public:
-        Clock(int period, const std::string &name = "");
-        virtual void eval_step() override;
-        virtual void eval_end_step() override;
+        Clock(const std::string &name, int period);
+        virtual const std::string kind() const override { return "clock"; }
 
-        int period() const { return _period; }
+        virtual void eval() override;
+        using Signal<uint8_t>::update;
 
-        bool posedge() const { return q() && !_q_prev; }
+        // int period() const { return _period; }
 
-        static auto create(int period, const std::string &name = "")
+        // bool posedge() const { return q() && !_q_prev; }
+
+        static auto create(const std::string &name, int period)
         {
-            return Model::create<Clock>(period, name);
+            return Model::create<Clock>(name, period);
         }
 
     private:
         int _period;
         int _half_period;
-        uint8_t _q_prev;
-        uint64_t _checkpoint;
     };
     using ClockPtr = std::shared_ptr<Clock>;
 } // namespace dspsim

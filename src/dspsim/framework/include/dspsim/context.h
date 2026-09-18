@@ -1,13 +1,25 @@
 #pragma once
+#include <dspsim/forward.h>
+#include <dspsim/event.h>
 #include <memory>
 #include <vector>
 #include <string>
+#include <deque>
+#include <unordered_set>
+#include <set>
+// #include <spdlog/spdlog.h>
+namespace spdlog
+{
+    class logger;
+}
 
 namespace dspsim
 {
     // Forward declaration of Model class
     // class Model;
-    using ModelPtr = std::shared_ptr<class Model>;
+    // class Module;
+    // class ModuleName;
+    using ModelPtr = std::shared_ptr<Model>;
     using ContextPtr = std::shared_ptr<class Context>;
     /*
         Context contains a vector of all the models.
@@ -21,19 +33,11 @@ namespace dspsim
           The context can be used for simulation, but no new models can be added to it.
           New contexts can be created with new parameters so that they can run in parallel.
     */
+
     class Context
     {
-        friend class ContextFactory;
-
-        // Model can access the context's next model id.
-        friend class Model;
-        // Simulator can access the context's time.
-        friend class Simulator;
-
-    private:
-        Context();
-
     public:
+        Context(int id = -1);
         ~Context();
 
         /*
@@ -43,16 +47,16 @@ namespace dspsim
         // Context id
         int id() const { return _id; }
 
-        const std::vector<ModelPtr> &models() const { return _models; }
+        const std::vector<Model *> &models() const { return _registered_models; }
 
         uint64_t time() const { return _time; }
         const std::string &time_unit() const { return _time_unit; }
-        const std::string &time_precision() const { return _time_precision; }
+        // const std::string &time_precision() const { return _time_precision; }
 
         /*
             Methods
         */
-        void set_timescale(const std::string &time_unit, const std::string &time_precision);
+        // void set_timescale(const std::string &time_unit, const std::string &time_precision);
 
         //
         const std::string repr() const;
@@ -61,16 +65,30 @@ namespace dspsim
             Methods
         */
         // Register a model with the context.
-        void register_model(ModelPtr model);
+        void add_model(Model *model);
+        // void register_signal(SignalBase *signal);
+
+        // Take shared ownership of a model. The model will stay alive as long as the context does.
+        void own_model(ModelPtr model);
 
         // Clear all models from the context.
         void clear();
 
+        //
+        void elaborate();
+
         void eval();
         void run(uint64_t time_inc);
 
-    private:
-        int get_next_model_id();
+        int delta_cycle();
+        void add_to_eval_queue(Model *model);
+        Model *pop_from_eval_queue();
+
+        void add_to_update_queue(Model *model);
+        Model *pop_from_update_queue();
+
+        void add_to_time_event_queue(TimeEvent event);
+        TimeEvent pop_from_time_event_queue();
 
     public:
         /*
@@ -82,14 +100,30 @@ namespace dspsim
         // Set the global context to nullptr. New designs will create a new context.
         static void reset_global_context();
 
+        Module *active_module() const { return _active_module_stack.empty() ? nullptr : _active_module_stack.front(); }
+
+        const std::string hier() const;
+
+    public:
+        std::shared_ptr<spdlog::logger> logger;
+        std::deque<Module *> _active_module_stack;
+        std::deque<ModuleName *> _active_module_name_stack;
+
     private:
         int _id;
         int _next_model_id;
-        std::vector<ModelPtr> _models;
+        std::vector<Model *> _registered_models;
+        // Owned models stay alive with context.
+        std::vector<ModelPtr> _owned_models;
+        //
+        std::unordered_set<Model *> _eval_queue;
+        std::unordered_set<Model *> _update_queue;
+        std::deque<TimeEvent> _time_event_queue;
+
         uint64_t _time;
         std::string _time_unit;
-        std::string _time_precision;
-        uint64_t _time_step;
+
+        // Model *_active_model;
     };
 
     class ContextFactory
