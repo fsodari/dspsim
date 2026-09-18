@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cassert>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
 
@@ -29,10 +29,11 @@ public:
     }
 };
 
-int main()
+TEST_CASE("test_dff")
 {
+    Context::reset_global_context();
     auto ctx = Context::obtain();
-    ctx->logger->set_level(spdlog::level::debug);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> d_top{"d_top"};
@@ -63,18 +64,16 @@ int main()
         d_top.write(i);
         ctx->run(5);
         // d signal will have changed before the clock posedge, but q shouldn't
-        assert(q_top.read() != d_top.read());
+        REQUIRE(q_top.read() != d_top.read());
 
         ctx->logger->debug("time={}, d_top: {}, q_top: {}, q_top2={}", ctx->time(), d_top.read(), q_top.read(), q_top2.read());
         ctx->run(5);
 
         // q should have changed at the clock edge.
-        assert(q_top.read() == d_top.read());
+        REQUIRE(q_top.read() == d_top.read());
         ctx->logger->debug("time={}, d_top: {}, q_top: {}, q_top2={}", ctx->time(), d_top.read(), q_top.read(), q_top2.read());
 
         // The second dff should lag the first.
-        assert(q_top2.read() == q_top.read() - 1);
+        REQUIRE(q_top2.read() == q_top.read() - 1);
     }
-
-    return 0;
 }

@@ -30,6 +30,7 @@ namespace dspsim
 
     Context::~Context()
     {
+        spdlog::drop("context");
         clear();
     }
 

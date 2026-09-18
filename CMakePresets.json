@@ -47,7 +47,7 @@
             "configurePreset": "cpp_testing",
             "configuration": "Debug",
             "targets": [
-                "all_tests"
+                "tests"
             ]
         }
     ],

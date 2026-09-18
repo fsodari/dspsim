@@ -7,17 +7,22 @@
 
 #include <spdlog/spdlog.h>
 
+#include <catch2/catch_test_macros.hpp>
+
 using namespace dspsim;
 
 class SomeModule : public Module
 {
 public:
-    Input<uint8_t> a{"a_port_some_module"};
-    Input<uint8_t> b{"b_port_some_module"};
-    Output<uint8_t> c{"c_port_some_module"};
+    Input<uint8_t> a;
+    Input<uint8_t> b;
+    Output<uint8_t> c;
 
-    // SomeModule(ModuleName name) : Module(name)
-    DSPSIM_CTOR(SomeModule)
+    SomeModule(ModuleName name, Signal<uint8_t> &a_, Signal<uint8_t> &b_, Signal<uint8_t> &c_)
+        : Module(name),
+          a("a", a_),
+          b("b", b_),
+          c("c", c_)
     {
         always << a << b;
     }
@@ -33,25 +38,22 @@ public:
 class SyncModel : public Module
 {
 public:
-    Input<uint8_t> clk{"clk_port_sync_model"};
-    Input<uint8_t> d{"d_port_sync_model"};
-    Output<uint8_t> q{"q_port_sync_model"};
-
-    Signal<uint8_t> d_wire{"d_wire_sync_model"};
-    Signal<uint8_t> q_wire{"q_wire_sync_model"};
+    Input<uint8_t> clk;
+    Input<uint8_t> d;
+    Output<uint8_t> q;
 
     SomeModule some_module;
 
     // SyncModel(ModuleName name) : Module(name)
-    DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
+    // DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
+    SyncModel(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &d_, Signal<uint8_t> &q_)
+        : Module(name),
+          clk("clk", clk_),
+          d("d", d_),
+          q("q", q_),
+          some_module("some_module_sync_model", d, d, q)
     {
         always << clk.pos();
-
-        // If active model is inputs's parent, bind signal to
-
-        some_module.a.bind(d_wire);
-        some_module.b.bind(d_wire);
-        some_module.c.bind(q_wire);
     }
 
     void eval() override
@@ -71,21 +73,19 @@ public:
     top_d -> Input_d -> internal_d
 */
 
-int main()
+TEST_CASE("test_hierarchy")
 {
+    Context::reset_global_context();
     auto ctx = Context::obtain();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
     Clock clk_top{"clk_top", 10};
     Signal<uint8_t> d_top{"d_top"};
     Signal<uint8_t> q_top{"q_top"};
 
     // SyncModel sync_model{"sync_model"};
-    auto sync_model = SyncModel::create<SyncModel>("sync_model");
+    auto sync_model = SyncModel("sync_model", clk_top, d_top, q_top);
 
-    sync_model->clk.bind(clk_top);
     ctx->logger->info("Here");
-    sync_model->d.bind(d_top);
-    sync_model->q.bind(q_top);
 
     Signal<uint8_t> foo{"foo"};
 
@@ -95,10 +95,6 @@ int main()
     {
         ctx->logger->debug("Model: {}, hier_name: {}", m->name(), m->hier_name());
     }
-
-    // ctx->run(20);
-
-    return 0;
 }
 
 // int main(int argc, char **argv)

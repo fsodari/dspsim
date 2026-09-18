@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cassert>
+#include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
 
@@ -54,10 +54,11 @@ public:
         context()->logger->debug("Parent eval() called, time: {}", context()->time());
     }
 };
-int main()
+TEST_CASE("test_submodule")
 {
+    Context::reset_global_context();
     auto ctx = Context::obtain();
-    ctx->logger->set_level(spdlog::level::debug);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> in_signal{"in_signal"};
@@ -70,8 +71,7 @@ int main()
     ctx->run(20);
     in_signal.write(99);
     ctx->run(20);
-    if (out_signal.read() != 99)
-        ctx->logger->error("Test failed: out_signal.read() = {}", out_signal.read());
+    REQUIRE(out_signal.read() == 99);
 
     // Clock clk{"clk", 10};
     // Signal<uint8_t> d_top{"d_top"};
@@ -114,6 +114,4 @@ int main()
     //     // The second dff should lag the first.
     //     assert(q_top2.read() == q_top.read() - 1);
     // }
-
-    return 0;
 }
