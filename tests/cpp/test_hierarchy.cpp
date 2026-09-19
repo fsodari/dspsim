@@ -10,65 +10,67 @@
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
-
-class SomeModule : public Module
+namespace
 {
-public:
-    Input<uint8_t> a;
-    Input<uint8_t> b;
-    Output<uint8_t> c;
-
-    SomeModule(ModuleName name, Signal<uint8_t> &a_, Signal<uint8_t> &b_, Signal<uint8_t> &c_)
-        : Module(name),
-          a("a", a_),
-          b("b", b_),
-          c("c", c_)
+    class SomeModule : public Module
     {
-        always << a << b;
-    }
+    public:
+        Input<uint8_t> a;
+        Input<uint8_t> b;
+        Output<uint8_t> c;
 
-    void eval() override
-    {
-        // std::cout << "SomeModule eval()" << std::endl;
-        context()->logger->debug("SomeModule eval(), time: {}", context()->time());
-        c.write(a.read() + b.read());
-    }
-};
-
-class SyncModel : public Module
-{
-public:
-    Input<uint8_t> clk;
-    Input<uint8_t> d;
-    Output<uint8_t> q;
-
-    SomeModule some_module;
-
-    // SyncModel(ModuleName name) : Module(name)
-    // DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
-    SyncModel(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &d_, Signal<uint8_t> &q_)
-        : Module(name),
-          clk("clk", clk_),
-          d("d", d_),
-          q("q", q_),
-          some_module("some_module_sync_model", d, d, q)
-    {
-        always << clk.pos();
-    }
-
-    void eval() override
-    {
-        if (clk.read() == 1)
+        SomeModule(ModuleName name, Signal<uint8_t> &a_, Signal<uint8_t> &b_, Signal<uint8_t> &c_)
+            : Module(name),
+              a("a", a_),
+              b("b", b_),
+              c("c", c_)
         {
-            context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
-            q.write(d.read());
+            always << a << b;
         }
-        else
+
+        void eval() override
         {
-            context()->logger->error("SyncModel eval() on negedge, time: {}", context()->time());
+            // std::cout << "SomeModule eval()" << std::endl;
+            context()->logger->debug("SomeModule eval(), time: {}", context()->time());
+            c.write(a.read() + b.read());
         }
-    }
-};
+    };
+
+    class SyncModel : public Module
+    {
+    public:
+        Input<uint8_t> clk;
+        Input<uint8_t> d;
+        Output<uint8_t> q;
+
+        SomeModule some_module;
+
+        // SyncModel(ModuleName name) : Module(name)
+        // DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
+        SyncModel(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &d_, Signal<uint8_t> &q_)
+            : Module(name),
+              clk("clk", clk_),
+              d("d", d_),
+              q("q", q_),
+              some_module("some_module_sync_model", d, d, q)
+        {
+            always << clk.pos();
+        }
+
+        void eval() override
+        {
+            if (clk.read() == 1)
+            {
+                context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
+                q.write(d.read());
+            }
+            else
+            {
+                context()->logger->error("SyncModel eval() on negedge, time: {}", context()->time());
+            }
+        }
+    };
+}
 /*
     top_d -> Input_d -> internal_d
 */

@@ -12,6 +12,8 @@ namespace dspsim
         virtual void eval() override;
         using Signal<uint8_t>::update;
 
+        int period() const { return _period; }
+
         // int period() const { return _period; }
 
         // bool posedge() const { return q() && !_q_prev; }

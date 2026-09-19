@@ -11,12 +11,12 @@ namespace dspsim
         context()->_active_module_stack.push_back(this);
     }
 
-    void Module::add_event(std::vector<Model *> &event_subscribers)
+    void Module::_add_event(std::vector<Model *> &event_subscribers)
     {
         event_subscribers.push_back(this);
     }
 
-    void Module::end_construction()
+    void Module::_end_construction()
     {
         context()->_active_module_stack.pop_back();
     }

@@ -34,7 +34,7 @@
     ],
     "buildPresets": [
         {
-            "name": "default",
+            "name": "pyproject",
             "configurePreset": "default",
             "configuration": "Release",
             "targets": [

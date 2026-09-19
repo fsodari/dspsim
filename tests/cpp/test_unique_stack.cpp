@@ -5,32 +5,35 @@
 
 using namespace dspsim;
 
-/*
- Dummy class to test UniqueStack.
- UniqueStack requires the element to implement ->id();
-*/
-class Dummy
+namespace
 {
-public:
-    Dummy(size_t id) : _id(id) {}
-    size_t id() const { return _id; }
+    /*
+     Dummy class to test UniqueStack.
+     UniqueStack requires the element to implement ->id();
+    */
+    class Dummy
+    {
+    public:
+        Dummy(size_t id) : _id(id) {}
+        size_t id() const { return _id; }
 
-    // overload -> operator so this can mimic a pointer type.
-    Dummy *operator->() { return this; }
-    const Dummy *operator->() const { return this; }
+        // overload -> operator so this can mimic a pointer type.
+        Dummy *operator->() { return this; }
+        const Dummy *operator->() const { return this; }
 
-    // operator to compare with another Dummy
-    bool operator==(const Dummy &other) const { return _id == other._id; }
+        // operator to compare with another Dummy
+        bool operator==(const Dummy &other) const { return _id == other._id; }
 
-    // operator to cast as size_t
-    operator size_t() const { return _id; }
-    // operator to compare with size_t and int
-    bool operator==(size_t id) const { return _id == id; }
-    bool operator==(int id) const { return _id == static_cast<size_t>(id); }
+        // operator to cast as size_t
+        operator size_t() const { return _id; }
+        // operator to compare with size_t and int
+        bool operator==(size_t id) const { return _id == id; }
+        bool operator==(int id) const { return _id == static_cast<size_t>(id); }
 
-private:
-    size_t _id;
-};
+    private:
+        size_t _id;
+    };
+}
 
 TEST_CASE("basic_unique_stack", "[unique_stack]")
 {

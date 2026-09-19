@@ -14,12 +14,13 @@ namespace dspsim
 
         Module(ModuleName &name);
         Module();
-        void add_event(std::vector<Model *> &event_subscribers);
+        void _add_event(std::vector<Model *> &event_subscribers);
 
-        void end_construction();
+        void _end_construction();
 
         // Opt out of the initial evaluation pass Context::elaborate() otherwise schedules for every module.
         void dont_initialize() { _initialize = false; }
+        void _set_initialize(bool value) { _initialize = value; }
         bool initialize() const { return _initialize; }
 
         // Python bindings will need to use this.

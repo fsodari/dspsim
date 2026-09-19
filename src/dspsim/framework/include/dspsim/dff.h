@@ -8,11 +8,11 @@ namespace dspsim
     class Dff : public Module
     {
     public:
-        Input<uint8_t> clk;
-        Input<T> d;
-        Output<T> q;
+        Input<uint8_t> clk{"clk"};
+        Input<T> d{"d"};
+        Output<T> q{"q"};
 
-        Dff(ModuleName name, Signal<uint8_t> &clk_, Signal<T> &d_, Signal<T> &q_);
+        Dff(ModuleName name);
 
         void eval() override;
     };

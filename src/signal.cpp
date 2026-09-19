@@ -95,7 +95,7 @@ namespace dspsim
         for (auto port : _subscribers)
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
-            port->notify(event);
+            port->_notify(event);
         }
 
         // Notify modules sensitized directly to this signal (no intermediate Port).

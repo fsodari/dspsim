@@ -1,33 +1,10 @@
 #include <dspsim/dspsim.h>
-
+#include <dspsim/dff.h>
 #include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
-
-template <typename T>
-class Dff : public Module
-{
-public:
-    Input<uint8_t> clk{"clk_port_dff"};
-    Input<T> d{"d_port_dff"};
-    Output<T> q{"q_port_dff"};
-
-    Dff(ModuleName name) : Module(name)
-    {
-        always << clk.pos();
-    }
-
-    void eval() override
-    {
-        context()->logger->debug("Dff eval() on posedge, time: {}, d={}, clk={}", context()->time(), d.read(), clk.read());
-        if (clk.read() == 1)
-        {
-            q.write(d.read());
-        }
-    }
-};
 
 TEST_CASE("test_dff")
 {

@@ -8,11 +8,8 @@ namespace dspsim
     // }
 
     template <typename T>
-    Dff<T>::Dff(ModuleName name, Signal<uint8_t> &clk_, Signal<T> &d_, Signal<T> &q_)
-        : Module(name),
-          clk("clk", clk_),
-          d("d", d_),
-          q("q", q_)
+    Dff<T>::Dff(ModuleName name)
+        : Module(name)
     {
         always << clk.pos();
     }

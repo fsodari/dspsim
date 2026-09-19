@@ -13,6 +13,7 @@ wheels = [
 
 [[package]]
 name = "dspsim"
+version = "0.5.2"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },

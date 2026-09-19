@@ -6,7 +6,8 @@ add_executable(tests
     test_adder_tree.cpp
     test_unique_stack.cpp
     test_sorted_stack.cpp
-    test_better_binding.cpp)
+    test_better_binding.cpp
+    test_print_hierarchy.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 
 include(CTest)

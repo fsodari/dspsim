@@ -17,51 +17,29 @@ namespace dspsim
     // // Initialize each new context with a new id.
     // static int next_context_id = 0;
 
-    Context::Context(int id)
-        : _id(id),
+    Context::Context(const std::string &name, int id)
+        : _name(name),
+          _id(id),
           _next_model_id(0),
           _time(0),
           _time_unit("1ns")
     {
-        this->logger = spdlog::stdout_color_mt("context");
+        this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::debug);
         logger->set_pattern("[%^%l%$] %v");
     }
 
     Context::~Context()
     {
-        spdlog::drop("context");
+        spdlog::drop(_name);
         clear();
-    }
-
-    void Context::add_model(Model *model)
-    {
-        model->_id = _next_model_id++;
-        model->_hier_name = hier() + "." + model->name();
-        SPDLOG_LOGGER_TRACE(logger, "Adding model: {}, hier: {}", model->name(), hier());
-        _registered_models.push_back(model);
-    }
-    const std::string Context::hier() const
-    {
-        std::string hierarchy = "root";
-        for (auto model : _active_module_stack)
-        {
-            if (!hierarchy.empty())
-                hierarchy += ".";
-            hierarchy += model->name();
-        }
-        return hierarchy;
-    }
-
-    void Context::own_model(ModelPtr model)
-    {
-        _owned_models.push_back(model);
     }
 
     void Context::clear()
     {
         _registered_models.clear();
         _owned_models.clear();
+        _children.clear();
         _eval_stack.clear();
         _update_stack.clear();
         _time_event_stack.clear();
@@ -148,9 +126,79 @@ namespace dspsim
         }
     }
 
+    void Context::print_hierarchy(Model *parent, int depth) const
+    {
+        for (auto *child : children(parent))
+        {
+            logger->info("{}{}", std::string(depth * 2, ' '), child->name());
+            print_hierarchy(child, depth + 1);
+        }
+    }
+
+    const std::vector<Model *> &Context::children(Model *parent) const
+    {
+        static const std::vector<Model *> empty;
+        auto it = _children.find(parent);
+        return it != _children.end() ? it->second : empty;
+    }
+
+    const std::string Context::log_level() const
+    {
+        auto view = spdlog::level::to_string_view(logger->level());
+        return std::string{view.begin(), view.end()};
+    }
+    void Context::set_log_level(const std::string &log_level)
+    {
+        // Convert to lowercase
+        std::string lower_log_level = log_level;
+        std::transform(lower_log_level.begin(), lower_log_level.end(), lower_log_level.begin(), ::tolower);
+        spdlog::level::level_enum parsed_level = spdlog::level::from_str(lower_log_level);
+        if (parsed_level == spdlog::level::off && lower_log_level != "off")
+        {
+            // Invalid string level, use info as fallback.
+            logger->set_level(spdlog::level::info);
+        }
+        else
+        {
+            logger->set_level(parsed_level);
+        }
+    }
+
     const std::string Context::repr() const
     {
         return std::format("Context(id={}, time={})", _id, _time);
+    }
+
+    void Context::_add_model(Model *model)
+    {
+        model->_id = _next_model_id++;
+        model->_hier_name = _current_hierarchy() + "." + model->name();
+        SPDLOG_LOGGER_TRACE(logger, "Adding model: {}, hier: {}", model->name(), _current_hierarchy());
+        _registered_models.push_back(model);
+        _children[model->parent()].push_back(model);
+
+        // If this is a module, add it to the list of modules.
+        if (auto *module = dynamic_cast<Module *>(model))
+        {
+            _modules.push_back(module);
+        }
+    }
+
+    void Context::_own_model(ModelPtr model)
+    {
+        _owned_models.push_back(model);
+    }
+
+    const std::string Context::_current_hierarchy() const
+    {
+        std::string hierarchy = "root";
+        for (auto model : _active_module_stack)
+        {
+            if (!hierarchy.empty())
+                hierarchy += ".";
+            hierarchy += model->name();
+        }
+        return hierarchy;
     }
 
     ContextPtr Context::obtain()
@@ -162,9 +210,9 @@ namespace dspsim
     {
         get_global_context_factory()->reset();
     }
-    ContextPtr Context::create()
+    ContextPtr Context::create(const std::string &name)
     {
-        return get_global_context_factory()->create();
+        return get_global_context_factory()->create(name);
     }
 
     // Context Factory
@@ -178,7 +226,9 @@ namespace dspsim
     {
         if (_active_context == nullptr)
         {
-            _active_context = std::shared_ptr<Context>(new Context(_next_context_id++));
+            // If there is no active context, create a new one with the next available context ID.
+            // Give an empty name.
+            _active_context = std::shared_ptr<Context>(new Context("", _next_context_id++));
         }
         return _active_context;
     }
@@ -188,10 +238,16 @@ namespace dspsim
         _active_context = nullptr;
     }
 
-    ContextPtr ContextFactory::create()
+    ContextPtr ContextFactory::create(const std::string &name)
     {
-        reset();
-        return obtain();
+        _active_context = nullptr;
+        std::string _context_name = name;
+        if (name.empty())
+        {
+            _context_name = "context_" + std::to_string(_next_context_id);
+        }
+        _active_context = std::shared_ptr<Context>(new Context(_context_name, _next_context_id++));
+        return _active_context;
     }
 
     static ContextFactoryPtr _global_context_factory = nullptr;

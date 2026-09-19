@@ -44,7 +44,7 @@ namespace dspsim
     {
     }
 
-    void InputBase::notify(EventType event)
+    void InputBase::_notify(EventType event)
     {
         if (event == EventType::Posedge)
         {
@@ -88,7 +88,7 @@ namespace dspsim
             context()->logger->error("Input port {} is already bound to a signal", name());
         }
         _bound_tsignal = &signal;
-        _bound_tsignal->add_subscriber(this);
+        _bound_tsignal->_add_subscriber(this);
     }
 
     template <typename T>
@@ -116,7 +116,7 @@ namespace dspsim
             if (port->_bound_tsignal)
             {
                 _bound_tsignal = port->_bound_tsignal;
-                _bound_tsignal->add_subscriber(this);
+                _bound_tsignal->_add_subscriber(this);
                 break;
             }
         }
@@ -162,8 +162,8 @@ namespace dspsim
         }
         _bound_tsignal = &signal;
         // _bound_signal = &signal;
-        signal.add_driver(this);
-        // signal.add_subscriber(this);
+        signal._add_driver(this);
+        // signal._add_subscriber(this);
     }
 
     template <typename T>
@@ -201,7 +201,7 @@ namespace dspsim
     }
 
     template <typename T>
-    void Output<T>::notify(EventType event)
+    void Output<T>::_notify(EventType event)
     {
     }
 

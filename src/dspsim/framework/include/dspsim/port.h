@@ -12,7 +12,7 @@ namespace dspsim
     public:
         PortBase(const std::string &name);
         virtual const std::string kind() const { return "port"; }
-        virtual void notify(EventType event) = 0;
+        virtual void _notify(EventType event) = 0;
         virtual void finalize() override;
     };
 
@@ -21,7 +21,7 @@ namespace dspsim
     public:
         InputBase(const std::string &name);
         virtual void finalize() override;
-        virtual void notify(EventType event) override;
+        virtual void _notify(EventType event) override;
 
         // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
         SensitivityEvent &pos();
@@ -44,6 +44,10 @@ namespace dspsim
         operator Signal<T> &();
         virtual void bind(Signal<T> &signal);
         virtual void bind(Input<T> &port);
+
+        // Explicit functions for python bindings
+        void _bind_signal(Signal<T> &signal) { bind(signal); }
+        void _bind_port(Input<T> &port) { bind(port); }
         virtual void finalize() override;
 
         const T &read() const;
@@ -72,9 +76,16 @@ namespace dspsim
         operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Output<T> &port);
-        virtual void notify(EventType event) override;
+
+        // Explicit functions for python bindings
+        void _bind_signal(Signal<T> &signal) { bind(signal); }
+        void _bind_port(Output<T> &port) { bind(port); }
+        virtual void _notify(EventType event) override;
         virtual void finalize() override;
         void write(const T &value);
+
+        const T &_read_d() const { return _bound_tsignal->_read_d(); }
+        const T &_read() const { return _bound_tsignal->read(); }
 
     protected:
         // Resolve a chain of port-to-port bindings down to the underlying signal.

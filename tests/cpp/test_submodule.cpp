@@ -6,54 +6,58 @@
 
 using namespace dspsim;
 
-class Sub : public Module
+namespace
 {
-public:
-    Input<uint8_t> clk;
-    Input<uint8_t> in;
-    Output<uint8_t> out;
-
-    Sub(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-        : Module(name),
-          clk("clk", clk_),
-          in("in", in_),
-          out("out", out_)
+    class Sub : public Module
     {
-        always << clk.pos();
-    }
+    public:
+        Input<uint8_t> clk;
+        Input<uint8_t> in;
+        Output<uint8_t> out;
 
-    void eval() override
+        Sub(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
+            : Module(name),
+              clk("clk", clk_),
+              in("in", in_),
+              out("out", out_)
+        {
+            always << clk.pos();
+        }
+
+        void eval() override
+        {
+            context()->logger->debug("Sub eval() called, time: {}", context()->time());
+            out.write(in.read());
+        }
+    };
+
+    class Parent : public Module
     {
-        context()->logger->debug("Sub eval() called, time: {}", context()->time());
-        out.write(in.read());
-    }
-};
+    public:
+        Input<uint8_t> clk;
+        Input<uint8_t> in;
+        Output<uint8_t> out;
 
-class Parent : public Module
-{
-public:
-    Input<uint8_t> clk;
-    Input<uint8_t> in;
-    Output<uint8_t> out;
+        // Submodules must be initialized last.
+        Sub sub;
 
-    // Submodules must be initialized last.
-    Sub sub;
+        Parent(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
+            : Module(name),
+              clk("clk", clk_),
+              in("in", in_),
+              out("out", out_),
+              sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
+        {
+            always << clk.pos();
+        }
 
-    Parent(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-        : Module(name),
-          clk("clk", clk_),
-          in("in", in_),
-          out("out", out_),
-          sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
-    {
-        always << clk.pos();
-    }
+        void eval() override
+        {
+            context()->logger->debug("Parent eval() called, time: {}", context()->time());
+        }
+    };
+} // namespace
 
-    void eval() override
-    {
-        context()->logger->debug("Parent eval() called, time: {}", context()->time());
-    }
-};
 TEST_CASE("test_submodule")
 {
     auto ctx = Context::create();

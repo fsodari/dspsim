@@ -18,11 +18,11 @@ namespace dspsim
         SignalBase(const std::string &name = "");
         virtual const std::string kind() const { return "signal"; }
 
-        void add_driver(PortBase *driver)
+        void _add_driver(PortBase *driver)
         {
             _drivers.push_back(driver);
         }
-        void add_subscriber(PortBase *subscriber)
+        void _add_subscriber(PortBase *subscriber)
         {
             _subscribers.push_back(subscriber);
         }
@@ -62,6 +62,7 @@ namespace dspsim
 
         void write(const T &value);
         const T &read() const;
+        const T &_read_d() const { return _d; }
 
         virtual void eval() override;
         virtual void update() override;

@@ -16,12 +16,12 @@ namespace dspsim
 
     ModuleName::~ModuleName()
     {
-        Module *m = _context->active_module(); // Change to module stack.
+        Module *m = _context->_active_module(); // Change to module stack.
 
         if (m)
         {
             _context->logger->info("Destructing ModuleName, {}, parent: {}", _name, m->name());
-            m->end_construction();
+            m->_end_construction();
         }
         _context->_active_module_name_stack.pop_back();
     }

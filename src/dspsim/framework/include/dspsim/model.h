@@ -10,7 +10,7 @@ namespace dspsim
         friend class Context;
 
     private:
-        ContextPtr _context;
+        Context *_context;
         size_t _id;
         std::string _name;
         std::string _hier_name;
@@ -19,6 +19,7 @@ namespace dspsim
     public:
         Model(const std::string &name);
 
+        // Methods.
         // Called during elaboration.
         virtual void finalize() {}
 
@@ -29,24 +30,13 @@ namespace dspsim
         /*
             Properties
         */
-        ContextPtr context() const { return _context; }
+        Context *context() const { return _context; }
+        const std::string &name() const { return _name; }
         size_t id() const { return _id; }
         virtual const std::string kind() const { return "model"; }
 
-        const std::string &name() const { return _name; }
-        void set_name(const std::string &name) { _name = name; }
-
         const std::string hier_name() const { return _hier_name; }
         Model *parent() const { return _parent; }
-        // int parent_id() const { return _parent_id; }
-        // void set_parent_id(int parent_id) { _parent_id = parent_id; }
-
-        // /*
-        //     Methods
-        // */
-        // virtual void eval_step() = 0;
-        // virtual void eval_end_step() {}
-
         //
         virtual const std::string repr() const;
 
@@ -55,7 +45,7 @@ namespace dspsim
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
             // Register the model with the context.
-            m->context()->own_model(m);
+            m->context()->_own_model(m);
             return m;
         }
     };
