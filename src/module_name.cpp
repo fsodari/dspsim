@@ -25,4 +25,19 @@ namespace dspsim
         }
         _context->_active_module_name_stack.pop_back();
     }
+
+    const std::string &ModuleName::name() const
+    {
+        return _name;
+    }
+
+    ModuleName::operator const char *() const
+    {
+        return _name.c_str();
+    }
+
+    ModuleName::operator const std::string &() const
+    {
+        return _name;
+    }
 }

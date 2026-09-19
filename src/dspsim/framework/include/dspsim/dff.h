@@ -1,6 +1,6 @@
 #pragma once
 #include <dspsim/module.h>
-#include <dspsim/clock.h>
+#include <dspsim/port.h>
 
 namespace dspsim
 {

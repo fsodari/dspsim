@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <set>
-// #include <spdlog/spdlog.h>
+
 namespace spdlog
 {
     class logger;
@@ -18,12 +18,8 @@ namespace spdlog
 
 namespace dspsim
 {
-    // Forward declaration of Model class
-    // class Model;
-    // class Module;
-    // class ModuleName;
-    using ModelPtr = std::shared_ptr<Model>;
-    using ModulePtr = std::shared_ptr<Module>;
+    // using ModelPtr = std::shared_ptr<Model>;
+    // using ModulePtr = std::shared_ptr<Module>;
     using ContextPtr = std::shared_ptr<class Context>;
     /*
         Context contains a vector of all the models.
@@ -71,6 +67,7 @@ namespace dspsim
         std::deque<ModuleName *> _active_module_name_stack;
 
     private:
+        // Can't create context directly. Must use obtain() or create() to get global context.
         Context(const std::string &name, int id);
 
     public:
@@ -103,26 +100,26 @@ namespace dspsim
 
         // Properties
         // Context name. Initialized when created.
-        const std::string &name() const { return _name; }
+        const std::string &name() const;
 
         // Context id. Initialized when created.
-        int id() const { return _id; }
+        int id() const;
 
         // List of all registered models in the context.
-        const std::vector<Model *> &models() const { return _registered_models; }
+        const std::vector<Model *> &models() const;
 
         // List of all registered modules in the context.
-        const std::vector<Module *> &modules() const { return _modules; }
+        const std::vector<Module *> &modules() const;
 
         // Direct children of a model in the design hierarchy. Pass nullptr for the top-level (root) models.
         const std::vector<Model *> &children(Model *parent = nullptr) const;
 
         // Current simulation time.
-        uint64_t time() const { return _time; }
+        uint64_t time() const;
 
         // Time unit. Necessary for tracing.
-        const std::string &time_unit() const { return _time_unit; }
-        void set_time_unit(const std::string &time_unit) { _time_unit = time_unit; }
+        const std::string &time_unit() const;
+        void set_time_unit(const std::string &time_unit);
 
         //
         const std::string log_level() const;
@@ -143,23 +140,23 @@ namespace dspsim
             Useful in python if a design is constructed in a function and the context is returned.
         */
         void _own_model(ModelPtr model);
-        void _own_module(ModulePtr module) { _owned_modules.push_back(module); }
+        void _own_module(ModulePtr module);
 
         /*
             Schedule a model for evaluation in the next delta cycle.
         */
-        void _push_eval_stack(Model *model) { _eval_stack.push(model); }
+        void _push_eval_stack(Model *model);
 
         /*
             Schedule a time event. The attached module will be evaluated when the
             simulation reaches the specified time.
         */
-        void _push_time_event_stack(TimeEvent event) { _time_event_stack.push(event); }
+        void _push_time_event_stack(TimeEvent event);
 
         /*
             The current hierarchal module being constructed.
         */
-        Module *_active_module() const { return _active_module_stack.empty() ? nullptr : _active_module_stack.back(); }
+        Module *_active_module() const;
 
     private:
         /*
@@ -181,6 +178,10 @@ namespace dspsim
 
     class ContextFactory
     {
+    private:
+        int _next_context_id;
+        ContextPtr _active_context;
+
     public:
         ContextFactory();
 
@@ -190,10 +191,6 @@ namespace dspsim
         void reset();
         // Reset the global context, then obtain a new one.
         ContextPtr create(const std::string &name = "");
-
-    private:
-        int _next_context_id;
-        ContextPtr _active_context;
     };
 
     using ContextFactoryPtr = std::shared_ptr<ContextFactory>;

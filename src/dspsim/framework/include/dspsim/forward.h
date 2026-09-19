@@ -2,9 +2,10 @@
     Forward declarations of dspsim types.
 */
 #pragma once
+#include <memory>
 namespace dspsim
 {
-    class Context;
+    // class Context;
     class Model;
     class ModuleName;
     class Module;
@@ -16,4 +17,7 @@ namespace dspsim
     template <typename T>
     class Signal;
     class Clock;
+
+    using ModelPtr = std::shared_ptr<Model>;
+    using ModulePtr = std::shared_ptr<Module>;
 }

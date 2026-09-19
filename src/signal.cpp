@@ -1,6 +1,7 @@
 #include <dspsim/signal.h>
 #include <dspsim/port.h>
 #include <dspsim/module.h>
+#include <dspsim/event.h>
 #include <format>
 
 #include "internal.h"
@@ -8,22 +9,34 @@
 namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name)
-        : Model(name)
+        : Model(name, "signal")
     {
-        // context()->register_signal(this);
+    }
+
+    void SignalBase::_add_driver(PortBase *driver)
+    {
+        _drivers.push_back(driver);
+    }
+    void SignalBase::_add_subscriber(PortBase *subscriber)
+    {
+        _subscribers.push_back(subscriber);
     }
 
     SensitivityEvent &SignalBase::pos()
     {
-        return _posedge_subscribers;
+        return _posedge_event;
     }
     SensitivityEvent &SignalBase::neg()
     {
-        return _negedge_subscribers;
+        return _negedge_event;
+    }
+    SensitivityEvent &SignalBase::_change()
+    {
+        return _change_event;
     }
     SignalBase::operator SensitivityEvent &()
     {
-        return _changed_subscribers;
+        return _change();
     }
 
     template <typename T>
@@ -35,6 +48,7 @@ namespace dspsim
         _d = init;
         _q = init;
     }
+
     template <typename T>
     Signal<T> &Signal<T>::init(const T &value)
     {
@@ -44,8 +58,15 @@ namespace dspsim
     }
 
     template <typename T>
-    Signal<T>::~Signal()
+    int Signal<T>::width() const
     {
+        return _width;
+    }
+
+    template <typename T>
+    bool Signal<T>::is_signed() const
+    {
+        return _is_signed;
     }
 
     template <typename T>
@@ -61,6 +82,11 @@ namespace dspsim
     const T &Signal<T>::read() const
     {
         return _q;
+    }
+    template <typename T>
+    const T &Signal<T>::_read_d() const
+    {
+        return _d;
     }
 
     template <typename T>
@@ -101,19 +127,19 @@ namespace dspsim
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)
         {
-            for (auto module : _posedge_subscribers)
+            for (auto module : pos().subscribers())
             {
                 context()->_push_eval_stack(module);
             }
         }
         else if (event == EventType::Negedge)
         {
-            for (auto module : _negedge_subscribers)
+            for (auto module : neg().subscribers())
             {
                 context()->_push_eval_stack(module);
             }
         }
-        for (auto module : _changed_subscribers)
+        for (auto module : _change().subscribers())
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying changed subscriber: {}", name(), module->name());
             context()->_push_eval_stack(module);

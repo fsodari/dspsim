@@ -1,6 +1,8 @@
 #include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
+#include <dspsim/event.h>
+
 #include "timestrings.h"
 #include <format>
 #include <iostream>
@@ -11,12 +13,6 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 namespace dspsim
 {
-    // // Global context pointer. Models will self-register with the global context.
-    // static ContextPtr _global_context = nullptr;
-
-    // // Initialize each new context with a new id.
-    // static int next_context_id = 0;
-
     Context::Context(const std::string &name, int id)
         : _name(name),
           _id(id),
@@ -134,12 +130,44 @@ namespace dspsim
             print_hierarchy(child, depth + 1);
         }
     }
+    const std::string &Context::name() const
+    {
+        return _name;
+    }
+    int Context::id() const
+    {
+        return _id;
+    }
+
+    const std::vector<Model *> &Context::models() const
+    {
+        return _registered_models;
+    }
+
+    const std::vector<Module *> &Context::modules() const
+    {
+        return _modules;
+    }
 
     const std::vector<Model *> &Context::children(Model *parent) const
     {
         static const std::vector<Model *> empty;
         auto it = _children.find(parent);
         return it != _children.end() ? it->second : empty;
+    }
+
+    uint64_t Context::time() const
+    {
+        return _time;
+    }
+
+    const std::string &Context::time_unit() const
+    {
+        return _time_unit;
+    }
+    void Context::set_time_unit(const std::string &time_unit)
+    {
+        _time_unit = time_unit;
     }
 
     const std::string Context::log_level() const
@@ -187,6 +215,26 @@ namespace dspsim
     void Context::_own_model(ModelPtr model)
     {
         _owned_models.push_back(model);
+    }
+
+    void Context::_own_module(ModulePtr module)
+    {
+        _owned_modules.push_back(module);
+    }
+
+    void Context::_push_eval_stack(Model *model)
+    {
+        _eval_stack.push(model);
+    }
+
+    void Context::_push_time_event_stack(TimeEvent event)
+    {
+        _time_event_stack.push(event);
+    }
+
+    Module *Context::_active_module() const
+    {
+        return _active_module_stack.empty() ? nullptr : _active_module_stack.back();
     }
 
     const std::string Context::_current_hierarchy() const

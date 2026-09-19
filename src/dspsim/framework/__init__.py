@@ -163,7 +163,7 @@ class Module(_Module):
         cls.__init__ = __new_init__
 
     def __init__(self, name: str):
-        # Have the context own the model.
+        # Have the context own the module.
         self.context.own_module(self)
 
 

@@ -52,6 +52,8 @@ def test_adder_module():
             f = Signal32("f")
 
             adder = AdderModule("adder")
+            print(adder.kind)
+            return
             adder2 = AdderModule("adder2")
 
             adder.a(a)

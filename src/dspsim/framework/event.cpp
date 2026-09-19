@@ -4,22 +4,26 @@
 namespace dspsim
 {
     TimeEvent::TimeEvent(Model *subscriber, uint64_t time_update)
-        : _subscriber(subscriber), _time_update(time_update)
+        : subscriber(subscriber), time_update(time_update)
     {
     }
 
     bool TimeEvent::operator<(const TimeEvent &other) const
     {
-        return _time_update < other._time_update;
+        return time_update < other.time_update;
+    }
+    bool TimeEvent::operator>(const TimeEvent &other) const
+    {
+        return time_update > other.time_update;
     }
 
-    Model *TimeEvent::model() const
+    // SensitivityEvent member function definitions
+    std::vector<Module *> &SensitivityEvent::subscribers()
     {
-        return _subscriber;
+        return _subscribers;
     }
-
-    uint64_t TimeEvent::time_update() const
+    void SensitivityEvent::add_subscriber(Module *module)
     {
-        return _time_update;
+        _subscribers.push_back(module);
     }
 } // namespace dspsim

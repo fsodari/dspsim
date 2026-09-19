@@ -16,27 +16,29 @@ namespace dspsim
         std::string _hier_name;
         Model *_parent;
 
+    protected:
+        std::string _kind;
+
     public:
-        Model(const std::string &name);
+        Model(const std::string &name, const std::string &kind);
 
         // Methods.
         // Called during elaboration.
-        virtual void finalize() {}
+        virtual void finalize();
 
         // Simulation methods.
-        virtual void eval() {}
-        virtual void update() {}
+        virtual void eval();
+        virtual void update();
 
         /*
             Properties
         */
-        Context *context() const { return _context; }
-        const std::string &name() const { return _name; }
-        size_t id() const { return _id; }
-        virtual const std::string kind() const { return "model"; }
-
-        const std::string hier_name() const { return _hier_name; }
-        Model *parent() const { return _parent; }
+        Context *context() const;
+        size_t id() const;
+        const std::string &name() const;
+        const std::string &kind() const;
+        const std::string hier_name() const;
+        Model *parent() const;
         //
         virtual const std::string repr() const;
 

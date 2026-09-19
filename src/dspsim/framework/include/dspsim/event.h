@@ -16,16 +16,23 @@ namespace dspsim
     class TimeEvent
     {
     public:
-        TimeEvent(Model *subscriber, uint64_t time_update)
-            : subscriber(subscriber), time_update(time_update)
-        {
-        }
-        bool operator<(const TimeEvent &other) const { return time_update < other.time_update; }
-        bool operator>(const TimeEvent &other) const { return time_update > other.time_update; }
-
         Model *subscriber;
         uint64_t time_update;
+
+    public:
+        TimeEvent(Model *subscriber, uint64_t time_update);
+        bool operator<(const TimeEvent &other) const;
+        bool operator>(const TimeEvent &other) const;
     };
 
-    using SensitivityEvent = std::vector<Module *>;
+    class SensitivityEvent
+    {
+    private:
+        std::vector<Module *> _subscribers;
+
+    public:
+        std::vector<Module *> &subscribers();
+        void add_subscriber(Module *module);
+    };
+    // using SensitivityEvent = std::vector<Module *>;
 } // namespace dspsim

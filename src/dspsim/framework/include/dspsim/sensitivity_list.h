@@ -1,11 +1,10 @@
 #pragma once
-#include <dspsim/forward.h>
+#include <dspsim/context.h>
 #include <dspsim/event.h>
 #include <vector>
 
 namespace dspsim
 {
-    class Module;
     class SensitivityList
     {
     private:
@@ -14,10 +13,9 @@ namespace dspsim
 
     public:
         SensitivityList(Module *module);
-        void add_event(SensitivityEvent &subscribers);
+        Module *module() const;
 
-        Module *module() const { return _module; }
-
+        void add_event(SensitivityEvent &event);
         SensitivityList &operator<<(SensitivityEvent &event);
     };
 }

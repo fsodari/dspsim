@@ -28,12 +28,6 @@ TEST_CASE("test_dff")
 
     ctx->elaborate();
 
-    for (auto &subscriber : clk._subscribers)
-    {
-        ctx->logger->debug("clk Subscriber: {}", subscriber->name());
-    }
-    // return 0;
-
     ctx->run(20);
     for (int i = 1; i < 3; i++)
     {

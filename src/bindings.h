@@ -13,6 +13,10 @@
 // bindings is only included by _framework.cpp so this shouldn't pollute the namespace.
 namespace nb = nanobind;
 
+/**
+ * Make the SensitivityEvent type opaque to nanobind.
+ * This prevents nanobind from trying to automatically wrap the SensitivityEvent type as an immutable list.
+ */
 NB_MAKE_OPAQUE(dspsim::SensitivityEvent);
 
 namespace dspsim
@@ -60,11 +64,6 @@ namespace dspsim
         void eval() override
         {
             NB_OVERRIDE(eval);
-        }
-
-        const std::string kind() const override
-        {
-            NB_OVERRIDE(kind);
         }
 
         void update() override

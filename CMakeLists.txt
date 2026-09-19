@@ -17,8 +17,21 @@ endif()
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-# spdlog
-find_package(spdlog REQUIRED)
+# Force all code to be position independent
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include(FetchContent)
+
+# spdlog. Use fetch content if not available
+find_package(spdlog QUIET)
+if (NOT spdlog_FOUND)
+    set(SPDLOG_BUILD_SHARED OFF CACHE)
+    set(SPDLOG_BUILD_PIC ON CACHE)
+    FetchContentDeclare(
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.17.0
+    )
+    FetchContent_MakeAvailable(spdlog)
+endif()
 
 # Windows requires the Python SABIModule component.
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)

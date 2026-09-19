@@ -9,10 +9,15 @@ namespace dspsim
     {
     }
 
-    void SensitivityList::add_event(SensitivityEvent &subscribers)
+    Module *SensitivityList::module() const
+    {
+        return _module;
+    }
+
+    void SensitivityList::add_event(SensitivityEvent &event)
     {
         _context->logger->debug("Adding event for module: {}", _module->name());
-        subscribers.push_back(_module);
+        event.add_subscriber(_module);
     }
     SensitivityList &SensitivityList::operator<<(SensitivityEvent &event)
     {

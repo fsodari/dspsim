@@ -51,7 +51,7 @@ namespace dspsim
                 tracep = std::make_unique<TraceType>();
 
                 tracep->set_time_unit(context()->time_unit().c_str());
-                tracep->set_time_resolution(context()->time_precision().c_str());
+                tracep->set_time_resolution(context()->time_unit().c_str());
 
                 top->trace(tracep.get(), levels, options);
                 tracep->open(trace_path.string().c_str());
@@ -84,11 +84,11 @@ namespace dspsim
             top = std::make_unique<V>(vcontext.get());
         }
 
-        void eval_step() override
+        void eval() override
         {
             top->eval_step();
         }
-        void eval_end_step() override
+        void update() override
         {
             top->eval_end_step();
         }
