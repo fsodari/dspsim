@@ -11,6 +11,7 @@ namespace dspsim
     {
     public:
         SensitivityList always;
+        SensitivityList &always_ref() { return always; }
 
         Module(ModuleName &name);
         Module();

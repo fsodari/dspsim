@@ -12,6 +12,9 @@
 
 // bindings is only included by _framework.cpp so this shouldn't pollute the namespace.
 namespace nb = nanobind;
+
+NB_MAKE_OPAQUE(dspsim::SensitivityEvent);
+
 namespace dspsim
 {
     // Base Model Object class. Able to be extended, but modules should really be used.
@@ -85,7 +88,7 @@ namespace dspsim
             .def("elaborate", &Context::elaborate)
             .def("eval", &Context::eval)
             .def("run", &Context::run, nb::arg("time_inc") = 0)
-            .def("print_hierarchy", &Context::print_hierarchy, nb::arg("parent").none(), nb::arg("depth") = 0)
+            .def("print_hierarchy", &Context::print_hierarchy, nb::arg("parent").none() = nullptr, nb::arg("depth") = 0)
             .def("children", &Context::children, nb::arg("parent").none())
 
             // Properties
@@ -149,10 +152,11 @@ namespace dspsim
     {
         return nb::class_<TimeEvent>(m, name);
     }
-    // static inline auto bind_sensitivity_event(nb::module_ &m, const char *name)
-    // {
-    //     return nb::class_<SensitivityEvent>(m, name);
-    // }
+
+    static inline auto bind_sensitivity_event(nb::module_ &m, const char *name)
+    {
+        return nb::class_<SensitivityEvent>(m, name);
+    }
 
     template <typename T>
     static inline auto bind_signal_class(nb::module_ &m, const char *name)
@@ -172,25 +176,30 @@ namespace dspsim
             .def_prop_rw("value", &Signal<T>::read, &Signal<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Signal<T>::_read_d, &Signal<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Signal<T>::read)
-            .def_prop_ro("pos", &Signal<T>::pos)
-            .def_prop_ro("neg", &Signal<T>::neg)
+            .def("pos", &Signal<T>::pos, nb::rv_policy::reference_internal)
+            .def("neg", &Signal<T>::neg, nb::rv_policy::reference_internal)
             // Cast changed operator? Allow passing without this.
-            .def_prop_ro("changed", &Signal<T>::operator SensitivityEvent &);
+            .def("change", &Signal<T>::operator SensitivityEvent &, nb::rv_policy::reference_internal);
+    }
+
+    static inline auto bind_input_base(nb::module_ &m, const char *name)
+    {
+        return nb::class_<InputBase, Model>(m, name)
+            .def("pos", &InputBase::pos, nb::rv_policy::reference_internal)
+            .def("neg", &InputBase::neg, nb::rv_policy::reference_internal)
+            .def("change", &InputBase::change, nb::rv_policy::reference_internal);
     }
 
     template <typename T>
     static inline auto bind_input(nb::module_ &m, const char *name)
     {
-        return nb::class_<Input<T>, Model>(m, name)
+        return nb::class_<Input<T>, InputBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &>(), nb::arg("name"))
             // Methods
             .def("bind", &Input<T>::_bind_signal, nb::arg("signal"))
             .def("bind", &Input<T>::_bind_port, nb::arg("input"))
             .def("read", &Input<T>::read)
-            .def_prop_ro("pos", &Input<T>::pos)
-            .def_prop_ro("neg", &Input<T>::neg)
-            .def_prop_ro("changed", &Input<T>::operator SensitivityEvent &)
             .def_prop_ro("value", &Input<T>::read)
             .def_prop_ro("q", &Input<T>::read);
     }
@@ -214,8 +223,27 @@ namespace dspsim
     {
         return nb::class_<SensitivityList>(m, name)
             .def(nb::init<Module *>(), nb::arg("module"))
-            .def("add_event", &SensitivityList::add_event);
+            .def("add_event", &SensitivityList::add_event)
+            .def_prop_ro("module", &SensitivityList::module);
         // Function to add events using *args
+    }
+    static inline auto _module_always_func(Module &self, nb::args args)
+    {
+        for (auto arg : args)
+        {
+            if (nb::isinstance<SensitivityEvent>(arg))
+            {
+                self.always.add_event(nb::cast<SensitivityEvent &>(arg));
+            }
+            else if (nb::isinstance<InputBase>(arg))
+            {
+                self.always.add_event(nb::cast<InputBase &>(arg).change());
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported argument type for SensitivityList");
+            }
+        }
     }
 
     static inline auto bind_module_name(nb::module_ &m, const char *name)
@@ -234,6 +262,9 @@ namespace dspsim
             .def("finalize", &Module::finalize)
             .def("eval", &Module::eval)
             .def("update", &Module::update)
+            // Always
+            .def_prop_ro("_always", &Module::always_ref, nb::rv_policy::reference_internal)
+            .def("always", &_module_always_func)
             // Properties
             .def_prop_ro("context", &Module::context)
             .def_prop_ro("name", &Module::name)

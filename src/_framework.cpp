@@ -1,3 +1,5 @@
+
+
 #include "bindings.h"
 
 using namespace dspsim;
@@ -14,8 +16,8 @@ NB_MODULE(_framework, m)
     bind_model(m, "Model");
     // Bind TimeEvent
     bind_time_event(m, "TimeEvent");
-    // // Bind SensitivityEvent
-    // bind_sensitivity_event(m, "SensitivityEvent");
+    // Bind SensitivityEvent
+    bind_sensitivity_event(m, "SensitivityEvent");
 
     // Bind Signals
     bind_signal_class<uint8_t>(m, "Signal8");
@@ -24,6 +26,7 @@ NB_MODULE(_framework, m)
     bind_signal_class<uint64_t>(m, "Signal64");
 
     // Bind Ports
+    bind_input_base(m, "InputBase");
     bind_input<uint8_t>(m, "Input8");
     bind_input<uint16_t>(m, "Input16");
     bind_input<uint32_t>(m, "Input32");

@@ -31,7 +31,15 @@ from dspsim.framework._framework import (
     Dff16,
     Dff32,
     Dff64,
+    Input8,
+    Input16,
+    Input32,
+    Input64,
     ModuleName,
+    Output8,
+    Output16,
+    Output32,
+    Output64,
     Signal8,
     Signal16,
     Signal32,
@@ -94,6 +102,7 @@ class Context(_Context):
             yield
         finally:
             # Elaborate at end of construction
+            print("elaborating context")
             self.elaborate()
             # Release the global context lock after elaboration
             self.release()
@@ -121,8 +130,8 @@ class Module(_Module):
     Python wrapper for the C++ Module class.
     """
 
-    def __init__(self, name: str):
-        super().__init__(ModuleName(name))
+    def __init__(self, name: ModuleName):
+        super().__init__(name)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
@@ -145,7 +154,16 @@ __all__ = [
     "Dff16",
     "Dff32",
     "Dff64",
+    "Input8",
+    "Input16",
+    "Input32",
+    "Input64",
     "Model",
+    "ModuleName",
+    "Output8",
+    "Output16",
+    "Output32",
+    "Output64",
     "Signal8",
     "Signal16",
     "Signal32",

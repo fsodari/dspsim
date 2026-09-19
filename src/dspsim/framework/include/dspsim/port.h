@@ -2,6 +2,7 @@
 #include <dspsim/signal.h>
 #include <dspsim/forward.h>
 #include <dspsim/event.h>
+#include <dspsim/sensitivity_list.h>
 #include <memory>
 #include <vector>
 
@@ -26,6 +27,8 @@ namespace dspsim
         // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
         SensitivityEvent &pos();
         SensitivityEvent &neg();
+        SensitivityEvent &change();
+
         // Cast this class as std::vector<Module *> when using in a sensitivity list.
         operator SensitivityEvent &();
 
@@ -42,13 +45,13 @@ namespace dspsim
         Input(const std::string &name);
         Input(const std::string &name, Signal<T> &signal);
         operator Signal<T> &();
-        virtual void bind(Signal<T> &signal);
-        virtual void bind(Input<T> &port);
+        void bind(Signal<T> &signal);
+        void bind(Input<T> &port);
 
         // Explicit functions for python bindings
         void _bind_signal(Signal<T> &signal) { bind(signal); }
         void _bind_port(Input<T> &port) { bind(port); }
-        virtual void finalize() override;
+        void finalize() override;
 
         const T &read() const;
 
@@ -80,8 +83,8 @@ namespace dspsim
         // Explicit functions for python bindings
         void _bind_signal(Signal<T> &signal) { bind(signal); }
         void _bind_port(Output<T> &port) { bind(port); }
-        virtual void _notify(EventType event) override;
-        virtual void finalize() override;
+        void _notify(EventType event) override;
+        void finalize() override;
         void write(const T &value);
 
         const T &_read_d() const { return _bound_tsignal->_read_d(); }

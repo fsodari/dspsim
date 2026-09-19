@@ -16,6 +16,8 @@ namespace dspsim
         SensitivityList(Module *module);
         void add_event(SensitivityEvent &subscribers);
 
+        Module *module() const { return _module; }
+
         SensitivityList &operator<<(SensitivityEvent &event);
     };
 }

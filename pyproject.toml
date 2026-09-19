@@ -50,6 +50,7 @@ minimum-version = "build-system.requires"
 build-dir = "build"
 wheel.packages = ["src/dspsim"]
 build.targets=["_framework"]
+cmake.args = ["-DLOG_TRACE=ON"]
 # wheel.install-dir = "dspsim/framework"
 
 [tool.uv]

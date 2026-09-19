@@ -24,6 +24,10 @@ namespace dspsim
     {
         return _negedge_subscribers;
     }
+    SensitivityEvent &InputBase::change()
+    {
+        return _changed_subscribers;
+    }
     InputBase::operator SensitivityEvent &()
     {
         return _changed_subscribers;
