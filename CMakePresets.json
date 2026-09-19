@@ -10,7 +10,6 @@
             "name": "default",
             "displayName": "Default",
             "description": "Configure the project for a standard local Ninja build.",
-            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",

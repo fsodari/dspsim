@@ -28,8 +28,7 @@ target_compile_options(dspsim-core PUBLIC
     
     # MSVC syntax: /weNNNN (where NNNN is the 4-digit warning number)
     $<$<CXX_COMPILER_ID:MSVC>:
-        /W4;
-        /C5038>
+        /W2;>
 )
 
 target_link_libraries(dspsim-core PUBLIC spdlog::spdlog)

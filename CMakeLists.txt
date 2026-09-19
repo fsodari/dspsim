@@ -60,14 +60,14 @@ set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
 set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
 set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
 
-# Set warning level
-if (MSVC)
-    # warning level 4
-    add_compile_options(/W2)
-else()
-    # additional warnings
-    add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
-endif()
+# # Set warning level
+# if (MSVC)
+#     # warning level 4
+#     add_compile_options(/W2)
+# else()
+#     # additional warnings
+#     add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
+# endif()
 
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})
