@@ -29,8 +29,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(FetchContent)
 
 # spdlog. Use fetch content if not available
-# find_package(spdlog QUIET)
-set(spdlog_FOUND FALSE)
+find_package(spdlog QUIET)
 if (NOT spdlog_FOUND)
     set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build spdlog as shared library")
     set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build spdlog with position independent code")
