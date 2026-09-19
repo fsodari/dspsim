@@ -29,11 +29,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(FetchContent)
 
 # spdlog. Use fetch content if not available
-find_package(spdlog QUIET)
+# find_package(spdlog QUIET)
+set(spdlog_FOUND FALSE)
 if (NOT spdlog_FOUND)
-    set(SPDLOG_BUILD_SHARED OFF CACHE)
-    set(SPDLOG_BUILD_PIC ON CACHE)
+    set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build spdlog as shared library")
+    set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build spdlog with position independent code")
     FetchContent_Declare(
+        spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
         GIT_TAG v1.17.0
     )

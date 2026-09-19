@@ -31,7 +31,7 @@ target_compile_options(dspsim-core PUBLIC
         /W2;>
 )
 
-target_link_libraries(dspsim-core PUBLIC spdlog::spdlog)
+target_link_libraries(dspsim-core PUBLIC $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
 
 # Include dirs
 target_include_directories(dspsim-core PUBLIC
