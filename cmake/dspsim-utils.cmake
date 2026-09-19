@@ -19,13 +19,12 @@ endfunction()
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.
+    set(stubs_dir ${output_dir})
     if (SKBUILD_STATE STREQUAL "editable")
         # VSCode typing in editable mode works with this.
-        set(stubs_dir ${output_dir}-stubs)
         set(marker_file ${stubs_dir}/__init__.pyi)
     else()
         # Otherwise, install stubs into the package
-        set(stubs_dir ${output_dir})
         set(marker_file ${stubs_dir}/py.typed)
     endif()
 

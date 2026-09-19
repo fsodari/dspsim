@@ -264,7 +264,7 @@ namespace dspsim
             .def("update", &Module::update)
             // Always
             .def_prop_ro("_always", &Module::always_ref, nb::rv_policy::reference_internal)
-            .def("always", &_module_always_func)
+            .def("always", &_module_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase) -> None: ..."))
             // Properties
             .def_prop_ro("context", &Module::context)
             .def_prop_ro("name", &Module::name)

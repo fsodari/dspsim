@@ -1,4 +1,5 @@
 #include <dspsim/module.h>
+#include <spdlog/spdlog.h>
 
 namespace dspsim
 {
@@ -8,6 +9,7 @@ namespace dspsim
     }
     Module::Module(ModuleName &name) : Model(name.name()), always(this)
     {
+        SPDLOG_LOGGER_TRACE(context()->logger, "Constructing Module with name = {}", name.name());
         context()->_active_module_stack.push_back(this);
     }
 

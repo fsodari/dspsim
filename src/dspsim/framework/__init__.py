@@ -22,6 +22,7 @@ def version() -> str:
 
 
 import atexit
+import functools
 import threading
 from contextlib import contextmanager
 
@@ -97,13 +98,18 @@ class Context(_Context):
     def construct(self):
         """
         Release the global context once all models have been instantiated in the context.
+        Calls elaborate() at the end of construction.
         """
         try:
             yield
-        finally:
+        except Exception as e:
+            print(f"Exception occurred during context construction: {e}")
+            raise
+        else:
             # Elaborate at end of construction
             print("elaborating context")
             self.elaborate()
+        finally:
             # Release the global context lock after elaboration
             self.release()
 
@@ -128,10 +134,36 @@ class Model(_Model):
 class Module(_Module):
     """
     Python wrapper for the C++ Module class.
+
+    Initialization order:
+        - Subclass __init__ is replaced with new_init. new_init called.
+        - new_init calls _Module __init__
+        - Subclass calls Module.__init__ with super().__init__
+        - Subclass __init__ completes.
+        - new_init completes.
+
+    This is done so the subclass doesn't deal with ModuleName directly.
     """
 
-    def __init__(self, name: ModuleName):
-        super().__init__(name)
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        original_init = cls.__init__
+
+        @functools.wraps(original_init)
+        def __new_init__(self, name: str):
+            # Get a new ModuleName instance for the module.
+            _name = ModuleName(name)
+
+            # Calls _Module.__init__
+            super().__init__(_name)
+            original_init(self, name)
+            # Deleting _name is important to change the context's active module.
+            del _name
+
+        cls.__init__ = __new_init__
+
+    def __init__(self, name: str):
+        pass
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
