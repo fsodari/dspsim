@@ -33,7 +33,7 @@ find_package(spdlog QUIET)
 if (NOT spdlog_FOUND)
     set(SPDLOG_BUILD_SHARED OFF CACHE)
     set(SPDLOG_BUILD_PIC ON CACHE)
-    FetchContentDeclare(
+    FetchContent_Declare(
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
         GIT_TAG v1.17.0
     )
