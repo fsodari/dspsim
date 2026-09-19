@@ -13,6 +13,10 @@ add_library(dspsim-core STATIC
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+if(${LOG_TRACE})
+    target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+endif()
+
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.
 target_compile_options(dspsim-core PUBLIC

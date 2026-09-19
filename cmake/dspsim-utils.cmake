@@ -16,6 +16,17 @@ function(dspsim_generate pyproject_path outdir)
     endif()
 endfunction()
 
+# Add nanobind module usind dspsim settings
+function(dspsim_add_nanobind_module name source_file)
+    nanobind_add_module(${name}
+        FREE_THREADED
+        NB_DOMAIN dspsim
+        BACKEND_MODULE nanobind_backend
+        NB_DOMAIN dspsim
+        ${source_file})
+    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+endfunction()
+
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.

@@ -14,6 +14,13 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Project configuration and setup
+
+# Build the _framework Python module
+option(BUILD_FRAMEWORK "Build the _framework Python module" ON)
+# Enable compile-time trace logging for spdlog if requested
+option(LOG_TRACE "Set the log level for spdlog" OFF)
+
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -62,30 +69,10 @@ else()
     add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
 endif()
 
-# Include dspsim utilities
-include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
-
-# Build dspsim core library
-set(LOG_TRACE OFF CACHE STRING "Set the log level for spdlog")
-
+# Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})
-if(${LOG_TRACE})
-    target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
-endif()
 
-# Build _framework module
-nanobind_add_module(_framework
-    FREE_THREADED
-    NB_DOMAIN dspsim
-    BACKEND_MODULE nanobind_backend
-    NB_DOMAIN dspsim
-    ${DSPSIM_SRC_DIR}/_framework.cpp)
-set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
-target_link_libraries(_framework PRIVATE dspsim::dspsim-core)
 
-# Install extension
-install(TARGETS _framework
-    LIBRARY DESTINATION ${DSPSIM_INSTALL_DIR})
 
 # Install core library and export targets.
 install(TARGETS dspsim-core
@@ -116,6 +103,19 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config-version.cmake
               ${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake
         DESTINATION ${INSTALL_CMAKEDIR})
+
+# Include dspsim utilities
+include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
+
+# Build _framework module
+dspsim_add_nanobind_module(_framework ${DSPSIM_SRC_DIR}/_framework.cpp)
+if (NOT BUILD_FRAMEWORK)
+    set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+# Install extension
+install(TARGETS _framework
+    LIBRARY DESTINATION ${DSPSIM_INSTALL_DIR})
 
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})

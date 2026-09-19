@@ -48,9 +48,12 @@ def test_model_initialization():
 
 def test_multithreaded_models():
     def s1():
-        with Context().obtain_lock() as context:
+        # Locks other threads from creating a new context.
+        with Context.obtain_lock() as context:
+            # When construct exits, the global context lock will be released.
             with context.construct():
                 models = [SomeModel(f"some_model_{i}") for i in range(30)]
+            # After this point, all threads can run in parallel.
             N = 20
             for _ in range(N):
                 context.eval()

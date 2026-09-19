@@ -10,6 +10,7 @@ wheelhouse
 # Virtual environments
 .venv
 
+CMakeUserPresets.json
 #
 .env
 .vscode
