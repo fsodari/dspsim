@@ -42,7 +42,6 @@ class AdderModule(Module):
 def test_adder_module():
     with Context() as ctx:
         with ctx.construct():
-            # ctx.log_level = "trace"
             a = Signal32("a")
             b = Signal32("b")
             c = Signal32("c")
@@ -52,8 +51,6 @@ def test_adder_module():
             f = Signal32("f")
 
             adder = AdderModule("adder")
-            print(adder.kind)
-            return
             adder2 = AdderModule("adder2")
 
             adder.a(a)
@@ -69,9 +66,7 @@ def test_adder_module():
         d.d = 7
         e.d = 9
         ctx.eval()
-        print(c.q)
         assert c.q == 8
-        print(f.q)
         assert f.q == 16
 
         a.d = 4
@@ -79,9 +74,7 @@ def test_adder_module():
         d.d = 10
         e.d = 12
         ctx.run(10)
-        print(c.q)
         assert c.q == 10
-        print(f.q)
         assert f.q == 22
 
         # ctx.print_hierarchy()

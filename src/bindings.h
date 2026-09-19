@@ -36,11 +36,6 @@ namespace dspsim
             NB_OVERRIDE(eval);
         }
 
-        const std::string kind() const override
-        {
-            NB_OVERRIDE(kind);
-        }
-
         void update() override
         {
             NB_OVERRIDE(update);
@@ -129,8 +124,9 @@ namespace dspsim
     {
         // Bind the Model class
         return nb::class_<Model, PyModel>(m, name)
-            .def(nb::init<const std::string &>(),
-                 nb::arg("name"))
+            .def(nb::init<const std::string &, const std::string &>(),
+                 nb::arg("name"),
+                 nb::arg("kind") = "model")
             // Methods.
             .def("finalize", &Model::finalize)
             .def("eval", &Model::eval)
@@ -186,8 +182,8 @@ namespace dspsim
     {
         return nb::class_<InputBase, Model>(m, name)
             .def("pos", &InputBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &InputBase::neg, nb::rv_policy::reference_internal)
-            .def("change", &InputBase::change, nb::rv_policy::reference_internal);
+            .def("neg", &InputBase::neg, nb::rv_policy::reference_internal);
+        // .def("change", &InputBase::_change, nb::rv_policy::reference_internal);
     }
 
     template <typename T>
@@ -241,7 +237,7 @@ namespace dspsim
             }
             else if (nb::isinstance<InputBase>(arg))
             {
-                self.always.add_event(nb::cast<InputBase &>(arg).change());
+                self.always.add_event(nb::cast<InputBase &>(arg)._change());
             }
             else
             {
@@ -267,7 +263,7 @@ namespace dspsim
             .def("eval", &Module::eval)
             .def("update", &Module::update)
             // Always
-            .def_prop_ro("_always", &Module::always_ref, nb::rv_policy::reference_internal)
+            .def_prop_ro("_always", &Module::_always_ref, nb::rv_policy::reference_internal)
             .def("always", &_module_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase) -> None: ..."))
             // Properties
             .def_prop_ro("context", &Module::context)

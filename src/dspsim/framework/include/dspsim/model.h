@@ -20,7 +20,7 @@ namespace dspsim
         std::string _kind;
 
     public:
-        Model(const std::string &name, const std::string &kind);
+        Model(const std::string &name, const std::string &kind = "model");
 
         // Methods.
         // Called during elaboration.

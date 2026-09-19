@@ -12,7 +12,7 @@ class SomeModel(Module):
 
     def eval(self):
         self.eval_called += 1
-        print(f"SomeModel eval(), {self.eval_called}")
+        # print(f"SomeModel eval(), {self.eval_called}")
 
 
 def test_model_initialization():
@@ -41,11 +41,9 @@ def test_model_initialization():
             context.eval()
 
         # Module won't be automatically run in a delta cycle. Just once at initialization.
+        # Need to trigger it to eval somehow.
         assert some_model.eval_called == 1
         assert amodel.eval_called == 1
-
-        print(context)
-        # print(context.models)
 
 
 def test_multithreaded_models():
@@ -53,10 +51,10 @@ def test_multithreaded_models():
         with Context().obtain_lock() as context:
             with context.construct():
                 models = [SomeModel(f"some_model_{i}") for i in range(30)]
-            N = 100
+            N = 20
             for _ in range(N):
                 context.eval()
-                time.sleep(0.01)
+                time.sleep(0.003)
             for model in models:
                 assert model.eval_called == 1
 

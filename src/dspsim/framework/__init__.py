@@ -107,7 +107,6 @@ class Context(_Context):
             raise
         else:
             # Elaborate at end of construction
-            print("elaborating context")
             self.elaborate()
         finally:
             # Release the global context lock after elaboration
@@ -119,8 +118,8 @@ class Model(_Model):
     Use Python models in a simulation. Subclasses of this class MUST call super().__init__() in their constructor.
     """
 
-    def __init__(self, kind: str = "model"):
-        super().__init__(kind)
+    def __init__(self, name: str, kind: str = "model"):
+        super().__init__(name, kind)
         # Register the model with its context.
         self.context.own_model(self)
 

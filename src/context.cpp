@@ -21,7 +21,7 @@ namespace dspsim
           _time_unit("1ns")
     {
         this->logger = spdlog::stdout_color_mt(_name);
-        logger->set_level(spdlog::level::debug);
+        logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
     }
 
