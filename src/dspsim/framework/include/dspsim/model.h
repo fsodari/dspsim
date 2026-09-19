@@ -9,27 +9,36 @@ namespace dspsim
     {
         friend class Context;
 
+    private:
+        Context *_context;
+        size_t _id;
+        std::string _name;
+        std::string _hier_name;
+        Model *_parent;
+
+    protected:
+        std::string _kind;
+
     public:
-        Model(const std::string &kind = "model", const std::string &name = "");
+        Model(const std::string &name, const std::string &kind = "model");
+
+        // Methods.
+        // Called during elaboration.
+        virtual void finalize();
+
+        // Simulation methods.
+        virtual void eval();
+        virtual void update();
 
         /*
             Properties
         */
-        ContextPtr context() const { return _context; }
-        int id() const { return _id; }
-        const std::string &kind() const { return _kind; }
-        const std::string &name() const { return _name; }
-        void set_name(const std::string &name) { _name = name; }
-
-        int parent_id() const { return _parent_id; }
-        void set_parent_id(int parent_id) { _parent_id = parent_id; }
-
-        /*
-            Methods
-        */
-        virtual void eval_step() = 0;
-        virtual void eval_end_step() {}
-
+        Context *context() const;
+        size_t id() const;
+        const std::string &name() const;
+        const std::string &kind() const;
+        const std::string hier_name() const;
+        Model *parent() const;
         //
         virtual const std::string repr() const;
 
@@ -38,18 +47,9 @@ namespace dspsim
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
             // Register the model with the context.
-            m->context()->register_model(m);
+            m->context()->_own_model(m);
             return m;
         }
-
-    private:
-        ContextPtr _context;
-        int _id;
-
-    protected:
-        std::string _kind;
-        std::string _name;
-        int _parent_id;
     };
 
 }

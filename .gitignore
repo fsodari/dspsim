@@ -10,6 +10,7 @@ wheelhouse
 # Virtual environments
 .venv
 
+CMakeUserPresets.json
 #
 .env
 .vscode
@@ -25,3 +26,5 @@ logs
 obj_dir/
 
 .proj_archive
+
+Testing/

@@ -1,54 +1,101 @@
 #pragma once
 #include <dspsim/signal.h>
+// #include <dspsim/forward.h>
+#include <dspsim/event.h>
+#include <dspsim/sensitivity_list.h>
 #include <memory>
+#include <vector>
 
 namespace dspsim
 {
-    template <typename T>
-    class Input : public Model
+    class PortBase : public Model
+    {
+    public:
+        PortBase(const std::string &name, const std::string &kind);
+        virtual void finalize() override = 0;
+        virtual void _notify(EventType event) = 0;
+    };
+
+    class InputBase : public PortBase
     {
     protected:
-        SignalPtr<T> sig;
-        T &top_sig;
+        SensitivityEvent _change_event;
+        SensitivityEvent _posedge_event;
+        SensitivityEvent _negedge_event;
 
     public:
-        Input(SignalPtr<T> _sig, T &_top_sig, int parent_id = -1, const std::string &name = "")
-            : Model("input", name), sig(_sig), top_sig(_top_sig)
-        {
-            top_sig = sig->d();
-            set_parent_id(parent_id);
-        }
-        void eval_step() override {}
-        void eval_end_step() override
-        {
-            top_sig = sig->d();
-        }
+        InputBase(const std::string &name);
+        virtual void finalize() override = 0;
+        virtual void _notify(EventType event) override;
+
+        // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
+        SensitivityEvent &pos();
+        SensitivityEvent &neg();
+        SensitivityEvent &_change();
+
+        // Cast this class as _change() event when using in a sensitivity list.
+        operator SensitivityEvent &();
     };
-    template <typename T>
-    using InputPtr = std::shared_ptr<Input<T>>;
 
     template <typename T>
-    class Output : public Model
+    class Input : public InputBase
     {
-    protected:
-        SignalPtr<T> sig;
-        T &top_sig;
+
+        Signal<T> *_bound_signal = nullptr;
+        std::vector<Input<T> *> _bound_ports;
 
     public:
-        Output(SignalPtr<T> _sig, T &top_sig, int parent_id = -1, const std::string &name = "") : Model("output", name), sig(_sig), top_sig(top_sig)
-        {
-            set_parent_id(parent_id);
-            // sig->bind_output(&top_sig);
-        }
+        Input(const std::string &name);
+        Input(const std::string &name, Signal<T> &signal);
+        void finalize() override;
 
-        void eval_step() override
-        {
-            sig->set_d(top_sig);
-        }
-        void eval_end_step() override
-        {
-        }
+    protected:
+        // Resolve a chain of port-to-port bindings down to the underlying signal.
+        void resolve();
+
+    public:
+        operator Signal<T> &();
+        void bind(Signal<T> &signal);
+        void bind(Input<T> &port);
+
+        // Explicit functions for python bindings
+        void _bind_signal(Signal<T> &signal);
+        void _bind_port(Input<T> &port);
+
+        const T &read() const;
     };
+
     template <typename T>
-    using OutputPtr = std::shared_ptr<Output<T>>;
+    class Output : public PortBase
+    {
+    private:
+        Signal<T> *_bound_signal = nullptr;
+        std::vector<Output<T> *> _bound_ports;
+
+    public:
+        Output(const std::string &name);
+        Output(const std::string &name, Signal<T> &signal);
+        void finalize() override;
+
+    protected:
+        // Resolve a chain of port-to-port bindings down to the underlying signal.
+        void resolve();
+
+    public:
+        void _notify(EventType event) override;
+
+        operator Signal<T> &();
+        void bind(Signal<T> &signal);
+        void bind(Output<T> &port);
+
+        // Explicit functions for python bindings
+        void _bind_signal(Signal<T> &signal);
+        void _bind_port(Output<T> &port);
+
+        void write(const T &value);
+
+        const T &_read_d() const;
+        const T &_read() const;
+    };
+
 }

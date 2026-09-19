@@ -1,2 +1,0 @@
---trace-vcd 
--GDW=24 -GUW=8 -GF=3.14 -GSTR_DEF='"default"' -GUSTR='"some string"' -GB=1 -GL=7 -GM=2 -GN=3 -GO=4 -GNEG=-3 

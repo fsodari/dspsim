@@ -2,7 +2,7 @@ from dspsim.framework import Context
 
 
 def test_context_obtain():
-    context = Context()
+    context = Context("some_context")
     assert context is not None
     assert isinstance(context, Context)
 

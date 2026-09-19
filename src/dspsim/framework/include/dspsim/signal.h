@@ -1,5 +1,7 @@
 #pragma once
+#include <dspsim/forward.h>
 #include <dspsim/model.h>
+#include <dspsim/port.h>
 
 namespace dspsim
 {
@@ -9,61 +11,69 @@ namespace dspsim
         static constexpr int value = sizeof(T) * 8;
     };
 
-    template <typename T>
-    class Signal;
+    class SignalBase : public Model
+    {
+    protected:
+        std::vector<PortBase *> _drivers;
+        std::vector<PortBase *> _subscribers;
+        SensitivityEvent _change_event;
+        SensitivityEvent _posedge_event;
+        SensitivityEvent _negedge_event;
+
+    public:
+        SignalBase(const std::string &name = "");
+
+        void _add_driver(PortBase *driver);
+        void _add_subscriber(PortBase *subscriber);
+
+        // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
+        // without needing an intermediate Port.
+        SensitivityEvent &pos();
+        SensitivityEvent &neg();
+        SensitivityEvent &_change();
+        operator SensitivityEvent &();
+    };
 
     template <typename T>
     using SignalPtr = std::shared_ptr<class Signal<T>>;
 
     template <typename T>
-    class Signal : public Model
+    class Signal : public SignalBase
     {
-    public:
-        Signal(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "");
-        ~Signal();
-
-        /*
-            Properties
-        */
-        int width() const { return _width; }
-        bool is_signed() const { return _is_signed; }
-
-        virtual const std::string repr() const override;
-
-        T d() const { return *_d; }
-        void set_d(T value) { *_d = value; }
-
-        T q() const { return *_q; }
-
-        /*
-            Methods
-        */
-        virtual void eval_step() override {}
-        virtual void eval_end_step() override;
-
-    protected:
-        void _sync()
-        {
-            *this->_q = *this->_d;
-        }
-
-    public:
-        /*
-            Static Methods
-        */
-        static auto create(int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false, const std::string &name = "")
-        {
-            return Model::create<Signal<T>>(width, init, is_signed, name);
-        }
-
     private:
         int _width;
         bool _is_signed;
         int _parent_id;
 
     protected:
-        T _d_local, _q_local;
-        T *_d, *_q;
+        T _d, _q;
+
+    public:
+        Signal(const std::string &name, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+
+        Signal<T> &init(const T &value);
+        /*
+            Properties
+        */
+        int width() const;
+        bool is_signed() const;
+
+        virtual const std::string repr() const override;
+
+        void write(const T &value);
+        const T &read() const;
+        // Used for python d property
+        const T &_read_d() const;
+
+        virtual void eval() override;
+        virtual void update() override;
+        /*
+            Static Methods
+        */
+        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        {
+            return Model::create<Signal<T>>(name, width, init, is_signed);
+        }
     };
 
     using Signal8 = Signal<uint8_t>;

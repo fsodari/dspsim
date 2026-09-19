@@ -3,18 +3,16 @@ requires = [
     "scikit-build-core>=1.0.3",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    # "verilator-dspsim>=5.52.0",
-    # "jinja2>=3.1.6",
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "dspsim"
-version = "0.5.2"
-description = "Add your description here"
+version = "0.5.3"
+description = "discrete-event simulation engine for HDL designs."
 readme = "README.md"
 authors = [
-    { name = "Frank" }
+    { name = "Frank Sodari" }
 ]
 classifiers = [
     "Intended Audience :: Developers",
@@ -37,22 +35,22 @@ dependencies = [
 verilator = [
     "verilator-dspsim>=5.52.0",
 ]
+# library = ["dspsim-library>="]
 
 [project.scripts]
-dspsim = "dspsim:main"
+dspsim = "dspsim.framework.cli:main"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
-build-dir = "build"
 wheel.packages = ["src/dspsim"]
-# wheel.install-dir = "dspsim/framework"
+cmake.args = ["--preset=default"]
 
 [tool.uv]
 cache-keys = [
     { file = "pyproject.toml" },
     { file = "src/**/*.{h,c,hpp,cpp,v,sv}" },
     { file = "CMakeLists.txt" },
-    {file = "src/CMakeLists.txt"}
+    { file = "src/CMakeLists.txt" }
 ]
 
 [dependency-groups]
@@ -65,21 +63,10 @@ dev = [
     "verilator-dspsim>=5.52.0",
 ]
 
-
-
-
-# Generate binding code for modules.
-
-#---------------------------------------------------------------------------------------------------#
-#---------------------------------------------------------------------------------------------------#
-
-
 ###
 ### Cibuildwheel config
 ###
 [tool.cibuildwheel]
-# This version seems to work best. Need to use gcc13 for local builds.
-# manylinux-x86_64-image = "manylinux_2_28"
 # 64 bit builds
 archs = ["auto64"]
 # Python3.12+. Older versions should work?
@@ -91,10 +78,6 @@ skip = ["*cp314t*","*-win_arm64", "*musllinux*"]
 test-command = "pytest {project}/tests"
 test-requires = "pytest verilator-dspsim"
 build-verbosity = 1
-
-# # Skip repair step only on Windows. Does this work?
-# [tool.cibuildwheel.windows]
-# repair-wheel-command = ""
 
 ###
 ###
