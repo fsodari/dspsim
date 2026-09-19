@@ -15,6 +15,7 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "BUILD_FRAMEWORK": "ON",
+                "BUILD_CPP_TESTS": "OFF",
                 "LOG_TRACE": "OFF"
             }
         },
@@ -28,6 +29,7 @@
                 "SKBUILD_PROJECT_VERSION": "0.0.0",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "BUILD_FRAMEWORK": "OFF",
+                "BUILD_CPP_TESTS": "ON",
                 "LOG_TRACE": "ON",
                 "Python_ROOT_DIR": "${sourceDir}/.venv",
                 "CMAKE_PREFIX_PATH": "${sourceDir}/.venv/lib/python3.14/site-packages"
@@ -37,10 +39,16 @@
             "name": "py_cmake_testing",
             "displayName": "Python CMake Testing",
             "description": "Test building the python project without using uv/python.",
-            "inherits": "cpp_testing",
+            "inherits": "default",
             "cacheVariables": {
+                "SKBUILD_PROJECT_NAME": "dspsim",
+                "SKBUILD_PROJECT_VERSION": "0.0.0",
                 "CMAKE_BUILD_TYPE": "Release",
-                "BUILD_FRAMEWORK": "ON"
+                "BUILD_FRAMEWORK": "ON",
+                "BUILD_CPP_TESTS": "OFF",
+                "LOG_TRACE": "ON",
+                "Python_ROOT_DIR": "${sourceDir}/.venv",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/.venv/lib/python3.14/site-packages"
             }
         }
     ],

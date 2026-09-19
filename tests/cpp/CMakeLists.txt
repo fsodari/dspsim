@@ -1,4 +1,6 @@
 find_package(Catch2 3 REQUIRED)
+message(STATUS "Found Catch2: ${Catch2_DIR}")
+
 add_executable(tests
     test_dff.cpp
     test_hierarchy.cpp

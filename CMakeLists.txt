@@ -21,6 +21,9 @@ option(BUILD_FRAMEWORK "Build the _framework Python module" ON)
 # Enable compile-time trace logging for spdlog if requested
 option(LOG_TRACE "Set the log level for spdlog" OFF)
 
+# Enable CPP Tetss
+option(BUILD_CPP_TESTS "Build the C++ tests" OFF)
+
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -122,5 +125,7 @@ install(TARGETS _framework
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
 #
-enable_testing()
-add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
+if (BUILD_CPP_TESTS)
+    enable_testing()
+    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
+endif()
