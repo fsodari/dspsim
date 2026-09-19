@@ -19,6 +19,9 @@ namespace dspsim
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
+        bool _posedge_flag;
+        bool _negedge_flag;
+        bool _changed_flag;
 
     public:
         SignalBase(const std::string &name = "");
@@ -32,6 +35,14 @@ namespace dspsim
         SensitivityEvent &neg();
         SensitivityEvent &_change();
         operator SensitivityEvent &();
+
+        // Set if there was a posedge event in the previous update cycle.
+        bool posedge() const;
+        // Set if there was a negedge event in the previous update cycle.
+        bool negedge() const;
+
+        bool changed() const;
+        void _clear_event_flag();
     };
 
     template <typename T>

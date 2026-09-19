@@ -2,6 +2,7 @@
 #include <dspsim/model.h>
 #include <dspsim/module.h>
 #include <dspsim/event.h>
+#include <dspsim/signal.h>
 
 #include "timestrings.h"
 #include <format>
@@ -18,7 +19,8 @@ namespace dspsim
           _id(id),
           _next_model_id(0),
           _time(0),
-          _time_unit("1ns")
+          _time_unit("1ns"),
+          _signal_event(false)
     {
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
@@ -66,6 +68,16 @@ namespace dspsim
     {
         int n_iter = 0;
 
+        // Reset signal event flag at the beginning of each delta cycle.
+        if (_signal_event)
+        {
+            _signal_event = false;
+            // Reset state of all signals.
+            for (auto signal : _signals)
+            {
+                signal->_clear_event_flag();
+            }
+        }
         // Run eval cycle.
         while (!_eval_stack.empty())
         {
@@ -210,6 +222,11 @@ namespace dspsim
         {
             _modules.push_back(module);
         }
+    }
+
+    void Context::_add_signal(SignalBase *signal)
+    {
+        _signals.push_back(signal);
     }
 
     void Context::_own_model(ModelPtr model)

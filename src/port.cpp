@@ -139,6 +139,25 @@ namespace dspsim
         return _bound_signal->read();
     }
 
+    // Set in the update cycle after a signal event. Derived from bound signal.
+    template <typename T>
+    bool Input<T>::posedge() const
+    {
+        return _bound_signal->posedge();
+    }
+
+    template <typename T>
+    bool Input<T>::negedge() const
+    {
+        return _bound_signal->negedge();
+    }
+
+    template <typename T>
+    bool Input<T>::changed() const
+    {
+        return _bound_signal->changed();
+    }
+
     //
     // OUTPUT<T>
     //

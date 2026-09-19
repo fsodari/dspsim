@@ -63,6 +63,11 @@ namespace dspsim
         void _bind_port(Input<T> &port);
 
         const T &read() const;
+
+        // Set in the update cycle after a signal event. Derived from bound signal.
+        bool posedge() const;
+        bool negedge() const;
+        bool changed() const;
     };
 
     template <typename T>

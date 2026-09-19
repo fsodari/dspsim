@@ -11,6 +11,7 @@ namespace dspsim
     SignalBase::SignalBase(const std::string &name)
         : Model(name, "signal")
     {
+        context()->_add_signal(this);
     }
 
     void SignalBase::_add_driver(PortBase *driver)
@@ -37,6 +38,25 @@ namespace dspsim
     SignalBase::operator SensitivityEvent &()
     {
         return _change();
+    }
+
+    bool SignalBase::posedge() const
+    {
+        return _posedge_flag;
+    }
+    bool SignalBase::negedge() const
+    {
+        return _negedge_flag;
+    }
+    bool SignalBase::changed() const
+    {
+        return _changed_flag;
+    }
+    void SignalBase::_clear_event_flag()
+    {
+        _posedge_flag = false;
+        _negedge_flag = false;
+        _changed_flag = false;
     }
 
     template <typename T>
@@ -106,14 +126,20 @@ namespace dspsim
         {
             return;
         }
+
         EventType event = EventType::Changed;
+        _changed_flag = true;
+        context()->_signal_event = true;
+
         if (_d && !_q)
         {
             event = EventType::Posedge;
+            _posedge_flag = true;
         }
         else if (!_d && _q)
         {
             event = EventType::Negedge;
+            _negedge_flag = true;
         }
 
         this->_q = this->_d;

@@ -44,6 +44,8 @@ namespace dspsim
         size_t _next_model_id;
         std::vector<Model *> _registered_models;
         std::vector<Module *> _modules;
+        std::vector<SignalBase *> _signals;
+
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
         std::vector<ModulePtr> _owned_modules;
@@ -65,6 +67,7 @@ namespace dspsim
         std::shared_ptr<spdlog::logger> logger;
         std::deque<Module *> _active_module_stack;
         std::deque<ModuleName *> _active_module_name_stack;
+        bool _signal_event;
 
     private:
         // Can't create context directly. Must use obtain() or create() to get global context.
@@ -134,6 +137,8 @@ namespace dspsim
 
         // Register a model with the context.
         void _add_model(Model *model);
+        // Register a signal with the context.
+        void _add_signal(SignalBase *signal);
 
         /*
             Take shared ownership of a model. The model will stay alive as long as the context does.
