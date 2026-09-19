@@ -106,6 +106,7 @@ namespace dspsim
 
             // Python module base class will need to explicitly call this.
             .def("own_model", &Context::_own_model)
+            .def("own_module", &Context::_own_module, nb::arg("module"))
 
             // Static Methods
             .def_static("obtain", &Context::obtain)
@@ -199,6 +200,8 @@ namespace dspsim
             // Methods
             .def("bind", &Input<T>::_bind_signal, nb::arg("signal"))
             .def("bind", &Input<T>::_bind_port, nb::arg("input"))
+            .def("__call__", &Input<T>::_bind_signal, nb::arg("signal"))
+            .def("__call__", &Input<T>::_bind_port, nb::arg("input"))
             .def("read", &Input<T>::read)
             .def_prop_ro("value", &Input<T>::read)
             .def_prop_ro("q", &Input<T>::read);
@@ -213,6 +216,8 @@ namespace dspsim
             // Methods
             .def("bind", &Output<T>::_bind_signal, nb::arg("signal"))
             .def("bind", &Output<T>::_bind_port, nb::arg("output"))
+            .def("__call__", &Output<T>::_bind_signal, nb::arg("signal"))
+            .def("__call__", &Output<T>::_bind_port, nb::arg("output"))
             .def("write", &Output<T>::write, nb::arg("value"))
             .def_prop_rw("value", &Output<T>::_read, &Output<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Output<T>::_read_d, &Output<T>::write, nb::arg("value"))

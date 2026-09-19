@@ -23,6 +23,7 @@ namespace dspsim
     // class Module;
     // class ModuleName;
     using ModelPtr = std::shared_ptr<Model>;
+    using ModulePtr = std::shared_ptr<Module>;
     using ContextPtr = std::shared_ptr<class Context>;
     /*
         Context contains a vector of all the models.
@@ -49,6 +50,7 @@ namespace dspsim
         std::vector<Module *> _modules;
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
+        std::vector<ModulePtr> _owned_modules;
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
         std::unordered_map<Model *, std::vector<Model *>> _children;
         //
@@ -141,6 +143,7 @@ namespace dspsim
             Useful in python if a design is constructed in a function and the context is returned.
         */
         void _own_model(ModelPtr model);
+        void _own_module(ModulePtr module) { _owned_modules.push_back(module); }
 
         /*
             Schedule a model for evaluation in the next delta cycle.

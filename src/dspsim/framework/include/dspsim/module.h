@@ -24,14 +24,6 @@ namespace dspsim
         void _set_initialize(bool value) { _initialize = value; }
         bool initialize() const { return _initialize; }
 
-        // Python bindings will need to use this.
-        template <typename M>
-        static std::shared_ptr<M> create(const std::string &name)
-        {
-            ModuleName mname{name};
-            return std::make_shared<M>(mname);
-        }
-
     private:
         bool _initialize = true;
     };

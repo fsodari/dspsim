@@ -163,7 +163,8 @@ class Module(_Module):
         cls.__init__ = __new_init__
 
     def __init__(self, name: str):
-        pass
+        # Have the context own the model.
+        self.context.own_module(self)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
