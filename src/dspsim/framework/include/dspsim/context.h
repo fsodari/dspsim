@@ -100,7 +100,7 @@ namespace dspsim
         // Reset the global context, then obtain a new one.
         static ContextPtr create();
 
-        Module *active_module() const { return _active_module_stack.empty() ? nullptr : _active_module_stack.front(); }
+        Module *active_module() const { return _active_module_stack.empty() ? nullptr : _active_module_stack.back(); }
 
         const std::string hier() const;
 

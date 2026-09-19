@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/forward.h>
+#include <vector>
 #include <cstdint>
 
 namespace dspsim
@@ -25,4 +26,6 @@ namespace dspsim
         Model *subscriber;
         uint64_t time_update;
     };
+
+    using SensitivityEvent = std::vector<Module *>;
 } // namespace dspsim

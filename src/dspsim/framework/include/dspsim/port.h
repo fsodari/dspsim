@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/forward.h>
+#include <dspsim/event.h>
 #include <memory>
 #include <vector>
 
@@ -17,15 +18,16 @@ namespace dspsim
 
     class InputBase : public PortBase
     {
-        friend class SensitivityList;
-
     public:
         InputBase(const std::string &name);
         virtual void finalize() override;
         virtual void notify(EventType event) override;
 
-        std::vector<Module *> &pos();
-        std::vector<Module *> &neg();
+        // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
+        SensitivityEvent &pos();
+        SensitivityEvent &neg();
+        // Cast this class as std::vector<Module *> when using in a sensitivity list.
+        operator SensitivityEvent &();
 
     protected:
         std::vector<Module *> _changed_subscribers;
@@ -42,10 +44,14 @@ namespace dspsim
         operator Signal<T> &();
         virtual void bind(Signal<T> &signal);
         virtual void bind(Input<T> &port);
+        virtual void finalize() override;
 
         const T &read() const;
 
     protected:
+        // Resolve a chain of port-to-port bindings down to the underlying signal.
+        void resolve();
+
         Signal<T> *_bound_tsignal = nullptr;
         std::vector<Input<T> *> _bound_ports;
     };
@@ -67,9 +73,13 @@ namespace dspsim
         void bind(Signal<T> &signal);
         void bind(Output<T> &port);
         virtual void notify(EventType event) override;
+        virtual void finalize() override;
         void write(const T &value);
 
     protected:
+        // Resolve a chain of port-to-port bindings down to the underlying signal.
+        void resolve();
+
         Signal<T> *_bound_tsignal = nullptr;
         std::vector<Output<T> *> _bound_ports;
     };

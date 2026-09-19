@@ -1,5 +1,6 @@
 #include <dspsim/signal.h>
 #include <dspsim/port.h>
+#include <dspsim/module.h>
 #include <format>
 
 #include "internal.h"
@@ -11,6 +12,20 @@ namespace dspsim
     {
         // context()->register_signal(this);
     }
+
+    SensitivityEvent &SignalBase::pos()
+    {
+        return _posedge_subscribers;
+    }
+    SensitivityEvent &SignalBase::neg()
+    {
+        return _negedge_subscribers;
+    }
+    SignalBase::operator SensitivityEvent &()
+    {
+        return _changed_subscribers;
+    }
+
     template <typename T>
     Signal<T>::Signal(const std::string &name, int width, T init, bool is_signed)
         : SignalBase(name),
@@ -81,6 +96,27 @@ namespace dspsim
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
             port->notify(event);
+        }
+
+        // Notify modules sensitized directly to this signal (no intermediate Port).
+        if (event == EventType::Posedge)
+        {
+            for (auto module : _posedge_subscribers)
+            {
+                context()->_push_eval_stack(module);
+            }
+        }
+        else if (event == EventType::Negedge)
+        {
+            for (auto module : _negedge_subscribers)
+            {
+                context()->_push_eval_stack(module);
+            }
+        }
+        for (auto module : _changed_subscribers)
+        {
+            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying changed subscriber: {}", name(), module->name());
+            context()->_push_eval_stack(module);
         }
     }
 

@@ -73,6 +73,19 @@ namespace dspsim
         {
             model->finalize();
         }
+
+        // Force an initial settle: schedule every module for evaluation once so that
+        // combinational logic propagates from initial signal values before the first eval().
+        for (auto model : _registered_models)
+        {
+            if (auto *module = dynamic_cast<Module *>(model))
+            {
+                if (module->initialize())
+                {
+                    _push_eval_stack(model);
+                }
+            }
+        }
     }
 
     int Context::eval()

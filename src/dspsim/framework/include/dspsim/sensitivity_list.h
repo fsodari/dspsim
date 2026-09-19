@@ -1,8 +1,6 @@
 #pragma once
-// #include <dspsim/module.h>
-// #include <dspsim/event.h>
-// #include <dspsim/module.h>
-#include <dspsim/port.h>
+#include <dspsim/forward.h>
+#include <dspsim/event.h>
 #include <vector>
 
 namespace dspsim
@@ -12,13 +10,12 @@ namespace dspsim
     {
     private:
         Module *_module;
-        ContextPtr _context;
+        Context *_context;
 
     public:
         SensitivityList(Module *module);
-        void add_event(std::vector<Module *> &subscribers);
+        void add_event(SensitivityEvent &subscribers);
 
-        SensitivityList &operator<<(std::vector<Module *> &event);
-        SensitivityList &operator<<(InputBase &port);
+        SensitivityList &operator<<(SensitivityEvent &event);
     };
 }

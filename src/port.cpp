@@ -16,13 +16,17 @@ namespace dspsim
     {
     }
 
-    std::vector<Module *> &InputBase::pos()
+    SensitivityEvent &InputBase::pos()
     {
         return _posedge_subscribers;
     }
-    std::vector<Module *> &InputBase::neg()
+    SensitivityEvent &InputBase::neg()
     {
         return _negedge_subscribers;
+    }
+    InputBase::operator SensitivityEvent &()
+    {
+        return _changed_subscribers;
     }
 
     template <typename T>
@@ -94,6 +98,35 @@ namespace dspsim
     }
 
     template <typename T>
+    void Input<T>::finalize()
+    {
+        resolve();
+    }
+
+    template <typename T>
+    void Input<T>::resolve()
+    {
+        if (_bound_tsignal)
+        {
+            return;
+        }
+        for (auto *port : _bound_ports)
+        {
+            port->resolve();
+            if (port->_bound_tsignal)
+            {
+                _bound_tsignal = port->_bound_tsignal;
+                _bound_tsignal->add_subscriber(this);
+                break;
+            }
+        }
+        if (!_bound_tsignal)
+        {
+            context()->logger->error("Input port {} could not be resolved to a signal", hier_name());
+        }
+    }
+
+    template <typename T>
     const T &Input<T>::read() const
     {
         return _bound_tsignal->read();
@@ -125,7 +158,7 @@ namespace dspsim
     {
         if (_bound_tsignal)
         {
-            context()->logger->error("Output port {} is already bound to a signal", name());
+            context()->logger->error("Output port {} is already bound to a signal", hier_name());
         }
         _bound_tsignal = &signal;
         // _bound_signal = &signal;
@@ -137,7 +170,34 @@ namespace dspsim
     void Output<T>::bind(Output<T> &port)
     {
         _bound_ports.push_back(&port);
-        _bound_tsignal = port._bound_tsignal;
+    }
+
+    template <typename T>
+    void Output<T>::finalize()
+    {
+        resolve();
+    }
+
+    template <typename T>
+    void Output<T>::resolve()
+    {
+        if (_bound_tsignal)
+        {
+            return;
+        }
+        for (auto *port : _bound_ports)
+        {
+            port->resolve();
+            if (port->_bound_tsignal)
+            {
+                _bound_tsignal = port->_bound_tsignal;
+                break;
+            }
+        }
+        if (!_bound_tsignal)
+        {
+            context()->logger->error("Output port {} could not be resolved to a signal", hier_name());
+        }
     }
 
     template <typename T>

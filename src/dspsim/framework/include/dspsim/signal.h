@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/model.h>
 #include <dspsim/forward.h>
+#include <dspsim/event.h>
 // #include <dspsim/port.h>
 
 namespace dspsim
@@ -27,8 +28,17 @@ namespace dspsim
         }
         std::vector<PortBase *> _subscribers;
 
+        // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
+        // without needing an intermediate Port.
+        SensitivityEvent &pos();
+        SensitivityEvent &neg();
+        operator SensitivityEvent &();
+
     protected:
         std::vector<PortBase *> _drivers;
+        SensitivityEvent _changed_subscribers;
+        SensitivityEvent _posedge_subscribers;
+        SensitivityEvent _negedge_subscribers;
     };
 
     template <typename T>

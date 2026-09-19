@@ -18,6 +18,10 @@ namespace dspsim
 
         void end_construction();
 
+        // Opt out of the initial evaluation pass Context::elaborate() otherwise schedules for every module.
+        void dont_initialize() { _initialize = false; }
+        bool initialize() const { return _initialize; }
+
         // Python bindings will need to use this.
         template <typename M>
         static std::shared_ptr<M> create(const std::string &name)
@@ -25,6 +29,9 @@ namespace dspsim
             ModuleName mname{name};
             return std::make_shared<M>(mname);
         }
+
+    private:
+        bool _initialize = true;
     };
 
 } // namespace dspsim

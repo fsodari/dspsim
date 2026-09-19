@@ -73,7 +73,7 @@ public:
     top_d -> Input_d -> internal_d
 */
 
-TEST_CASE("test_hierarchy")
+TEST_CASE("test_hierarchy", "[hierarchy]")
 {
     auto ctx = Context::create();
     ctx->logger->set_level(spdlog::level::warn);
