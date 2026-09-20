@@ -11,7 +11,7 @@ add_executable(tests
     test_submodule.cpp
     test_adder_tree.cpp
     test_unique_stack.cpp
-    test_sorted_stack.cpp
+    test_priority_queue.cpp
     test_better_binding.cpp
     test_print_hierarchy.cpp
     test_clocked_modules.cpp

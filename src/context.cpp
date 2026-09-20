@@ -57,7 +57,8 @@ namespace dspsim
         _children.clear();
         _eval_stack.clear();
         _update_stack.clear();
-        _time_event_stack.clear();
+        // _time_event_stack.clear();
+        _time_event_stack = PriorityQueue<TimeEvent>();
     }
 
     void Context::elaborate()
@@ -154,7 +155,9 @@ namespace dspsim
             // Queue all models for evaluation that have a zero time update.
             do
             {
-                auto event = _time_event_stack.pop();
+                // auto event = _time_event_stack.pop();
+                auto event = _time_event_stack.top();
+                _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.subscriber->name());
                 // push_eval_stack(event.subscriber);
                 _eval_stack.push_back(event.subscriber);

@@ -2,6 +2,8 @@
 #include <vector>
 #include <cstdint>
 #include <concepts>
+#include <ranges>
+#include <algorithm>
 
 namespace dspsim
 {
@@ -49,6 +51,20 @@ namespace dspsim
                 _in_stack[idx] = 1;
                 _stack.push_back(element);
             }
+        }
+
+        template <std::ranges::input_range R>
+            requires std::convertible_to<std::ranges::range_reference_t<R>, T>
+        void append_range(R &&rg)
+        {
+            std::ranges::copy(rg, std::back_inserter(*this));
+        }
+
+        template <std::ranges::input_range R>
+            requires std::convertible_to<std::ranges::range_reference_t<R>, T>
+        void push_range(R &&rg)
+        {
+            append_range(std::forward<R>(rg));
         }
 
         void pop_back()
