@@ -46,7 +46,7 @@ namespace dspsim
         int _id;
         uint32_t _next_model_id;
         std::vector<Model *> _registered_models;
-        std::vector<Module *> _modules;
+        // std::vector<Module *> _modules;
         std::vector<SignalBase *> _signals;
         std::vector<Process *> _processes;
 
@@ -119,8 +119,8 @@ namespace dspsim
         // List of all registered models in the context.
         const std::vector<Model *> &models() const;
 
-        // List of all registered modules in the context.
-        const std::vector<Module *> &modules() const;
+        // // List of all registered modules in the context.
+        // const std::vector<Module *> &modules() const;
 
         // Direct children of a model in the design hierarchy. Pass nullptr for the top-level (root) models.
         const std::vector<Model *> &children(Model *parent = nullptr) const;

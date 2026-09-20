@@ -192,10 +192,10 @@ namespace dspsim
         return _registered_models;
     }
 
-    const std::vector<Module *> &Context::modules() const
-    {
-        return _modules;
-    }
+    // const std::vector<Module *> &Context::modules() const
+    // {
+    //     return _modules;
+    // }
 
     const std::vector<Model *> &Context::children(Model *parent) const
     {
@@ -248,11 +248,11 @@ namespace dspsim
         _registered_models.push_back(model);
         _children[model->parent()].push_back(model);
 
-        // If this is a module, add it to the list of modules.
-        if (auto *module = dynamic_cast<Module *>(model))
-        {
-            _modules.push_back(module);
-        }
+        // // If this is a module, add it to the list of modules.
+        // if (auto *module = dynamic_cast<Module *>(model))
+        // {
+        //     _modules.push_back(module);
+        // }
     }
 
     void Context::_add_signal(SignalBase *signal)

@@ -13,6 +13,9 @@ namespace dspsim
         : Model(name, "signal")
     {
         context()->_add_signal(this);
+
+        // // Force an initial update of all signals.
+        // context()->_signal_update_stack.push_back(this);
     }
 
     SensitivityEvent &SignalBase::pos()
