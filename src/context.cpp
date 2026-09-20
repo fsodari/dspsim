@@ -80,6 +80,11 @@ namespace dspsim
                 }
             }
         }
+        // Force an initial update of all signals.
+        for (auto signal : _signals)
+        {
+            _signal_update_stack.push_back(signal);
+        }
     }
 
     int Context::eval()
@@ -100,7 +105,7 @@ namespace dspsim
             }
         }
         // Run eval cycle.
-        while (!_eval_stack.empty())
+        while (!_eval_stack.empty() || !_signal_update_stack.empty())
         {
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;

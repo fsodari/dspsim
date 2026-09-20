@@ -94,9 +94,26 @@ namespace dspsim
     void Signal<T>::write(const T &value)
     {
         _d = value;
-        SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for eval", name());
-        // Schedule for eval.
-        context()->_push_eval_stack(this);
+
+        if (_d != _q)
+        {
+            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for update", name());
+            // // Schedule for eval.
+            // context()->_push_eval_stack(this);
+            // Schedule for update
+            context()->_signal_update_stack.push_back(this);
+        }
+        else
+        {
+            // If the signal is written more than once, and reset to a previous value, remove it from the update stack.
+            auto it = context()->_signal_update_stack.find(this);
+
+            if (it != context()->_signal_update_stack.end())
+            {
+                context()->_signal_update_stack.erase(it);
+                SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} removed from update stack", name());
+            }
+        }
     }
 
     template <typename T>
@@ -111,23 +128,13 @@ namespace dspsim
     }
 
     template <typename T>
-    void Signal<T>::eval()
-    {
-        if (_d != _q)
-        {
-            context()->_signal_update_stack.push_back(this);
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal eval() value changed: {}", name());
-        }
-    }
-
-    template <typename T>
     void Signal<T>::update()
     {
-        // If no change, don't update subscribers.
-        if (_d == _q)
-        {
-            return;
-        }
+        // If no change, don't update subscribers. This should never happen.
+        // if (_d == _q)
+        // {
+        //     return;
+        // }
 
         EventType event = EventType::Changed;
         _changed_flag = true;

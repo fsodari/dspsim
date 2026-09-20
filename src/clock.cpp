@@ -14,10 +14,8 @@ namespace dspsim
 
     void Clock::eval()
     {
-        this->_d = !this->_q;
+        this->write(!this->_q);
         context()->_push_time_event_stack(TimeEvent(this, context()->time() + _half_period));
-        // Call base class eval to make sure it gets updated.
-        Signal<uint8_t>::eval();
     }
 
     int Clock::period() const

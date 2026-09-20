@@ -98,15 +98,7 @@ namespace dspsim
             }
             return _stack.end();
         }
-        const_iterator find(const T &element) const
-        {
-            uint32_t idx = element->id();
-            if (idx < _in_stack.size() && _in_stack[idx])
-            {
-                return std::find(_stack.begin(), _stack.end(), element);
-            }
-            return _stack.end();
-        }
+
         // Erasing operations.
         iterator erase(iterator it)
         {
