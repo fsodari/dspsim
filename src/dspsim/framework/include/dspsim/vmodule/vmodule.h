@@ -27,12 +27,16 @@ namespace dspsim
 
         VModule(ModuleName &name) : VModuleBase(name) {}
 
-        void eval() override { top->eval_step(); }
-        void update() override
+        void eval() override
         {
-            top->eval_end_step();
+            top->eval();
             this->_sync_outputs();
         }
+        // void update() override
+        // {
+        //     top->eval_end_step();
+        //     this->_sync_outputs();
+        // }
 
         void dump_trace() override
         {

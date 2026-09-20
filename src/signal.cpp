@@ -114,6 +114,7 @@ namespace dspsim
     {
         if (_d != _q)
         {
+            context()->_signal_update_stack.push_back(this);
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal eval() value changed: {}", name());
         }
     }

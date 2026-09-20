@@ -56,7 +56,7 @@ namespace dspsim
         _owned_models.clear();
         _children.clear();
         _eval_stack.clear();
-        _update_stack.clear();
+        _signal_update_stack.clear();
         // _time_event_stack.clear();
         _time_event_stack = PriorityQueue<TimeEvent>();
     }
@@ -113,15 +113,15 @@ namespace dspsim
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
                 model->eval();
 
-                // Add the model to the update stack after evaluation.
-                _update_stack.push_back(model);
+                // // Add the model to the update stack after evaluation.
+                // _signal_update_stack.push_back(model);
             }
 
             // run update cycle on all models that were evaluated.
-            while (!_update_stack.empty())
+            while (!_signal_update_stack.empty())
             {
-                auto model = _update_stack.back();
-                _update_stack.pop_back();
+                auto model = _signal_update_stack.back();
+                _signal_update_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Updating model: {}", model->name());
                 model->update();
 

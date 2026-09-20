@@ -17,10 +17,10 @@ namespace dspsim
 
         int period() const;
 
-        static auto create(const std::string &name, int period)
-        {
-            return Model::create<Clock>(name, period);
-        }
+        // static auto create(const std::string &name, int period)
+        // {
+        //     return Model::create<Clock>(name, period);
+        // }
     };
     using ClockPtr = std::shared_ptr<Clock>;
 } // namespace dspsim

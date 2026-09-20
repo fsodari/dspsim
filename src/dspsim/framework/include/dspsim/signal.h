@@ -1,13 +1,16 @@
 #pragma once
 #include <dspsim/forward.h>
 #include <dspsim/model.h>
-#include <dspsim/port.h>
+// #include <dspsim/port.h>
 #include <dspsim/event.h>
 #include <vector>
 #include <memory>
 
 namespace dspsim
 {
+    class SensitivityEvent;
+    class PortBase;
+
     template <typename T>
     struct default_bitwidth
     {
@@ -31,6 +34,8 @@ namespace dspsim
 
         void _add_driver(PortBase *driver);
         void _add_subscriber(PortBase *subscriber);
+        virtual void update() = 0;
+        using Model::id;
 
         // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
         // without needing an intermediate Port.
@@ -84,10 +89,10 @@ namespace dspsim
         /*
             Static Methods
         */
-        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
-        {
-            return Model::create<Signal<T>>(name, width, init, is_signed);
-        }
+        // static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        // {
+        //     return Model::create<Signal<T>>(name, width, init, is_signed);
+        // }
     };
 
     using Signal8 = Signal<uint8_t>;

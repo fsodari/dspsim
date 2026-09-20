@@ -107,9 +107,13 @@ namespace dspsim
         }
 
         // Don't allow removing data once queued?
-        void pop_front()
+        // void pop_front()
+        // {
+        //     fifo.pop_front();
+        // }
+        void pop()
         {
-            fifo.pop_front();
+            fifo.pop();
         }
         void clear()
         {

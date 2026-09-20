@@ -22,9 +22,9 @@ namespace dspsim
     {
     }
 
-    void Model::update()
-    {
-    }
+    // void Model::update()
+    // {
+    // }
 
     Context *Model::context() const
     {

@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/forward.h>
 #include <dspsim/model.h>
+#include <dspsim/signal.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/priority_queue.h>
@@ -54,7 +55,11 @@ namespace dspsim
         std::unordered_map<Model *, std::vector<Model *>> _children;
         //
         UniqueStack<Model *> _eval_stack;
-        UniqueStack<Model *> _update_stack;
+        // UniqueStack<Model *> _update_stack; // Signals are the only models that ever need to be in the update cycle.
+    public:
+        UniqueStack<SignalBase *> _signal_update_stack;
+
+    private:
         PriorityQueue<TimeEvent> _time_event_stack;
 
         uint64_t _time;
