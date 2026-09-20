@@ -68,6 +68,9 @@ namespace dspsim
     {
         int n_iter = 0;
 
+        // Any model that was updated this cycle should be traced.
+        UniqueStack<Model *> _trace_stack;
+
         // Reset signal event flag at the beginning of each delta cycle.
         if (_signal_event)
         {
@@ -100,9 +103,16 @@ namespace dspsim
                 auto model = _update_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Updating model: {}", model->name());
                 model->update();
+
+                _trace_stack.push(model);
             }
         }
 
+        // Trace.
+        for (auto m : _trace_stack)
+        {
+            m->dump_trace();
+        }
         return n_iter;
     }
 

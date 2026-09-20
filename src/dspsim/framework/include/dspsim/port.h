@@ -26,6 +26,8 @@ namespace dspsim
     public:
         InputBase(const std::string &name);
         virtual void finalize() override = 0;
+
+        // Gets called when there is an event on this port.
         virtual void _notify(EventType event) override;
 
         // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
@@ -70,8 +72,16 @@ namespace dspsim
         bool changed() const;
     };
 
+    class OutputBase : public PortBase
+    {
+    public:
+        OutputBase(const std::string &name) : PortBase(name, "output") {}
+        virtual void finalize() override = 0;
+        virtual void _notify(EventType event) override = 0;
+    };
+
     template <typename T>
-    class Output : public PortBase
+    class Output : public OutputBase
     {
     private:
         Signal<T> *_bound_signal = nullptr;
@@ -87,7 +97,7 @@ namespace dspsim
         void resolve();
 
     public:
-        void _notify(EventType event) override;
+        virtual void _notify(EventType event) override {}
 
         operator Signal<T> &();
         void bind(Signal<T> &signal);
@@ -100,7 +110,7 @@ namespace dspsim
         void write(const T &value);
 
         const T &_read_d() const;
-        const T &_read() const;
+        const T &read() const;
     };
 
 }

@@ -19,10 +19,10 @@ endif()
 
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.
-target_compile_options(dspsim-core PUBLIC
+target_compile_options(dspsim-core PRIVATE 
     # GCC and Clang syntax
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
-        -Werror=reorder;
+        -Werror=reorder
         -Wall
         -Werror>
     

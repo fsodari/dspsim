@@ -163,7 +163,7 @@ namespace dspsim
     //
 
     template <typename T>
-    Output<T>::Output(const std::string &name) : PortBase(name, "output")
+    Output<T>::Output(const std::string &name) : OutputBase(name)
     {
     }
 
@@ -202,10 +202,10 @@ namespace dspsim
         }
     }
 
-    template <typename T>
-    void Output<T>::_notify(EventType event)
-    {
-    }
+    // template <typename T>
+    // void Output<T>::_notify(EventType event)
+    // {
+    // }
 
     template <typename T>
     Output<T>::operator Signal<T> &()
@@ -259,7 +259,7 @@ namespace dspsim
     }
 
     template <typename T>
-    const T &Output<T>::_read() const
+    const T &Output<T>::read() const
     {
         return _bound_signal->read();
     }
