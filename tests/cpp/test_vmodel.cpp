@@ -6,6 +6,7 @@
 #include "Skid2.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_range_equals.hpp> // Required header
 
 using namespace dspsim;
 
@@ -106,16 +107,6 @@ public:
     {
         return axis_rx.ready();
     }
-
-    void send(const std::ranges::range auto &data)
-    {
-        axis_tx.send(data);
-    }
-
-    std::vector<T> receive()
-    {
-        return std::vector<T>(axis_rx.fifo.begin(), axis_rx.fifo.end());
-    }
 };
 
 TEST_CASE("test_vmodel", "[vmodel]")
@@ -144,12 +135,10 @@ TEST_CASE("test_vmodel", "[vmodel]")
     ctx->run(100);
 
     // top1.send({1, 2, 3, 4, 5});
-    top1.axis_tx.send({99, 81, 73, 64, 1, 55, 42, 33});
-    top1.axis_tx.send(42);
-    top1.axis_tx.send(std::vector<uint32_t>{7, 8, 9});
-    std::vector<uint32_t> tx_data(top1.axis_tx.fifo.begin(), top1.axis_tx.fifo.end());
+    auto tx_data = std::initializer_list<uint32_t>{99, 81, 73, 64, 1, 55, 42, 33};
 
-    top2.send(tx_data);
+    top1.axis_tx.push_range(tx_data);
+    top2.axis_tx.push_range(tx_data);
     ctx->run(100);
     top1.ready(1);
     top2.ready(1);
@@ -161,8 +150,6 @@ TEST_CASE("test_vmodel", "[vmodel]")
     top2.ready(1);
     ctx->run(200);
 
-    auto rx_data1 = top1.receive();
-    REQUIRE(rx_data1 == tx_data);
-    auto rx_data2 = top2.receive();
-    REQUIRE(rx_data2 == tx_data);
+    REQUIRE_THAT(top1.axis_rx.fifo, Catch::Matchers::RangeEquals(tx_data));
+    REQUIRE_THAT(top2.axis_rx.fifo, Catch::Matchers::RangeEquals(tx_data));
 }
