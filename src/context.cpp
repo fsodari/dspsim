@@ -106,22 +106,25 @@ namespace dspsim
 
             while (!_eval_stack.empty())
             {
-                auto model = _eval_stack.pop();
+                // auto model = _eval_stack.pop();
+                auto model = _eval_stack.back();
+                _eval_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
                 model->eval();
 
                 // Add the model to the update stack after evaluation.
-                _update_stack.push(model);
+                _update_stack.push_back(model);
             }
 
             // run update cycle on all models that were evaluated.
             while (!_update_stack.empty())
             {
-                auto model = _update_stack.pop();
+                auto model = _update_stack.back();
+                _update_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Updating model: {}", model->name());
                 model->update();
 
-                _trace_stack.push(model);
+                _trace_stack.push_back(model);
             }
         }
 
@@ -154,7 +157,7 @@ namespace dspsim
                 auto event = _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.subscriber->name());
                 // push_eval_stack(event.subscriber);
-                _eval_stack.push(event.subscriber);
+                _eval_stack.push_back(event.subscriber);
             } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
             // Perform a delta cycle at this time step.
             eval();
@@ -263,7 +266,7 @@ namespace dspsim
 
     void Context::_push_eval_stack(Model *model)
     {
-        _eval_stack.push(model);
+        _eval_stack.push_back(model);
     }
 
     void Context::_push_time_event_stack(TimeEvent event)

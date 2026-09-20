@@ -1,5 +1,6 @@
 #include <dspsim/dspsim.h>
 #include <dspsim/dff.h>
+#include <dspsim/modules/axis_tx.h>
 #include <spdlog/spdlog.h>
 #include "Skid.h"
 #include "Skid2.h"
@@ -9,82 +10,6 @@
 using namespace dspsim;
 
 //
-
-template <typename T>
-class AxisTx : public Module
-{
-public:
-    Input<uint8_t> clk{"clk"};
-    Input<uint8_t> rst{"rst"};
-    Output<T> m_axis_tdata{"m_axis_tdata"};
-    Output<uint8_t> m_axis_tvalid{"m_axis_tvalid"};
-    Input<uint8_t> m_axis_tready{"m_axis_tready"};
-
-    std::deque<T> fifo;
-
-    AxisTx(ModuleName name) : Module(name)
-    {
-        always << clk.pos();
-    }
-
-    void send(T &data)
-    {
-        fifo.push_back(data);
-    }
-
-    void send(std::vector<T> &data)
-    {
-        fifo.insert(fifo.end(), data.begin(), data.end());
-    }
-
-    template <typename InputIt>
-    void send(InputIt first, InputIt last)
-    {
-        fifo.insert(fifo.end(), first, last);
-    }
-
-    void send(std::initializer_list<T> data)
-    {
-        fifo.insert(fifo.end(), data.begin(), data.end());
-    }
-
-    void eval() override
-    {
-        if (clk.posedge())
-        {
-            this->context()->logger->debug("AxisTx eval at posedge clk");
-            // A valid transaction has occurred, pop the front of the FIFO.
-            if (m_axis_tvalid.read() && m_axis_tready.read())
-            {
-                // Clear the valid signal as the transaction has been accepted.
-                m_axis_tvalid.write(0);
-                fifo.pop_front();
-            }
-
-            // Bus is waiting for downstream to be ready.
-            if (!m_axis_tready.read() && m_axis_tvalid.read())
-            {
-            }
-            // We have data to send.
-            else if (!fifo.empty())
-            {
-                m_axis_tvalid.write(1);
-                m_axis_tdata.write(fifo.front());
-            }
-            else
-            {
-                // Can we get here?
-                m_axis_tvalid.write(0);
-            }
-
-            if (rst.read() == 1)
-            {
-                m_axis_tvalid.write(0);
-            }
-        }
-    }
-};
-
 template <typename T>
 class AxisRx : public Module
 {
@@ -182,9 +107,9 @@ public:
         return axis_rx.ready();
     }
 
-    void send(const std::vector<T> &data)
+    void send(const std::ranges::range auto &data)
     {
-        axis_tx.send(data.begin(), data.end());
+        axis_tx.send(data);
     }
 
     std::vector<T> receive()
@@ -217,12 +142,13 @@ TEST_CASE("test_vmodel", "[vmodel]")
 
     ctx->elaborate();
     ctx->run(100);
-    std::vector<uint32_t> tx_data;
-    for (int i = 11; i < 150; i += 10)
-    {
-        tx_data.push_back(i);
-    }
-    top1.send(tx_data);
+
+    // top1.send({1, 2, 3, 4, 5});
+    top1.axis_tx.send({99, 81, 73, 64, 1, 55, 42, 33});
+    top1.axis_tx.send(42);
+    top1.axis_tx.send(std::vector<uint32_t>{7, 8, 9});
+    std::vector<uint32_t> tx_data(top1.axis_tx.fifo.begin(), top1.axis_tx.fifo.end());
+
     top2.send(tx_data);
     ctx->run(100);
     top1.ready(1);

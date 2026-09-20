@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/forward.h>
+#include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/sorted_stack.h>
@@ -41,7 +42,7 @@ namespace dspsim
     private:
         std::string _name;
         int _id;
-        size_t _next_model_id;
+        uint32_t _next_model_id;
         std::vector<Model *> _registered_models;
         std::vector<Module *> _modules;
         std::vector<SignalBase *> _signals;

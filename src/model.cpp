@@ -30,7 +30,7 @@ namespace dspsim
     {
         return _context;
     }
-    size_t Model::id() const
+    uint32_t Model::id() const
     {
         return _id;
     }

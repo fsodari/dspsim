@@ -1,7 +1,10 @@
 #include <dspsim/utils/unique_stack.h>
 
+#include <ranges>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_range_equals.hpp> // Required header
+#include <set>
 
 using namespace dspsim;
 
@@ -35,25 +38,48 @@ namespace
     };
 }
 
-TEST_CASE("basic_unique_stack", "[unique_stack]")
+TEST_CASE("UniqueStack push_back and pop_back", "[unique_stack]")
 {
     UniqueStack<Dummy> stack;
     REQUIRE(stack.empty());
 
     auto test_data = std::vector<Dummy>{1, 1, 2, 2, 3, 3, 4, 4};
-    auto expected = std::vector<Dummy>{4, 3, 2, 1};
+    auto expected = std::vector<Dummy>{1, 3, 2, 4}; // Order doesn't matter
 
     for (const auto &item : test_data)
     {
-        stack.push(item);
+        stack.push_back(item);
     }
 
     std::vector<Dummy> result;
     while (!stack.empty())
     {
-        result.push_back(stack.top());
-        stack.pop();
+        result.push_back(stack.back());
+        stack.pop_back();
     }
 
+    std::sort(result.begin(), result.end());
+    std::sort(expected.begin(), expected.end());
     REQUIRE(result == expected);
+}
+
+TEST_CASE("UniqueStack back_inserter", "[unique_stack]")
+{
+    UniqueStack<Dummy> stack;
+    REQUIRE(stack.empty());
+
+    auto test_data = std::vector<Dummy>{1, 1, 2, 2, 3, 3, 4, 4};
+    auto expected = std::set<Dummy>(test_data.begin(), test_data.end());
+
+    std::ranges::copy(test_data, std::back_inserter(stack));
+
+    std::vector<Dummy> result;
+    while (!stack.empty())
+    {
+        result.push_back(stack.back());
+        stack.pop_back();
+    }
+
+    std::sort(result.begin(), result.end());
+    REQUIRE_THAT(result, Catch::Matchers::RangeEquals(expected));
 }

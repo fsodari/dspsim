@@ -1,9 +1,11 @@
 #pragma once
-#include <dspsim/context.h>
+// #include <dspsim/context.h>
 #include <string>
+#include <memory>
 
 namespace dspsim
 {
+    class Context;
     using ModelPtr = std::shared_ptr<class Model>;
     class Model
     {
@@ -11,7 +13,7 @@ namespace dspsim
 
     private:
         Context *_context;
-        size_t _id;
+        uint32_t _id;
         std::string _name;
         std::string _hier_name;
         Model *_parent;
@@ -36,7 +38,7 @@ namespace dspsim
             Properties
         */
         Context *context() const;
-        size_t id() const;
+        uint32_t id() const;
         const std::string &name() const;
         const std::string &kind() const;
         const std::string hier_name() const;
