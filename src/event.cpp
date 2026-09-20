@@ -19,11 +19,11 @@ namespace dspsim
         return time_update > other.time_update;
     }
 
-    std::vector<Module *> &SensitivityEvent::subscribers()
+    UniqueStack<Model *> &SensitivityEvent::subscribers()
     {
         return _subscribers;
     }
-    void SensitivityEvent::add_subscriber(Module *module)
+    void SensitivityEvent::add_subscriber(Model *module)
     {
         _subscribers.push_back(module);
     }

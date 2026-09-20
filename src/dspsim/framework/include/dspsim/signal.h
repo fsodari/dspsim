@@ -21,8 +21,8 @@ namespace dspsim
     class SignalBase : public Model
     {
     protected:
-        std::vector<PortBase *> _drivers;
-        std::vector<PortBase *> _subscribers;
+        // std::vector<PortBase *> _drivers;
+        // std::vector<PortBase *> _subscribers;
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
@@ -33,8 +33,8 @@ namespace dspsim
     public:
         SignalBase(const std::string &name = "");
 
-        void _add_driver(PortBase *driver);
-        void _add_subscriber(PortBase *subscriber);
+        // void _add_driver(PortBase *driver);
+        // void _add_subscriber(PortBase *subscriber);
         virtual void update() = 0;
         using Model::id;
 

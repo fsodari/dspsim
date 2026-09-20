@@ -14,6 +14,11 @@ namespace dspsim
         context()->_active_module_stack.push_back(this);
     }
 
+    SensitivityList &Module::_always_ref()
+    {
+        return always;
+    }
+
     void Module::_add_event(std::vector<Model *> &event_subscribers)
     {
         event_subscribers.push_back(this);

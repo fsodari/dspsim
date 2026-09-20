@@ -15,14 +15,14 @@ namespace dspsim
         context()->_add_signal(this);
     }
 
-    void SignalBase::_add_driver(PortBase *driver)
-    {
-        _drivers.push_back(driver);
-    }
-    void SignalBase::_add_subscriber(PortBase *subscriber)
-    {
-        _subscribers.push_back(subscriber);
-    }
+    // void SignalBase::_add_driver(PortBase *driver)
+    // {
+    //     _drivers.push_back(driver);
+    // }
+    // void SignalBase::_add_subscriber(PortBase *subscriber)
+    // {
+    //     _subscribers.push_back(subscriber);
+    // }
 
     SensitivityEvent &SignalBase::pos()
     {
@@ -153,11 +153,12 @@ namespace dspsim
 
         this->_q = this->_d;
 
-        for (auto port : _subscribers)
-        {
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
-            port->_notify(event);
-        }
+        // I want to skip this step. All module subscribers should have been added during elaboration.
+        // for (auto port : _subscribers)
+        // {
+        //     SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
+        //     port->_notify(event);
+        // }
 
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)

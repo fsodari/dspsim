@@ -9,6 +9,7 @@ namespace dspsim
     {
         this->context()->logger->info("Initializing VInput: {}", this->name());
         _vmodel_base = static_cast<VModuleBase *>(this->parent());
+        _vmodel_base->_inputs.push_back(this);
 
         // Always sensitive to inputs.
         _vmodel_base->always << *this;
@@ -20,12 +21,17 @@ namespace dspsim
         bind_ext_port(ext_port);
     }
 
+    // template <typename T>
+    // void VInput<T>::_notify(EventType event)
+    // {
+    //     // Call base class notify. _notify is called during an update cycle.
+    //     Input<T>::_notify(event);
+    //     // Update the external port with the current value of this input.
+    //     *_ext_port = this->read();
+    // }
     template <typename T>
-    void VInput<T>::_notify(EventType event)
+    void VInput<T>::_sync()
     {
-        // Call base class notify. _notify is called during an update cycle.
-        Input<T>::_notify(event);
-        // Update the external port with the current value of this input.
         *_ext_port = this->read();
     }
 
@@ -47,13 +53,18 @@ namespace dspsim
         bind_ext_port(ext_port);
     }
 
+    // template <typename T>
+    // void VOutput<T>::_notify(EventType event)
+    // {
+    //     this->context()->logger->info("VOutput _notify called for {}", this->name());
+    //     // Call base class notify.
+    //     Output<T>::_notify(event);
+    //     // Update the bound signal with the external port.
+    //     this->write(*_ext_port);
+    // }
     template <typename T>
-    void VOutput<T>::_notify(EventType event)
+    void VOutput<T>::_sync()
     {
-        this->context()->logger->info("VOutput _notify called for {}", this->name());
-        // Call base class notify.
-        Output<T>::_notify(event);
-        // Update the bound signal with the external port.
         this->write(*_ext_port);
     }
 

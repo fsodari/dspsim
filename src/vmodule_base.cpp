@@ -10,11 +10,18 @@ namespace dspsim
         context()->logger->info("Initializing VModuleBase: {}", this->name());
     }
 
+    void VModuleBase::_sync_inputs() const
+    {
+        for (auto input : _inputs)
+        {
+            input->_sync();
+        }
+    }
     void VModuleBase::_sync_outputs() const
     {
         for (auto output : _outputs)
         {
-            output->_notify(EventType::Changed);
+            output->_sync();
         }
     }
 }

@@ -12,7 +12,8 @@ namespace dspsim
     public:
         PortBase(const std::string &name, const std::string &kind);
         virtual void finalize() override = 0;
-        virtual void _notify(EventType event) = 0;
+        virtual void _sync() {}
+        // virtual void _notify(EventType event) = 0;
     };
 
     class InputBase : public PortBase
@@ -26,8 +27,8 @@ namespace dspsim
         InputBase(const std::string &name);
         virtual void finalize() override = 0;
 
-        // Gets called when there is an event on this port.
-        virtual void _notify(EventType event) override;
+        // // Gets called when there is an event on this port.
+        // virtual void _notify(EventType event) override;
 
         // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
         SensitivityEvent &pos();
@@ -76,7 +77,7 @@ namespace dspsim
     public:
         OutputBase(const std::string &name) : PortBase(name, "output") {}
         virtual void finalize() override = 0;
-        virtual void _notify(EventType event) override = 0;
+        // virtual void _notify(EventType event) override = 0;
     };
 
     template <typename T>
@@ -96,7 +97,7 @@ namespace dspsim
         void resolve();
 
     public:
-        virtual void _notify(EventType event) override {}
+        // virtual void _notify(EventType event) override {}
 
         operator Signal<T> &();
         void bind(Signal<T> &signal);

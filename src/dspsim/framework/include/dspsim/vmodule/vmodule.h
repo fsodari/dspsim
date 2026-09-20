@@ -30,6 +30,7 @@ namespace dspsim
 
         void eval() override
         {
+            this->_sync_inputs();
             top->eval();
             this->_sync_outputs();
         }

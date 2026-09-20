@@ -10,63 +10,64 @@
 #include <catch2/matchers/catch_matchers_range_equals.hpp> // Required header
 
 using namespace dspsim;
-
-template <typename T, typename SkidType>
-class Top : public Module
+namespace
 {
-public:
-    Input<uint8_t> clk{"clk"};
-    Input<uint8_t> rst{"rst"};
-
-    //
-    AxisTx<T> axis_tx{"axis_tx"};
-    SkidType skid{"skid"};
-    AxisRx<T> axis_rx{"axis_rx"};
-
-    Signal<T> s_axis_tdata{"s_axis_tdata"};
-    Signal<uint8_t> s_axis_tvalid{"s_axis_tvalid"};
-    Signal<uint8_t> s_axis_tready{"s_axis_tready"};
-    Signal<T> m_axis_tdata{"m_axis_tdata"};
-    Signal<uint8_t> m_axis_tvalid{"m_axis_tvalid"};
-    Signal<uint8_t> m_axis_tready{"m_axis_tready"};
-
-    Top(ModuleName name) : Module(name)
+    template <typename T, typename SkidType>
+    class Top : public Module
     {
-        // AxisTx
-        axis_tx.clk.bind(clk);
-        axis_tx.rst.bind(rst);
-        axis_tx.m_axis_tdata.bind(s_axis_tdata);
-        axis_tx.m_axis_tvalid.bind(s_axis_tvalid);
-        axis_tx.m_axis_tready.bind(s_axis_tready);
+    public:
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> rst{"rst"};
 
-        // Skid
-        skid.clk.bind(clk);
-        skid.rst.bind(rst);
-        skid.s_axis_tdata.bind(s_axis_tdata);
-        skid.s_axis_tvalid.bind(s_axis_tvalid);
-        skid.s_axis_tready.bind(s_axis_tready);
-        skid.m_axis_tdata.bind(m_axis_tdata);
-        skid.m_axis_tvalid.bind(m_axis_tvalid);
-        skid.m_axis_tready.bind(m_axis_tready);
+        //
+        AxisTx<T> axis_tx{"axis_tx"};
+        SkidType skid{"skid"};
+        AxisRx<T> axis_rx{"axis_rx"};
 
-        // AxisRx
-        axis_rx.clk.bind(clk);
-        axis_rx.rst.bind(rst);
-        axis_rx.s_axis_tdata.bind(m_axis_tdata);
-        axis_rx.s_axis_tvalid.bind(m_axis_tvalid);
-        axis_rx.s_axis_tready.bind(m_axis_tready);
-    }
+        Signal<T> s_axis_tdata{"s_axis_tdata"};
+        Signal<uint8_t> s_axis_tvalid{"s_axis_tvalid"};
+        Signal<uint8_t> s_axis_tready{"s_axis_tready"};
+        Signal<T> m_axis_tdata{"m_axis_tdata"};
+        Signal<uint8_t> m_axis_tvalid{"m_axis_tvalid"};
+        Signal<uint8_t> m_axis_tready{"m_axis_tready"};
 
-    void ready(uint8_t r)
-    {
-        axis_rx.ready(r);
-    }
-    uint8_t ready() const
-    {
-        return axis_rx.ready();
-    }
-};
+        Top(ModuleName name) : Module(name)
+        {
+            // AxisTx
+            axis_tx.clk.bind(clk);
+            axis_tx.rst.bind(rst);
+            axis_tx.m_axis_tdata.bind(s_axis_tdata);
+            axis_tx.m_axis_tvalid.bind(s_axis_tvalid);
+            axis_tx.m_axis_tready.bind(s_axis_tready);
 
+            // Skid
+            skid.clk.bind(clk);
+            skid.rst.bind(rst);
+            skid.s_axis_tdata.bind(s_axis_tdata);
+            skid.s_axis_tvalid.bind(s_axis_tvalid);
+            skid.s_axis_tready.bind(s_axis_tready);
+            skid.m_axis_tdata.bind(m_axis_tdata);
+            skid.m_axis_tvalid.bind(m_axis_tvalid);
+            skid.m_axis_tready.bind(m_axis_tready);
+
+            // AxisRx
+            axis_rx.clk.bind(clk);
+            axis_rx.rst.bind(rst);
+            axis_rx.s_axis_tdata.bind(m_axis_tdata);
+            axis_rx.s_axis_tvalid.bind(m_axis_tvalid);
+            axis_rx.s_axis_tready.bind(m_axis_tready);
+        }
+
+        void ready(uint8_t r)
+        {
+            axis_rx.ready(r);
+        }
+        uint8_t ready() const
+        {
+            return axis_rx.ready();
+        }
+    };
+}
 TEST_CASE("test_vmodel", "[vmodel]")
 {
     auto ctx = Context::create();

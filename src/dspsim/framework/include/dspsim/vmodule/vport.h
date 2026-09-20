@@ -23,7 +23,8 @@ namespace dspsim
         VInput(const std::string &name);
         VInput(const std::string &name, T &ext_port);
 
-        virtual void _notify(EventType event) override;
+        // virtual void _notify(EventType event) override;
+        void _sync() override;
         void bind_ext_port(T &ext_port);
     };
 
@@ -38,7 +39,8 @@ namespace dspsim
         VOutput(const std::string &name);
         VOutput(const std::string &name, T &ext_port);
 
-        virtual void _notify(EventType event) override;
+        // virtual void _notify(EventType event) override;
+        void _sync() override;
         void bind_ext_port(T &ext_port);
     };
 

@@ -5,6 +5,7 @@
 namespace dspsim
 {
     class Context;
+    class Module;
     class SensitivityList
     {
     private:

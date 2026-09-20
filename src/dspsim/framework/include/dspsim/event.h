@@ -1,5 +1,8 @@
 #pragma once
-#include <dspsim/forward.h>
+// #include <dspsim/forward.h>
+#include <dspsim/model.h>
+// #include <dspsim/module.h>
+#include <dspsim/utils/unique_stack.h>
 #include <vector>
 #include <cstdint>
 
@@ -28,11 +31,12 @@ namespace dspsim
     class SensitivityEvent
     {
     private:
-        std::vector<Module *> _subscribers;
+        // std::vector<Module *> _subscribers;
+        UniqueStack<Model *> _subscribers;
 
     public:
-        std::vector<Module *> &subscribers();
-        void add_subscriber(Module *module);
+        UniqueStack<Model *> &subscribers();
+        void add_subscriber(Model *module);
     };
     // using SensitivityEvent = std::vector<Module *>;
 } // namespace dspsim
