@@ -15,15 +15,6 @@ namespace dspsim
         context()->_add_signal(this);
     }
 
-    // void SignalBase::_add_driver(PortBase *driver)
-    // {
-    //     _drivers.push_back(driver);
-    // }
-    // void SignalBase::_add_subscriber(PortBase *subscriber)
-    // {
-    //     _subscribers.push_back(subscriber);
-    // }
-
     SensitivityEvent &SignalBase::pos()
     {
         return _posedge_event;
@@ -98,14 +89,12 @@ namespace dspsim
         if (_d != _q)
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for update", name());
-            // // Schedule for eval.
-            // context()->_push_eval_stack(this);
             // Schedule for update
             context()->_signal_update_stack.push_back(this);
         }
         else
         {
-            // If the signal is written more than once, and reset to a previous value, remove it from the update stack.
+            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
             auto it = context()->_signal_update_stack.find(this);
 
             if (it != context()->_signal_update_stack.end())
@@ -130,12 +119,6 @@ namespace dspsim
     template <typename T>
     void Signal<T>::update()
     {
-        // If no change, don't update subscribers. This should never happen.
-        // if (_d == _q)
-        // {
-        //     return;
-        // }
-
         EventType event = EventType::Changed;
         _changed_flag = true;
         context()->_signal_event = true;
@@ -152,13 +135,6 @@ namespace dspsim
         }
 
         this->_q = this->_d;
-
-        // I want to skip this step. All module subscribers should have been added during elaboration.
-        // for (auto port : _subscribers)
-        // {
-        //     SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
-        //     port->_notify(event);
-        // }
 
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)

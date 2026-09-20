@@ -14,36 +14,6 @@ namespace dspsim
     {
     }
 
-    // void InputBase::_notify(EventType event)
-    // {
-    //     if (event == EventType::Posedge)
-    //     {
-    //         for (auto subscriber : pos().subscribers())
-    //         {
-    //             // Notify the subscriber
-    //             SPDLOG_LOGGER_TRACE(context()->logger, "Port {} notifying posedge subscriber: {}", name(), subscriber->name());
-    //             context()->_push_eval_stack(subscriber);
-    //         }
-    //     }
-    //     else if (event == EventType::Negedge)
-    //     {
-    //         for (auto subscriber : neg().subscribers())
-    //         {
-    //             // Notify the subscriber
-    //             SPDLOG_LOGGER_TRACE(context()->logger, "Port {} notifying negedge subscriber: {}", name(), subscriber->name());
-    //             context()->_push_eval_stack(subscriber);
-    //         }
-    //     }
-
-    //     // We should only notify a subscriber once. The eval queue is a set so adding again is fine.
-    //     for (auto subscriber : _change().subscribers())
-    //     {
-    //         // Notify the subscriber
-    //         SPDLOG_LOGGER_DEBUG(context()->logger, "Port {} notifying changed subscriber: {}", name(), subscriber->name());
-    //         context()->_push_eval_stack(subscriber);
-    //     }
-    // }
-
     SensitivityEvent &InputBase::pos()
     {
         return _posedge_event;
@@ -96,7 +66,6 @@ namespace dspsim
             if (port->_bound_signal)
             {
                 _bound_signal = port->_bound_signal;
-                // _bound_signal->_add_subscriber(this);
                 // Add the ports events to the bound signal's events.
                 _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
                 _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
@@ -124,7 +93,6 @@ namespace dspsim
             context()->logger->error("Input port {} is already bound to a signal", name());
         }
         _bound_signal = &signal;
-        // _bound_signal->_add_subscriber(this);
     }
 
     template <typename T>
@@ -212,11 +180,6 @@ namespace dspsim
         }
     }
 
-    // template <typename T>
-    // void Output<T>::_notify(EventType event)
-    // {
-    // }
-
     template <typename T>
     Output<T>::operator Signal<T> &()
     {
@@ -231,7 +194,6 @@ namespace dspsim
             context()->logger->error("Output port {} is already bound to a signal", hier_name());
         }
         _bound_signal = &signal;
-        // signal._add_driver(this);
     }
 
     template <typename T>

@@ -113,24 +113,22 @@ namespace dspsim
             while (!_eval_stack.empty())
             {
                 // auto model = _eval_stack.pop();
-                auto model = _eval_stack.back();
+                Model *model = _eval_stack.back();
                 _eval_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
                 model->eval();
 
-                // // Add the model to the update stack after evaluation.
-                // _signal_update_stack.push_back(model);
+                // Add the model to the update stack after evaluation.
+                _trace_stack.push_back(model);
             }
 
             // run update cycle on all models that were evaluated.
             while (!_signal_update_stack.empty())
             {
-                auto model = _signal_update_stack.back();
+                SignalBase *signal = _signal_update_stack.back();
                 _signal_update_stack.pop_back();
-                SPDLOG_LOGGER_TRACE(logger, "Updating model: {}", model->name());
-                model->update();
-
-                _trace_stack.push_back(model);
+                SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+                signal->update();
             }
         }
 

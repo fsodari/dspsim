@@ -27,7 +27,12 @@ target_compile_options(dspsim-core PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
         -Werror=reorder
         -Wall
-        -Werror>
+        -Werror
+        -Wextra
+        -Wpedantic
+        -Wunused
+        -Wunused-but-set-variable
+        >
     
     # MSVC syntax: /weNNNN (where NNNN is the 4-digit warning number)
     $<$<CXX_COMPILER_ID:MSVC>:
