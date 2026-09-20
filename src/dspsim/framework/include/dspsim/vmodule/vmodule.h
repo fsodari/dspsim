@@ -1,4 +1,5 @@
 #pragma once
+#include <dspsim/context.h>
 #include <dspsim/vmodule/vmodule_base.h>
 #include <dspsim/vmodule/vport.h>
 #include <verilated.h>

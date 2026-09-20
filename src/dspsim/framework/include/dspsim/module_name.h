@@ -1,12 +1,12 @@
 #pragma once
-#include <dspsim/context.h>
-
+#include <string>
 namespace dspsim
 {
+    class Context;
     class ModuleName
     {
     private:
-        ContextPtr _context;
+        Context *_context;
         std::string _name;
 
     public:

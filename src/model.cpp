@@ -1,4 +1,5 @@
 #include <dspsim/model.h>
+#include <dspsim/context.h>
 #include <dspsim/module.h>
 #include <format>
 namespace dspsim

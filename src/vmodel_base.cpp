@@ -1,4 +1,5 @@
 #include <dspsim/vmodule/vmodule_base.h>
+#include <dspsim/context.h>
 #include <dspsim/port.h>
 #include <spdlog/spdlog.h>
 

@@ -1,5 +1,4 @@
 #pragma once
-#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/module_name.h>

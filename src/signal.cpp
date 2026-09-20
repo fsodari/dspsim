@@ -1,4 +1,5 @@
 #include <dspsim/signal.h>
+#include <dspsim/context.h>
 #include <dspsim/port.h>
 #include <dspsim/module.h>
 #include <dspsim/event.h>

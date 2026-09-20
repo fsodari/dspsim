@@ -1,7 +1,6 @@
 #pragma once
 #include <dspsim/forward.h>
 #include <dspsim/model.h>
-// #include <dspsim/port.h>
 #include <dspsim/event.h>
 #include <vector>
 #include <memory>

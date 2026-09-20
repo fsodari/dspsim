@@ -1,10 +1,10 @@
 #pragma once
-#include <dspsim/context.h>
 #include <dspsim/event.h>
 #include <vector>
 
 namespace dspsim
 {
+    class Context;
     class SensitivityList
     {
     private:
