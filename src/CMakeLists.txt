@@ -10,7 +10,8 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/sensitivity_list.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
     ${DSPSIM_SRC_DIR}/vmodel_base.cpp
-    ${DSPSIM_SRC_DIR}/vport.cpp)
+    ${DSPSIM_SRC_DIR}/vport.cpp
+    ${DSPSIM_SRC_DIR}/process.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)

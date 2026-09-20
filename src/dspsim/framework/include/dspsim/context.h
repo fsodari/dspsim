@@ -3,6 +3,7 @@
 #include <dspsim/model.h>
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
+#include <dspsim/process.h>
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/priority_queue.h>
 #include <memory>
@@ -47,6 +48,7 @@ namespace dspsim
         std::vector<Model *> _registered_models;
         std::vector<Module *> _modules;
         std::vector<SignalBase *> _signals;
+        std::vector<Process *> _processes;
 
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
