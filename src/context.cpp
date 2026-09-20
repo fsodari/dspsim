@@ -14,6 +14,23 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 namespace dspsim
 {
+    static inline auto parse_level(const std::string &level)
+    {
+        // Convert to lowercase
+        std::string lower_log_level = level;
+        std::transform(lower_log_level.begin(), lower_log_level.end(), lower_log_level.begin(), ::tolower);
+        spdlog::level::level_enum parsed_level = spdlog::level::from_str(lower_log_level);
+        if (parsed_level == spdlog::level::off && lower_log_level != "off")
+        {
+            // Invalid string level, use info as fallback.
+            return spdlog::level::info;
+        }
+        else
+        {
+            return parsed_level;
+        }
+    }
+
     Context::Context(const std::string &name, int id)
         : _name(name),
           _id(id),
@@ -199,24 +216,19 @@ namespace dspsim
     }
     void Context::set_log_level(const std::string &log_level)
     {
-        // Convert to lowercase
-        std::string lower_log_level = log_level;
-        std::transform(lower_log_level.begin(), lower_log_level.end(), lower_log_level.begin(), ::tolower);
-        spdlog::level::level_enum parsed_level = spdlog::level::from_str(lower_log_level);
-        if (parsed_level == spdlog::level::off && lower_log_level != "off")
-        {
-            // Invalid string level, use info as fallback.
-            logger->set_level(spdlog::level::info);
-        }
-        else
-        {
-            logger->set_level(parsed_level);
-        }
+        auto level = parse_level(log_level);
+        logger->set_level(level);
     }
 
     const std::string Context::repr() const
     {
         return std::format("Context(id={}, time={})", _id, _time);
+    }
+
+    void Context::log(const std::string &level, const std::string &message)
+    {
+        auto lvl = parse_level(level);
+        logger->log(lvl, message);
     }
 
     void Context::_add_model(Model *model)

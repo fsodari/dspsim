@@ -129,6 +129,8 @@ namespace dspsim
         void set_log_level(const std::string &log_level);
         const std::string repr() const;
 
+        void log(const std::string &level, const std::string &message);
+
         /*
             Pseudo-Private Methods.
             Not intended to be called,

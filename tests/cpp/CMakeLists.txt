@@ -30,13 +30,29 @@ target_compile_options(tests PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:
         /W2;>
 )
+
+add_library(Skid Skid.cpp)
 # Verilate test modules
-verilate(tests
+verilate(Skid
     SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
     INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
-    TRACE_VCD
+    TRACE_VCD 
     VERILATOR_ARGS --quiet
 )
+target_link_libraries(Skid PUBLIC dspsim::dspsim-core)
+target_link_libraries(tests PRIVATE Skid)
+
+add_library(Skid2 Skid2.cpp)
+# Verilate test modules
+verilate(Skid2
+    SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
+    INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
+    TRACE_FST
+    PREFIX VSkid2
+    VERILATOR_ARGS --quiet
+)
+target_link_libraries(Skid2 PUBLIC dspsim::dspsim-core)
+target_link_libraries(tests PRIVATE Skid2)
 
 include(CTest)
 include(Catch)
