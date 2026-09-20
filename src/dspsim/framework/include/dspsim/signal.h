@@ -2,6 +2,8 @@
 #include <dspsim/forward.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
+#include <dspsim/utils/unique_stack.h>
+
 #include <vector>
 #include <memory>
 

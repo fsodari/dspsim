@@ -7,7 +7,6 @@ using namespace dspsim;
 // Anonymous namespace: avoids ODR collisions with same-named classes in other test translation units.
 namespace
 {
-
     // Recursively nests a submodule named "child" Depth levels deep. Each level also owns an
     // Input, Output, and internal Signal, so the hierarchy includes port/signal models, not just modules.
     template <int Depth>
