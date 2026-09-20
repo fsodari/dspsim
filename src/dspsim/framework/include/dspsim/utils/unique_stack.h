@@ -23,6 +23,8 @@ namespace dspsim
         // STL operations expect this.
         using value_type = T;
         using const_reference = const T &;
+        using iterator = typename std::vector<T>::iterator;
+        using const_iterator = typename std::vector<T>::const_iterator;
 
         const T &back() const
         {
@@ -85,6 +87,46 @@ namespace dspsim
         auto end() { return _stack.end(); }
         auto begin() const { return _stack.begin(); }
         auto end() const { return _stack.end(); }
+
+        // Find
+        iterator find(const T &element)
+        {
+            uint32_t idx = element->id();
+            if (idx < _in_stack.size() && _in_stack[idx])
+            {
+                return std::find(_stack.begin(), _stack.end(), element);
+            }
+            return _stack.end();
+        }
+        const_iterator find(const T &element) const
+        {
+            uint32_t idx = element->id();
+            if (idx < _in_stack.size() && _in_stack[idx])
+            {
+                return std::find(_stack.begin(), _stack.end(), element);
+            }
+            return _stack.end();
+        }
+        // Erasing operations.
+        iterator erase(iterator it)
+        {
+            if (it != _stack.end())
+            {
+                _in_stack[(*it)->id()] = 0;
+                return _stack.erase(it);
+            }
+            return _stack.end();
+        }
+        iterator erase(const T &element)
+        {
+            auto it = find(element);
+            if (it != _stack.end())
+            {
+                _in_stack[(*it)->id()] = 0;
+                return _stack.erase(it);
+            }
+            return _stack.end();
+        }
 
     private:
         std::vector<T> _stack;

@@ -80,3 +80,48 @@ TEST_CASE("UniqueStack push_range", "[unique_stack]")
     std::sort(result.begin(), result.end());
     REQUIRE_THAT(result, Catch::Matchers::RangeEquals(expected));
 }
+
+TEST_CASE("UniqueStack find", "[unique_stack]")
+{
+    UniqueStack<DummyModel> stack;
+    auto test_data = std::vector<DummyModel>{1, 2, 3, 4};
+    for (const auto &item : test_data)
+    {
+        stack.push_back(item);
+    }
+
+    for (const auto &item : test_data)
+    {
+        auto it = stack.find(item);
+        REQUIRE(it != stack.end());
+        REQUIRE(*it == item);
+    }
+
+    DummyModel not_in_stack{5};
+    auto it = stack.find(not_in_stack);
+    REQUIRE(it == stack.end());
+}
+
+TEST_CASE("UniqueStack erasing", "[unique_stack]")
+{
+    UniqueStack<DummyModel> stack;
+    auto test_data = std::vector<DummyModel>{1, 2, 3, 4};
+    for (const auto &item : test_data)
+    {
+        stack.push_back(item);
+    }
+
+    // Erase by iterator
+    auto it = stack.find(test_data[1]);
+    REQUIRE(it != stack.end());
+    stack.erase(it);
+    REQUIRE(stack.find(test_data[1]) == stack.end());
+
+    // Erase by value
+    stack.erase(test_data[2]);
+    REQUIRE(stack.find(test_data[2]) == stack.end());
+
+    // Ensure other elements are still present
+    REQUIRE(stack.find(test_data[0]) != stack.end());
+    REQUIRE(stack.find(test_data[3]) != stack.end());
+}
