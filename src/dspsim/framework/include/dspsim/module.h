@@ -2,6 +2,7 @@
 #include <dspsim/model.h>
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/module_name.h>
+#include <dspsim/process.h>
 #include <vector>
 
 namespace dspsim
@@ -20,7 +21,6 @@ namespace dspsim
         Module(ModuleName &name);
         Module();
 
-        void _add_event(std::vector<Model *> &event_subscribers);
         void _end_construction();
 
         // Opt out of the initial evaluation pass Context::elaborate() otherwise schedules for every module.

@@ -6,4 +6,9 @@ namespace dspsim
     {
         return _id;
     }
+
+    Process::Process(Context *context, uint32_t id, std::function<void()> eval)
+        : _context(context), _id(id), eval(eval)
+    {
+    }
 }

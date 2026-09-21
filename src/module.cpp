@@ -19,11 +19,6 @@ namespace dspsim
         return always;
     }
 
-    void Module::_add_event(std::vector<Model *> &event_subscribers)
-    {
-        event_subscribers.push_back(this);
-    }
-
     void Module::_end_construction()
     {
         context()->_active_module_stack.pop_back();

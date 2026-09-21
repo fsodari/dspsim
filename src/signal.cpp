@@ -142,23 +142,14 @@ namespace dspsim
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)
         {
-            for (auto module : pos().subscribers())
-            {
-                context()->_push_eval_stack(module);
-            }
+            pos().notify();
         }
         else if (event == EventType::Negedge)
         {
-            for (auto module : neg().subscribers())
-            {
-                context()->_push_eval_stack(module);
-            }
+            neg().notify();
         }
-        for (auto module : _change().subscribers())
-        {
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying changed subscriber: {}", name(), module->name());
-            context()->_push_eval_stack(module);
-        }
+
+        _change().notify();
     }
 
     template <typename T>

@@ -26,7 +26,8 @@ add_executable(tests
     test_better_binding.cpp
     test_print_hierarchy.cpp
     test_clocked_modules.cpp
-    test_vmodel.cpp)
+    test_vmodel.cpp
+    test_running_processes.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax

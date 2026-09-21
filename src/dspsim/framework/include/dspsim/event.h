@@ -1,6 +1,7 @@
 #pragma once
 // #include <dspsim/forward.h>
 #include <dspsim/model.h>
+#include <dspsim/process.h>
 // #include <dspsim/module.h>
 #include <dspsim/utils/unique_stack.h>
 #include <vector>
@@ -28,15 +29,24 @@ namespace dspsim
         bool operator>(const TimeEvent &other) const;
     };
 
+    /*
+        Rather than only allowing Models with an eval function,
+        we could register a process.
+    */
     class SensitivityEvent
     {
     private:
-        // std::vector<Module *> _subscribers;
+        Context *_context;
         UniqueStack<Model *> _subscribers;
+        UniqueStack<Process *> _processes;
 
     public:
+        SensitivityEvent();
         UniqueStack<Model *> &subscribers();
+        UniqueStack<Process *> &processes();
         void add_subscriber(Model *module);
+        void add_process(Process *process);
+
+        void notify();
     };
-    // using SensitivityEvent = std::vector<Module *>;
 } // namespace dspsim

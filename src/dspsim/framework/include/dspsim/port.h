@@ -49,6 +49,8 @@ namespace dspsim
         void finalize() override;
 
     protected:
+        // Update the bound signal's subscribers with the ports subscribers
+        void update_bound_signal_subscribers();
         // Resolve a chain of port-to-port bindings down to the underlying signal.
         void resolve();
 

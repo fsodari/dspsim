@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <set>
+#include <functional>
 
 namespace spdlog
 {
@@ -48,7 +49,9 @@ namespace dspsim
         std::vector<Model *> _registered_models;
         // std::vector<Module *> _modules;
         std::vector<SignalBase *> _signals;
-        std::vector<Process *> _processes;
+
+        uint32_t _next_process_id;
+        std::vector<std::shared_ptr<Process>> _processes;
 
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
@@ -57,9 +60,11 @@ namespace dspsim
         std::unordered_map<Model *, std::vector<Model *>> _children;
         //
         UniqueStack<Model *> _eval_stack;
+
         // UniqueStack<Model *> _update_stack; // Signals are the only models that ever need to be in the update cycle.
     public:
         UniqueStack<SignalBase *> _signal_update_stack;
+        UniqueStack<Process *> _process_eval_stack;
 
     private:
         PriorityQueue<TimeEvent> _time_event_stack;
@@ -167,6 +172,14 @@ namespace dspsim
             simulation reaches the specified time.
         */
         void _push_time_event_stack(TimeEvent event);
+
+        Process *register_process(std::function<void()> eval);
+
+        template <typename MemberFunc, typename ClassType>
+        Process *register_process(MemberFunc mem_ptr, ClassType *instance)
+        {
+            return register_process(method_to_function(mem_ptr, instance));
+        }
 
         /*
             The current hierarchal module being constructed.

@@ -1,4 +1,7 @@
 #include <dspsim/dff.h>
+#include <dspsim/context.h>
+#include <dspsim/process.h>
+#include <spdlog/spdlog.h>
 namespace dspsim
 {
     // template <typename T>
@@ -12,6 +15,16 @@ namespace dspsim
         : Module(name)
     {
         always << clk.pos();
+
+        // always.link_process(clk.pos(), context()->register_process([this]()
+        //                                                            { this->some_process(); }));
+
+        // always.link_process(clk.pos(), context()->register_process(&Dff<T>::some_process, this));
+        // auto x = std::remove_reference<decltype(*this)>::type;
+
+        // context()->register_process(&Dff<T>::some_process, this);
+        DSPSIM_PROCESS(&Dff<T>::some_process);
+        always << clk.pos();
     }
 
     template <typename T>
@@ -19,8 +32,16 @@ namespace dspsim
     {
         if (clk.read())
         {
+            context()->logger->info("Dff eval: clk={}, d={}", clk.read(), d.read());
             q.write(d.read());
         }
+    }
+
+    template <typename T>
+    void Dff<T>::some_process()
+    {
+        context()->logger->info("Dff some_process called!");
+        // eval();
     }
 
     template class Dff<uint8_t>;

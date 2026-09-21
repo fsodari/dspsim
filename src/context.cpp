@@ -35,6 +35,7 @@ namespace dspsim
         : _name(name),
           _id(id),
           _next_model_id(0),
+          _next_process_id(0),
           _time(0),
           _time_unit("1ns"),
           _signal_event(false)
@@ -105,7 +106,7 @@ namespace dspsim
             }
         }
         // Run eval cycle.
-        while (!_eval_stack.empty() || !_signal_update_stack.empty())
+        while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
@@ -123,6 +124,14 @@ namespace dspsim
             }
 
             // run update cycle on all models that were evaluated.
+            while (!_process_eval_stack.empty())
+            {
+                Process *process = _process_eval_stack.back();
+                _process_eval_stack.pop_back();
+                SPDLOG_LOGGER_TRACE(logger, "Evaluating process");
+                process->eval();
+            }
+
             while (!_signal_update_stack.empty())
             {
                 SignalBase *signal = _signal_update_stack.back();
@@ -278,6 +287,18 @@ namespace dspsim
     void Context::_push_time_event_stack(TimeEvent event)
     {
         _time_event_stack.push(event);
+    }
+
+    Process *Context::register_process(std::function<void()> eval)
+    {
+        auto process = std::make_shared<Process>(this, _next_process_id++, eval);
+        _processes.push_back(process);
+        // Set the active process of the active module.
+        if (_active_module())
+        {
+            _active_module()->always.set_active_process(process.get());
+        }
+        return process.get();
     }
 
     Module *Context::_active_module() const

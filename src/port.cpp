@@ -48,14 +48,23 @@ namespace dspsim
     }
 
     template <typename T>
+    void Input<T>::update_bound_signal_subscribers()
+    {
+
+        _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
+        _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
+        _bound_signal->_change().subscribers().push_range(_change_event.subscribers());
+
+        _bound_signal->pos().processes().push_range(_posedge_event.processes());
+        _bound_signal->neg().processes().push_range(_negedge_event.processes());
+        _bound_signal->_change().processes().push_range(_change_event.processes());
+    }
+    template <typename T>
     void Input<T>::resolve()
     {
         if (_bound_signal)
         {
-            // Add the ports events to the bound signal's events.
-            _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
-            _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
-            _bound_signal->_change().subscribers().push_range(_change_event.subscribers());
+            update_bound_signal_subscribers();
             // What if downstream ports need to be bound? Can this happen in an input?
 
             return;
@@ -67,9 +76,7 @@ namespace dspsim
             {
                 _bound_signal = port->_bound_signal;
                 // Add the ports events to the bound signal's events.
-                _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
-                _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
-                _bound_signal->_change().subscribers().push_range(_change_event.subscribers());
+                update_bound_signal_subscribers();
                 break;
             }
         }

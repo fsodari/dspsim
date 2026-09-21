@@ -2,9 +2,10 @@
 
 import argparse
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-import sys
+
 
 @dataclass
 class Args:
@@ -44,8 +45,6 @@ def main():
     if args.build:
         subprocess.run(build_cmd, check=True)
 
-    
-    
     test_exe = test_dir / "tests"
 
     test_cmd = [test_exe.as_posix()]
