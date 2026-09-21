@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "dspsim"
-version = "0.5.3"
+version = "0.5.4"
 description = "discrete-event simulation engine for HDL designs."
 readme = "README.md"
 authors = [
