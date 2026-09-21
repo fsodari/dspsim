@@ -10,15 +10,20 @@ class SomeModel(Module):
         super().__init__(name)
         self.eval_called = 0
 
+        # self.context.register_process(lambda: self.eval(), self, "SomeModelProcess")
+        self.register_process(self.eval, "SomeModel.eval")
+
     def eval(self):
         self.eval_called += 1
         # print(f"SomeModel eval(), {self.eval_called}")
 
 
 def test_model_initialization():
+
     with Context() as context:
         with context.construct():
             some_model = SomeModel("some_model")
+
             assert some_model is not None
             assert isinstance(some_model, Module)
             assert some_model.context is not None
@@ -72,6 +77,7 @@ def test_cleanup():
     ctx = Context()
     a = SomeModel("a")
     SomeModel("b")
+
     for _ in range(10):
         ctx.eval()
     # No need to explicitly clear() the context.

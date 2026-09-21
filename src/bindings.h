@@ -8,6 +8,7 @@
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/filesystem.h>
+#include <nanobind/stl/function.h>
 #include <nanobind/trampoline.h>
 
 // bindings is only included by _framework.cpp so this shouldn't pollute the namespace.
@@ -31,36 +32,31 @@ namespace dspsim
             NB_OVERRIDE(finalize);
         }
 
-        void eval() override
-        {
-            NB_OVERRIDE(eval);
-        }
-
         const std::string repr() const override
         {
             NB_OVERRIDE(repr);
         }
     };
 
-    struct PyModule : public Module
+    // struct PyModule : public Module
+    // {
+    //     NB_TRAMPOLINE(Module);
+
+    //     void finalize() override
+    //     {
+    //         NB_OVERRIDE(finalize);
+    //     }
+
+    //     const std::string repr() const override
+    //     {
+    //         NB_OVERRIDE(repr);
+    //     }
+    // };
+
+    static Process *register_process_helper(Context &context, const std::function<void()> &eval, Module *module, const std::string &name)
     {
-        NB_TRAMPOLINE(Module);
-
-        void finalize() override
-        {
-            NB_OVERRIDE(finalize);
-        }
-
-        void eval() override
-        {
-            NB_OVERRIDE(eval);
-        }
-
-        const std::string repr() const override
-        {
-            NB_OVERRIDE(repr);
-        }
-    };
+        return context.register_process_func(eval, module, name);
+    }
 
     static inline auto bind_context(nb::module_ &m, const char *name)
     {
@@ -92,6 +88,9 @@ namespace dspsim
             .def("own_model", &Context::_own_model)
             .def("own_module", &Context::_own_module, nb::arg("module"))
 
+            // Register a process.
+            .def("register_process", &register_process_helper, nb::arg("func"), nb::arg("source"), nb::arg("name") = "", nb::rv_policy::reference)
+
             // Static Methods
             .def_static("obtain", &Context::obtain)
             .def_static("reset", &Context::reset)
@@ -119,7 +118,7 @@ namespace dspsim
                  nb::arg("kind") = "model")
             // Methods.
             .def("finalize", &Model::finalize)
-            .def("eval", &Model::eval)
+            // .def("eval", &Model::eval)
             // .def("update", &Model::update)
             // Properties
             .def_prop_ro("context", &Model::context)
@@ -132,6 +131,14 @@ namespace dspsim
             .def("repr", &Model::repr)
             .def("__repr__", &Model::repr)
             .def("__str__", &Model::repr);
+    }
+
+    static inline auto bind_process(nb::module_ &m, const char *name)
+    {
+        return nb::class_<Process>(m, name)
+            .def_prop_ro("name", &Process::name)
+            .def_prop_ro("id", &Process::id)
+            .def_prop_ro("source", &Process::source);
     }
 
     static inline auto bind_time_event(nb::module_ &m, const char *name)
@@ -212,9 +219,8 @@ namespace dspsim
     static inline auto bind_sensitivity_list(nb::module_ &m, const char *name)
     {
         return nb::class_<SensitivityList>(m, name)
-            .def(nb::init<Module *>(), nb::arg("module"))
-            .def("add_event", &SensitivityList::add_event)
-            .def_prop_ro("module", &SensitivityList::module);
+            .def(nb::init<>())
+            .def("link_process", &SensitivityList::link_process, nb::arg("event"), nb::arg("process"));
         // Function to add events using *args
     }
     static inline auto _module_always_func(Module &self, nb::args args)
@@ -223,11 +229,13 @@ namespace dspsim
         {
             if (nb::isinstance<SensitivityEvent>(arg))
             {
-                self.always.add_event(nb::cast<SensitivityEvent &>(arg));
+                // self.always.add_event(nb::cast<SensitivityEvent &>(arg));
+                self.always.link_process(nb::cast<SensitivityEvent &>(arg), nullptr);
             }
             else if (nb::isinstance<InputBase>(arg))
             {
-                self.always.add_event(nb::cast<InputBase &>(arg)._change());
+                // self.always.add_event(nb::cast<InputBase &>(arg)._change());
+                self.always.link_process(nb::cast<InputBase &>(arg)._change(), nullptr);
             }
             else
             {
@@ -245,12 +253,12 @@ namespace dspsim
 
     static inline auto bind_module(nb::module_ &m, const char *name)
     {
-        return nb::class_<Module, PyModule>(m, name)
+        return nb::class_<Module, Model>(m, name)
             // Use lambda to initialize
             .def(nb::init<ModuleName &>(), nb::arg("name"))
             // Methods.
             .def("finalize", &Module::finalize)
-            .def("eval", &Module::eval)
+            // .def("eval", &Module::eval)
             // .def("update", &Module::update)
             // Always
             .def_prop_ro("_always", &Module::_always_ref, nb::rv_policy::reference_internal)

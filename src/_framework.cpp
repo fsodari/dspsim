@@ -3,10 +3,16 @@
 #include "bindings.h"
 
 using namespace dspsim;
+void call_py_func(const std::function<void()> &func)
+{
+    func();
+}
 
 NB_MODULE(_framework, m)
 {
     m.doc() = "dspsim framework module";
+
+    m.def("call_py_func", &call_py_func, nb::arg("func"));
 
     // Bind the Context
     bind_context(m, "Context");
@@ -14,6 +20,8 @@ NB_MODULE(_framework, m)
     bind_context_factory(m, "ContextFactory");
     // Bind Model base class
     bind_model(m, "Model");
+    // Bind Process
+    bind_process(m, "Process");
     // Bind TimeEvent
     bind_time_event(m, "TimeEvent");
     // Bind SensitivityEvent

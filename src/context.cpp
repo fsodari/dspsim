@@ -12,6 +12,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace dspsim
 {
     static inline auto parse_level(const std::string &level)
@@ -75,6 +76,8 @@ namespace dspsim
         for (auto process : _processes)
         {
             // Modules can opt out of initializing.
+            if (process->source() == nullptr)
+                continue;
             if (auto *module = dynamic_cast<Module *>(process->source()))
             {
                 if (module->initialize())
@@ -299,7 +302,7 @@ namespace dspsim
         _owned_modules.push_back(module);
     }
 
-    Process *Context::register_process_func(std::function<void()> eval, Model *source, const std::string &name)
+    Process *Context::register_process_func(const std::function<void()> &eval, Model *source, const std::string &name)
     {
         auto process = std::make_shared<Process>(this, _next_process_id++, eval, source, name);
         _processes.push_back(process);

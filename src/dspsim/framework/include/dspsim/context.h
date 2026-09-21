@@ -179,7 +179,7 @@ namespace dspsim
         void _own_module(ModulePtr module);
 
         // Register a process with the context. This will create a Process object and set it as the active process.
-        Process *register_process_func(std::function<void()> eval, Model *source, const std::string &name = "");
+        Process *register_process_func(const std::function<void()> &eval, Model *source, const std::string &name = "");
 
         template <typename MemberFunc, typename ClassType>
         Process *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")

@@ -13,6 +13,7 @@ class SubAdder(Module):
         self.b = Input32("b")
         self.c = Output32("c")
 
+        self.context.register_process(lambda: self.eval(), self, "SubAdder.eval")
         self.always(self.a, self.b)
 
     def eval(self):
