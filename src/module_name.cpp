@@ -1,10 +1,11 @@
 #include <dspsim/module_name.h>
+#include <dspsim/context.h>
 #include <dspsim/module.h>
 
 #include <spdlog/spdlog.h>
 namespace dspsim
 {
-    ModuleName::ModuleName(const std::string &name) : _context(Context::obtain()), _name(name)
+    ModuleName::ModuleName(const std::string &name) : _context(Context::obtain().get()), _name(name)
     {
         _context->logger->info("Constructing ModuleName: {}", name);
         _context->_active_module_name_stack.push_back(this);

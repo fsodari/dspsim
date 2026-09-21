@@ -1,6 +1,5 @@
 #pragma once
 #include <dspsim/signal.h>
-// #include <dspsim/forward.h>
 #include <dspsim/event.h>
 #include <dspsim/sensitivity_list.h>
 #include <memory>
@@ -13,12 +12,14 @@ namespace dspsim
     public:
         PortBase(const std::string &name, const std::string &kind);
         virtual void finalize() override = 0;
-        virtual void _notify(EventType event) = 0;
+        // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
+        virtual void _sync() {}
     };
 
     class InputBase : public PortBase
     {
     protected:
+        // During elaboration, these events will be added to the bound signal's events.
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
@@ -26,9 +27,8 @@ namespace dspsim
     public:
         InputBase(const std::string &name);
         virtual void finalize() override = 0;
-        virtual void _notify(EventType event) override;
 
-        // When using this port in a sensitivity list, it can be cast to std::vector<Module *> to obtain the list of changed subscribers.
+        // Modules can be sensitive to port changes.
         SensitivityEvent &pos();
         SensitivityEvent &neg();
         SensitivityEvent &_change();
@@ -40,7 +40,6 @@ namespace dspsim
     template <typename T>
     class Input : public InputBase
     {
-
         Signal<T> *_bound_signal = nullptr;
         std::vector<Input<T> *> _bound_ports;
 
@@ -63,10 +62,22 @@ namespace dspsim
         void _bind_port(Input<T> &port);
 
         const T &read() const;
+
+        // Set in the update cycle after a signal event. Derived from bound signal.
+        bool posedge() const;
+        bool negedge() const;
+        bool changed() const;
+    };
+
+    class OutputBase : public PortBase
+    {
+    public:
+        OutputBase(const std::string &name) : PortBase(name, "output") {}
+        virtual void finalize() override = 0;
     };
 
     template <typename T>
-    class Output : public PortBase
+    class Output : public OutputBase
     {
     private:
         Signal<T> *_bound_signal = nullptr;
@@ -82,8 +93,6 @@ namespace dspsim
         void resolve();
 
     public:
-        void _notify(EventType event) override;
-
         operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Output<T> &port);
@@ -95,7 +104,7 @@ namespace dspsim
         void write(const T &value);
 
         const T &_read_d() const;
-        const T &_read() const;
+        const T &read() const;
     };
 
 }

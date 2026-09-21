@@ -6,184 +6,187 @@
 
 using namespace dspsim;
 
-template <typename T>
-class Adder : public Module
+namespace
 {
-public:
-    Input<T> a;
-    Input<T> b;
-    Output<T> c;
-
-    Adder(ModuleName name, Signal<T> &a_, Signal<T> &b_, Signal<T> &c_)
-        : Module(name),
-          a("a", a_),
-          b("b", b_),
-          c("c", c_)
+    template <typename T>
+    class Adder : public Module
     {
-        always << a << b;
-    }
+    public:
+        Input<T> a;
+        Input<T> b;
+        Output<T> c;
 
-    void eval() override
+        Adder(ModuleName name, Signal<T> &a_, Signal<T> &b_, Signal<T> &c_)
+            : Module(name),
+              a("a", a_),
+              b("b", b_),
+              c("c", c_)
+        {
+            always << a << b;
+        }
+
+        void eval() override
+        {
+            c.write(a.read() + b.read());
+        }
+    };
+
+    // Module containing all adders in tree.
+    template <typename T>
+    class AdderTree : public Module
     {
-        c.write(a.read() + b.read());
-    }
-};
+    public:
+        // Internal signals
+        Signal<T> ao{"ao"};
+        Signal<T> bo{"bo"};
+        Signal<T> co{"co"};
+        Signal<T> do_{"do"};
+        Signal<T> eo{"eo"};
+        Signal<T> fo{"fo"};
 
-// Module containing all adders in tree.
-template <typename T>
-class AdderTree : public Module
-{
-public:
-    // Internal signals
-    Signal<T> ao{"ao"};
-    Signal<T> bo{"bo"};
-    Signal<T> co{"co"};
-    Signal<T> do_{"do"};
-    Signal<T> eo{"eo"};
-    Signal<T> fo{"fo"};
+        // Ports
+        Input<T> a1;
+        Input<T> a2;
+        Input<T> b1;
+        Input<T> b2;
+        Input<T> c1;
+        Input<T> c2;
+        Input<T> d1;
+        Input<T> d2;
+        Output<T> go;
 
-    // Ports
-    Input<T> a1;
-    Input<T> a2;
-    Input<T> b1;
-    Input<T> b2;
-    Input<T> c1;
-    Input<T> c2;
-    Input<T> d1;
-    Input<T> d2;
-    Output<T> go;
+        // Submodules
+        Adder<T> adder_a;
+        Adder<T> adder_b;
+        Adder<T> adder_c;
+        Adder<T> adder_d;
+        Adder<T> adder_e;
+        Adder<T> adder_f;
+        Adder<T> adder_g;
 
-    // Submodules
-    Adder<T> adder_a;
-    Adder<T> adder_b;
-    Adder<T> adder_c;
-    Adder<T> adder_d;
-    Adder<T> adder_e;
-    Adder<T> adder_f;
-    Adder<T> adder_g;
+        AdderTree(ModuleName name,
+                  Signal<T> &a1_, Signal<T> &a2_,
+                  Signal<T> &b1_, Signal<T> &b2_,
+                  Signal<T> &c1_, Signal<T> &c2_,
+                  Signal<T> &d1_, Signal<T> &d2_,
+                  Signal<T> &go_)
+            : Module(name),
+              a1("a1", a1_),
+              a2("a2", a2_),
+              b1("b1", b1_),
+              b2("b2", b2_),
+              c1("c1", c1_),
+              c2("c2", c2_),
+              d1("d1", d1_),
+              d2("d2", d2_),
+              go("go", go_),
+              adder_a("adder_a", a1, a2, ao),
+              adder_b("adder_b", b1, b2, bo),
+              adder_c("adder_c", c1, c2, co),
+              adder_d("adder_d", d1, d2, do_),
+              adder_e("adder_e", ao, bo, eo),
+              adder_f("adder_f", co, do_, fo),
+              adder_g("adder_g", eo, fo, go)
+        {
+            // always << a1 << a2 << b1 << b2 << c1 << c2 << d1 << d2;
+        }
 
-    AdderTree(ModuleName name,
-              Signal<T> &a1_, Signal<T> &a2_,
-              Signal<T> &b1_, Signal<T> &b2_,
-              Signal<T> &c1_, Signal<T> &c2_,
-              Signal<T> &d1_, Signal<T> &d2_,
-              Signal<T> &go_)
-        : Module(name),
-          a1("a1", a1_),
-          a2("a2", a2_),
-          b1("b1", b1_),
-          b2("b2", b2_),
-          c1("c1", c1_),
-          c2("c2", c2_),
-          d1("d1", d1_),
-          d2("d2", d2_),
-          go("go", go_),
-          adder_a("adder_a", a1, a2, ao),
-          adder_b("adder_b", b1, b2, bo),
-          adder_c("adder_c", c1, c2, co),
-          adder_d("adder_d", d1, d2, do_),
-          adder_e("adder_e", ao, bo, eo),
-          adder_f("adder_f", co, do_, fo),
-          adder_g("adder_g", eo, fo, go)
+        void eval() override
+        {
+        }
+    };
+
+    // Module containing two adders.
+    template <typename T>
+    class Adder2 : public Module
     {
-        // always << a1 << a2 << b1 << b2 << c1 << c2 << d1 << d2;
-    }
+    public:
+        // Internal signals
+        Signal<T> ao{"ao"};
+        Signal<T> bo{"bo"};
 
-    void eval() override
+        // Ports
+        Input<T> a1;
+        Input<T> a2;
+        Input<T> b1;
+        Input<T> b2;
+        Output<T> co;
+
+        // Submodules
+        Adder<T> adder_a;
+        Adder<T> adder_b;
+        Adder<T> adder_c;
+
+        Adder2(ModuleName name,
+               Signal<T> &a1_, Signal<T> &a2_,
+               Signal<T> &b1_, Signal<T> &b2_, Signal<T> &co_)
+            : Module(name),
+              a1("a1", a1_),
+              a2("a2", a2_),
+              b1("b1", b1_),
+              b2("b2", b2_),
+              co("co", co_),
+              adder_a("adder_a", a1, a2, ao),
+              adder_b("adder_b", b1, b2, bo),
+              adder_c("adder_c", ao, bo, co)
+        {
+        }
+    };
+
+    template <typename T>
+    class AdderNested : public Module
     {
-    }
-};
+    public:
+        /*
+            Currently, in order for this to work, internal signals must be declared first,
+            then ports, and finally submodules.
 
-// Module containing two adders.
-template <typename T>
-class Adder2 : public Module
-{
-public:
-    // Internal signals
-    Signal<T> ao{"ao"};
-    Signal<T> bo{"bo"};
+            This is a pain. It would be nicer if the order of declaration didn't matter.
+            If true binding could be delayed until elaboration, then the order of declaration wouldn't matter.
+        */
+        // Internal signals
+        Signal<T> abo{"abo"};
+        Signal<T> cdo{"cdo"};
 
-    // Ports
-    Input<T> a1;
-    Input<T> a2;
-    Input<T> b1;
-    Input<T> b2;
-    Output<T> co;
+        // Ports
+        Input<T> a1;
+        Input<T> a2;
+        Input<T> b1;
+        Input<T> b2;
+        Input<T> c1;
+        Input<T> c2;
+        Input<T> d1;
+        Input<T> d2;
+        Output<T> eo;
 
-    // Submodules
-    Adder<T> adder_a;
-    Adder<T> adder_b;
-    Adder<T> adder_c;
+        // Submodules
+        Adder2<T> adder_ab;
+        Adder2<T> adder_cd;
+        Adder<T> adder_e;
 
-    Adder2(ModuleName name,
-           Signal<T> &a1_, Signal<T> &a2_,
-           Signal<T> &b1_, Signal<T> &b2_, Signal<T> &co_)
-        : Module(name),
-          a1("a1", a1_),
-          a2("a2", a2_),
-          b1("b1", b1_),
-          b2("b2", b2_),
-          co("co", co_),
-          adder_a("adder_a", a1, a2, ao),
-          adder_b("adder_b", b1, b2, bo),
-          adder_c("adder_c", ao, bo, co)
-    {
-    }
-};
-
-template <typename T>
-class AdderNested : public Module
-{
-public:
-    /*
-        Currently, in order for this to work, internal signals must be declared first,
-        then ports, and finally submodules.
-
-        This is a pain. It would be nicer if the order of declaration didn't matter.
-        If true binding could be delayed until elaboration, then the order of declaration wouldn't matter.
-    */
-    // Internal signals
-    Signal<T> abo{"abo"};
-    Signal<T> cdo{"cdo"};
-
-    // Ports
-    Input<T> a1;
-    Input<T> a2;
-    Input<T> b1;
-    Input<T> b2;
-    Input<T> c1;
-    Input<T> c2;
-    Input<T> d1;
-    Input<T> d2;
-    Output<T> eo;
-
-    // Submodules
-    Adder2<T> adder_ab;
-    Adder2<T> adder_cd;
-    Adder<T> adder_e;
-
-    AdderNested(ModuleName name,
-                Signal<T> &a1_, Signal<T> &a2_,
-                Signal<T> &b1_, Signal<T> &b2_,
-                Signal<T> &c1_, Signal<T> &c2_,
-                Signal<T> &d1_, Signal<T> &d2_,
-                Signal<T> &eo_)
-        : Module(name),
-          a1("a1", a1_),
-          a2("a2", a2_),
-          b1("b1", b1_),
-          b2("b2", b2_),
-          c1("c1", c1_),
-          c2("c2", c2_),
-          d1("d1", d1_),
-          d2("d2", d2_),
-          eo("eo", eo_),
-          adder_ab("adder_ab", a1, a2, b1, b2, abo),
-          adder_cd("adder_cd", c1, c2, d1, d2, cdo),
-          adder_e{"adder_e", abo, cdo, eo}
-    {
-    }
-};
+        AdderNested(ModuleName name,
+                    Signal<T> &a1_, Signal<T> &a2_,
+                    Signal<T> &b1_, Signal<T> &b2_,
+                    Signal<T> &c1_, Signal<T> &c2_,
+                    Signal<T> &d1_, Signal<T> &d2_,
+                    Signal<T> &eo_)
+            : Module(name),
+              a1("a1", a1_),
+              a2("a2", a2_),
+              b1("b1", b1_),
+              b2("b2", b2_),
+              c1("c1", c1_),
+              c2("c2", c2_),
+              d1("d1", d1_),
+              d2("d2", d2_),
+              eo("eo", eo_),
+              adder_ab("adder_ab", a1, a2, b1, b2, abo),
+              adder_cd("adder_cd", c1, c2, d1, d2, cdo),
+              adder_e{"adder_e", abo, cdo, eo}
+        {
+        }
+    };
+}
 
 TEST_CASE("test_adder_tree")
 {

@@ -1,4 +1,5 @@
 #include <dspsim/module.h>
+#include <dspsim/context.h>
 #include <spdlog/spdlog.h>
 
 namespace dspsim
@@ -11,6 +12,11 @@ namespace dspsim
     {
         SPDLOG_LOGGER_TRACE(context()->logger, "Constructing Module with name = {}", name.name());
         context()->_active_module_stack.push_back(this);
+    }
+
+    SensitivityList &Module::_always_ref()
+    {
+        return always;
     }
 
     void Module::_add_event(std::vector<Model *> &event_subscribers)

@@ -1,12 +1,12 @@
-#include <dspsim/utils/sorted_stack.h>
+#include <dspsim/utils/priority_queue.h>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
 
-TEST_CASE("basic_sorted_stack", "[sorted_stack]")
+TEST_CASE("Basic priority queue operations.", "[priority_queue]")
 {
-    SortedStack<int> stack;
+    PriorityQueue<int> stack;
     REQUIRE(stack.empty());
 
     auto test_data = std::vector<int>{4, 1, 3, 2, 5};

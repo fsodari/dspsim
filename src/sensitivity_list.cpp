@@ -1,4 +1,5 @@
 #include <dspsim/sensitivity_list.h>
+#include <dspsim/context.h>
 #include <dspsim/module.h>
 #include "internal.h"
 

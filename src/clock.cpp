@@ -1,4 +1,5 @@
 #include <dspsim/clock.h>
+#include <dspsim/context.h>
 
 namespace dspsim
 {
@@ -13,7 +14,7 @@ namespace dspsim
 
     void Clock::eval()
     {
-        this->_d = !this->_q;
+        this->write(!this->_q);
         context()->_push_time_event_stack(TimeEvent(this, context()->time() + _half_period));
     }
 

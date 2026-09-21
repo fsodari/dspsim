@@ -1,8 +1,14 @@
 #include <dspsim/model.h>
+#include <dspsim/context.h>
 #include <dspsim/module.h>
 #include <format>
 namespace dspsim
 {
+    void _own_model_helper(Context *context, ModelPtr model)
+    {
+        context->_own_model(model);
+    }
+
     Model::Model(const std::string &name, const std::string &kind)
         : _context(Context::obtain().get()),
           _name(name),
@@ -22,15 +28,15 @@ namespace dspsim
     {
     }
 
-    void Model::update()
-    {
-    }
+    // void Model::update()
+    // {
+    // }
 
     Context *Model::context() const
     {
         return _context;
     }
-    size_t Model::id() const
+    uint32_t Model::id() const
     {
         return _id;
     }

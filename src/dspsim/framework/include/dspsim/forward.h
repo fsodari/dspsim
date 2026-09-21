@@ -10,10 +10,13 @@ namespace dspsim
     class ModuleName;
     class Module;
     class PortBase;
+    class InputBase;
+    class OutputBase;
     template <typename T>
     class Input;
     template <typename T>
     class Output;
+    // class SignalBase;
     template <typename T>
     class Signal;
     class Clock;

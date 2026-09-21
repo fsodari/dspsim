@@ -1,11 +1,12 @@
 #pragma once
-#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/module_name.h>
+#include <vector>
 
 namespace dspsim
 {
+    class SensitivityList;
     class Module : public Model
     {
     private:
@@ -14,7 +15,7 @@ namespace dspsim
     public:
         SensitivityList always;
         // Used by python.
-        SensitivityList &_always_ref() { return always; }
+        SensitivityList &_always_ref();
 
         Module(ModuleName &name);
         Module();

@@ -1,40 +1,32 @@
 #pragma once
 #include <vector>
 #include <cstdint>
+#include <concepts>
+#include <ranges>
+#include <algorithm>
 
 namespace dspsim
 {
-    // Unique stack implementation. Ensures that each element is only present once in the stack.
+    template <typename T>
+    concept UniqueStackType = requires(T ptr) {
+        ptr->id();
+    };
+
+    // Stack-like container that only allows unique elements based on their id().
     // T must be a pointer whose pointee exposes a dense, small, non-negative id() (e.g. Model*).
     // Membership is tracked by indexing a flag array with id() instead of hashing, giving true
     // O(1) push/pop with no hashing/bucket overhead.
-    template <typename T>
+    template <UniqueStackType T>
     class UniqueStack
     {
     public:
-        void push(T element)
-        {
-            size_t idx = static_cast<size_t>(element->id());
-            if (idx >= _in_stack.size())
-            {
-                _in_stack.resize(idx + 1, 0);
-            }
-            if (!_in_stack[idx])
-            {
-                _in_stack[idx] = 1;
-                _stack.push_back(element);
-            }
-        }
+        // STL operations expect this.
+        using value_type = T;
+        using const_reference = const T &;
+        using iterator = typename std::vector<T>::iterator;
+        using const_iterator = typename std::vector<T>::const_iterator;
 
-        T pop()
-        {
-            T element = _stack.back();
-            _stack.pop_back();
-            _in_stack[static_cast<size_t>(element->id())] = 0;
-            return element;
-        }
-
-        T &top()
+        const T &back() const
         {
             return _stack.back();
         }
@@ -49,16 +41,84 @@ namespace dspsim
             return _stack.size();
         }
 
+        void push_back(const T &element)
+        {
+            uint32_t idx = element->id();
+            if (idx >= _in_stack.size())
+            {
+                _in_stack.resize(idx + 1, 0);
+            }
+            if (!_in_stack[idx])
+            {
+                _in_stack[idx] = 1;
+                _stack.push_back(element);
+            }
+        }
+
+        template <std::ranges::input_range R>
+            requires std::convertible_to<std::ranges::range_reference_t<R>, T>
+        void append_range(R &&rg)
+        {
+            std::ranges::copy(rg, std::back_inserter(*this));
+        }
+
+        template <std::ranges::input_range R>
+            requires std::convertible_to<std::ranges::range_reference_t<R>, T>
+        void push_range(R &&rg)
+        {
+            append_range(std::forward<R>(rg));
+        }
+
+        void pop_back()
+        {
+            T element = _stack.back();
+            _stack.pop_back();
+            _in_stack[element->id()] = 0;
+        }
+
         void clear()
         {
             _stack.clear();
             _in_stack.clear();
         }
 
+        // Allow iterating the stack.
         auto begin() { return _stack.begin(); }
         auto end() { return _stack.end(); }
         auto begin() const { return _stack.begin(); }
         auto end() const { return _stack.end(); }
+
+        // Find
+        iterator find(const T &element)
+        {
+            uint32_t idx = element->id();
+            if (idx < _in_stack.size() && _in_stack[idx])
+            {
+                return std::find(_stack.begin(), _stack.end(), element);
+            }
+            return _stack.end();
+        }
+
+        // Erasing operations.
+        iterator erase(iterator it)
+        {
+            if (it != _stack.end())
+            {
+                _in_stack[(*it)->id()] = 0;
+                return _stack.erase(it);
+            }
+            return _stack.end();
+        }
+        iterator erase(const T &element)
+        {
+            auto it = find(element);
+            if (it != _stack.end())
+            {
+                _in_stack[(*it)->id()] = 0;
+                return _stack.erase(it);
+            }
+            return _stack.end();
+        }
 
     private:
         std::vector<T> _stack;

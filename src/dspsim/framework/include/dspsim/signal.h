@@ -1,10 +1,17 @@
 #pragma once
-#include <dspsim/forward.h>
+// #include <dspsim/forward.h>
 #include <dspsim/model.h>
-#include <dspsim/port.h>
+#include <dspsim/event.h>
+#include <dspsim/utils/unique_stack.h>
+
+#include <vector>
+#include <memory>
 
 namespace dspsim
 {
+    class SensitivityEvent;
+    class PortBase;
+
     template <typename T>
     struct default_bitwidth
     {
@@ -14,17 +21,22 @@ namespace dspsim
     class SignalBase : public Model
     {
     protected:
-        std::vector<PortBase *> _drivers;
-        std::vector<PortBase *> _subscribers;
+        // std::vector<PortBase *> _drivers;
+        // std::vector<PortBase *> _subscribers;
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
+        bool _posedge_flag;
+        bool _negedge_flag;
+        bool _changed_flag;
 
     public:
         SignalBase(const std::string &name = "");
 
-        void _add_driver(PortBase *driver);
-        void _add_subscriber(PortBase *subscriber);
+        // void _add_driver(PortBase *driver);
+        // void _add_subscriber(PortBase *subscriber);
+        virtual void update() = 0;
+        using Model::id;
 
         // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
         // without needing an intermediate Port.
@@ -32,10 +44,18 @@ namespace dspsim
         SensitivityEvent &neg();
         SensitivityEvent &_change();
         operator SensitivityEvent &();
+
+        // Set if there was a posedge event in the previous update cycle.
+        bool posedge() const;
+        // Set if there was a negedge event in the previous update cycle.
+        bool negedge() const;
+
+        bool changed() const;
+        void _clear_event_flag();
     };
 
-    template <typename T>
-    using SignalPtr = std::shared_ptr<class Signal<T>>;
+    // template <typename T>
+    // using SignalPtr = std::shared_ptr<class Signal<T>>;
 
     template <typename T>
     class Signal : public SignalBase
@@ -65,7 +85,6 @@ namespace dspsim
         // Used for python d property
         const T &_read_d() const;
 
-        virtual void eval() override;
         virtual void update() override;
         /*
             Static Methods

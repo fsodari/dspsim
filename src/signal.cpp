@@ -1,4 +1,5 @@
 #include <dspsim/signal.h>
+#include <dspsim/context.h>
 #include <dspsim/port.h>
 #include <dspsim/module.h>
 #include <dspsim/event.h>
@@ -11,15 +12,10 @@ namespace dspsim
     SignalBase::SignalBase(const std::string &name)
         : Model(name, "signal")
     {
-    }
+        context()->_add_signal(this);
 
-    void SignalBase::_add_driver(PortBase *driver)
-    {
-        _drivers.push_back(driver);
-    }
-    void SignalBase::_add_subscriber(PortBase *subscriber)
-    {
-        _subscribers.push_back(subscriber);
+        // // Force an initial update of all signals.
+        // context()->_signal_update_stack.push_back(this);
     }
 
     SensitivityEvent &SignalBase::pos()
@@ -37,6 +33,25 @@ namespace dspsim
     SignalBase::operator SensitivityEvent &()
     {
         return _change();
+    }
+
+    bool SignalBase::posedge() const
+    {
+        return _posedge_flag;
+    }
+    bool SignalBase::negedge() const
+    {
+        return _negedge_flag;
+    }
+    bool SignalBase::changed() const
+    {
+        return _changed_flag;
+    }
+    void SignalBase::_clear_event_flag()
+    {
+        _posedge_flag = false;
+        _negedge_flag = false;
+        _changed_flag = false;
     }
 
     template <typename T>
@@ -73,9 +88,24 @@ namespace dspsim
     void Signal<T>::write(const T &value)
     {
         _d = value;
-        SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for eval", name());
-        // Schedule for eval.
-        context()->_push_eval_stack(this);
+
+        if (_d != _q)
+        {
+            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for update", name());
+            // Schedule for update
+            context()->_signal_update_stack.push_back(this);
+        }
+        else
+        {
+            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
+            auto it = context()->_signal_update_stack.find(this);
+
+            if (it != context()->_signal_update_stack.end())
+            {
+                context()->_signal_update_stack.erase(it);
+                SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} removed from update stack", name());
+            }
+        }
     }
 
     template <typename T>
@@ -90,39 +120,24 @@ namespace dspsim
     }
 
     template <typename T>
-    void Signal<T>::eval()
-    {
-        if (_d != _q)
-        {
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal eval() value changed: {}", name());
-        }
-    }
-
-    template <typename T>
     void Signal<T>::update()
     {
-        // If no change, don't update subscribers.
-        if (_d == _q)
-        {
-            return;
-        }
         EventType event = EventType::Changed;
+        _changed_flag = true;
+        context()->_signal_event = true;
+
         if (_d && !_q)
         {
             event = EventType::Posedge;
+            _posedge_flag = true;
         }
         else if (!_d && _q)
         {
             event = EventType::Negedge;
+            _negedge_flag = true;
         }
 
         this->_q = this->_d;
-
-        for (auto port : _subscribers)
-        {
-            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} notifying subscriber: {}, event: {}", name(), port->name(), static_cast<int>(event));
-            port->_notify(event);
-        }
 
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)

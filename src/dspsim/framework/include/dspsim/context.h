@@ -1,8 +1,11 @@
 #pragma once
 #include <dspsim/forward.h>
+#include <dspsim/model.h>
+#include <dspsim/signal.h>
 #include <dspsim/event.h>
+#include <dspsim/process.h>
 #include <dspsim/utils/unique_stack.h>
-#include <dspsim/utils/sorted_stack.h>
+#include <dspsim/utils/priority_queue.h>
 #include <memory>
 #include <vector>
 #include <string>
@@ -41,9 +44,12 @@ namespace dspsim
     private:
         std::string _name;
         int _id;
-        size_t _next_model_id;
+        uint32_t _next_model_id;
         std::vector<Model *> _registered_models;
-        std::vector<Module *> _modules;
+        // std::vector<Module *> _modules;
+        std::vector<SignalBase *> _signals;
+        std::vector<Process *> _processes;
+
         // Owned models stay alive with context.
         std::vector<ModelPtr> _owned_models;
         std::vector<ModulePtr> _owned_modules;
@@ -51,8 +57,12 @@ namespace dspsim
         std::unordered_map<Model *, std::vector<Model *>> _children;
         //
         UniqueStack<Model *> _eval_stack;
-        UniqueStack<Model *> _update_stack;
-        SortedStack<TimeEvent> _time_event_stack;
+        // UniqueStack<Model *> _update_stack; // Signals are the only models that ever need to be in the update cycle.
+    public:
+        UniqueStack<SignalBase *> _signal_update_stack;
+
+    private:
+        PriorityQueue<TimeEvent> _time_event_stack;
 
         uint64_t _time;
         std::string _time_unit;
@@ -65,6 +75,7 @@ namespace dspsim
         std::shared_ptr<spdlog::logger> logger;
         std::deque<Module *> _active_module_stack;
         std::deque<ModuleName *> _active_module_name_stack;
+        bool _signal_event;
 
     private:
         // Can't create context directly. Must use obtain() or create() to get global context.
@@ -108,8 +119,8 @@ namespace dspsim
         // List of all registered models in the context.
         const std::vector<Model *> &models() const;
 
-        // List of all registered modules in the context.
-        const std::vector<Module *> &modules() const;
+        // // List of all registered modules in the context.
+        // const std::vector<Module *> &modules() const;
 
         // Direct children of a model in the design hierarchy. Pass nullptr for the top-level (root) models.
         const std::vector<Model *> &children(Model *parent = nullptr) const;
@@ -126,6 +137,8 @@ namespace dspsim
         void set_log_level(const std::string &log_level);
         const std::string repr() const;
 
+        void log(const std::string &level, const std::string &message);
+
         /*
             Pseudo-Private Methods.
             Not intended to be called,
@@ -134,6 +147,8 @@ namespace dspsim
 
         // Register a model with the context.
         void _add_model(Model *model);
+        // Register a signal with the context.
+        void _add_signal(SignalBase *signal);
 
         /*
             Take shared ownership of a model. The model will stay alive as long as the context does.
