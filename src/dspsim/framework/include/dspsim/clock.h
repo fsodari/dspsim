@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/signal.h>
+#include <dspsim/process.h>
 
 namespace dspsim
 {
@@ -8,15 +9,16 @@ namespace dspsim
     private:
         int _period;
         int _half_period;
+        Process *_process;
 
     public:
         Clock(const std::string &name, int period);
-
-        virtual void eval() override;
-        using Signal<uint8_t>::update;
-
         int period() const;
 
+    private:
+        void tick();
+
+    public:
         static auto create(const std::string &name, int period)
         {
             return Model::create<Clock>(name, period);

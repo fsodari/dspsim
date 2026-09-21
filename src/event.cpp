@@ -4,8 +4,8 @@
 #include <dspsim/module.h>
 namespace dspsim
 {
-    TimeEvent::TimeEvent(Model *subscriber, uint64_t time_update)
-        : subscriber(subscriber), time_update(time_update)
+    TimeEvent::TimeEvent(Process *process, uint64_t time_update)
+        : process(process), time_update(time_update)
     {
     }
 
@@ -24,19 +24,11 @@ namespace dspsim
     {
     }
 
-    UniqueStack<Model *> &SensitivityEvent::subscribers()
-    {
-        return _subscribers;
-    }
     UniqueStack<Process *> &SensitivityEvent::processes()
     {
         return _processes;
     }
 
-    void SensitivityEvent::add_subscriber(Model *module)
-    {
-        _subscribers.push_back(module);
-    }
     void SensitivityEvent::add_process(Process *process)
     {
         _processes.push_back(process);
@@ -44,10 +36,6 @@ namespace dspsim
 
     void SensitivityEvent::notify()
     {
-        for (auto m : _subscribers)
-        {
-            _context->_push_eval_stack(m);
-        }
         for (auto p : _processes)
         {
             _context->_process_eval_stack.push_back(p);

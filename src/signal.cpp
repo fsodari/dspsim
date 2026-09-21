@@ -10,12 +10,11 @@
 namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name)
-        : Model(name, "signal")
+        : Model(name, "signal"),
+          _posedge_flag(false),
+          _negedge_flag(false),
+          _changed_flag(false)
     {
-        context()->_add_signal(this);
-
-        // // Force an initial update of all signals.
-        // context()->_signal_update_stack.push_back(this);
     }
 
     SensitivityEvent &SignalBase::pos()

@@ -14,8 +14,6 @@ namespace dspsim
 
         Dff(ModuleName name);
 
-        void eval() override;
-
         void some_process();
     };
 } // namespace dspsim

@@ -21,10 +21,11 @@ namespace dspsim
 
         AxisRx(ModuleName name) : Module(name)
         {
+            DSPSIM_METHOD(&AxisRx<T>::eval_);
             always << clk.pos();
         }
 
-        void eval() override
+        void eval_()
         {
             if (clk.posedge())
             {

@@ -8,7 +8,7 @@ namespace dspsim
     Module::Module() : Module(*Context::obtain()->_active_module_name_stack.back())
     {
     }
-    Module::Module(ModuleName &name) : Model(name.name(), "module"), always(this)
+    Module::Module(ModuleName &name) : Model(name.name(), "module")
     {
         SPDLOG_LOGGER_TRACE(context()->logger, "Constructing Module with name = {}", name.name());
         context()->_active_module_stack.push_back(this);

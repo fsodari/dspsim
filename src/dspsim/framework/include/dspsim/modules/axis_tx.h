@@ -25,10 +25,11 @@ namespace dspsim
 
         AxisTx(ModuleName name) : Module(name)
         {
+            DSPSIM_METHOD(&AxisTx<T>::eval_);
             always << clk.pos();
         }
 
-        void eval() override
+        void eval_()
         {
             if (clk.posedge())
             {

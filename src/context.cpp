@@ -36,6 +36,7 @@ namespace dspsim
           _id(id),
           _next_model_id(0),
           _next_process_id(0),
+          _active_process(nullptr),
           _time(0),
           _time_unit("1ns"),
           _signal_event(false)
@@ -56,7 +57,7 @@ namespace dspsim
         _registered_models.clear();
         _owned_models.clear();
         _children.clear();
-        _eval_stack.clear();
+        // _eval_stack.clear();
         _signal_update_stack.clear();
         // _time_event_stack.clear();
         _time_event_stack = PriorityQueue<TimeEvent>();
@@ -71,16 +72,22 @@ namespace dspsim
 
         // Force an initial settle: schedule every module for evaluation once so that
         // combinational logic propagates from initial signal values before the first eval().
-        for (auto model : _registered_models)
+        for (auto process : _processes)
         {
-            if (auto *module = dynamic_cast<Module *>(model))
+            // Modules can opt out of initializing.
+            if (auto *module = dynamic_cast<Module *>(process->source()))
             {
                 if (module->initialize())
                 {
-                    _push_eval_stack(model);
+                    _process_eval_stack.push_back(process.get());
                 }
             }
+            else
+            {
+                _process_eval_stack.push_back(process.get());
+            }
         }
+
         // Force an initial update of all signals.
         for (auto signal : _signals)
         {
@@ -105,30 +112,32 @@ namespace dspsim
                 signal->_clear_event_flag();
             }
         }
+
         // Run eval cycle.
-        while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
+        // while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
+        while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
-            while (!_eval_stack.empty())
-            {
-                // auto model = _eval_stack.pop();
-                Model *model = _eval_stack.back();
-                _eval_stack.pop_back();
-                SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
-                model->eval();
+            // while (!_eval_stack.empty())
+            // {
+            //     // auto model = _eval_stack.pop();
+            //     Model *model = _eval_stack.back();
+            //     _eval_stack.pop_back();
+            //     SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
+            //     model->eval();
 
-                // Add the model to the update stack after evaluation.
-                _trace_stack.push_back(model);
-            }
+            //     // Add the model to the update stack after evaluation.
+            //     _trace_stack.push_back(model);
+            // }
 
             // run update cycle on all models that were evaluated.
             while (!_process_eval_stack.empty())
             {
                 Process *process = _process_eval_stack.back();
                 _process_eval_stack.pop_back();
-                SPDLOG_LOGGER_TRACE(logger, "Evaluating process");
+                SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
                 process->eval();
             }
 
@@ -170,9 +179,10 @@ namespace dspsim
                 // auto event = _time_event_stack.pop();
                 auto event = _time_event_stack.top();
                 _time_event_stack.pop();
-                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.subscriber->name());
+                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
                 // push_eval_stack(event.subscriber);
-                _eval_stack.push_back(event.subscriber);
+                // _eval_stack.push_back(event.subscriber);
+                _process_eval_stack.push_back(event.process);
             } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
             // Perform a delta cycle at this time step.
             eval();
@@ -201,10 +211,15 @@ namespace dspsim
         return _registered_models;
     }
 
-    // const std::vector<Module *> &Context::modules() const
-    // {
-    //     return _modules;
-    // }
+    const std::vector<Module *> &Context::modules() const
+    {
+        return _modules;
+    }
+
+    const std::vector<SignalBase *> &Context::signals() const
+    {
+        return _signals;
+    }
 
     const std::vector<Model *> &Context::children(Model *parent) const
     {
@@ -257,16 +272,21 @@ namespace dspsim
         _registered_models.push_back(model);
         _children[model->parent()].push_back(model);
 
-        // // If this is a module, add it to the list of modules.
-        // if (auto *module = dynamic_cast<Module *>(model))
-        // {
-        //     _modules.push_back(module);
-        // }
-    }
+        // Reset the active process of the context.
+        // Processes must be registered after all other submodules have been added to a parent module.
+        _active_process = nullptr;
 
-    void Context::_add_signal(SignalBase *signal)
-    {
-        _signals.push_back(signal);
+        // If this is a module, add it to the list of modules.
+        if (auto *module = dynamic_cast<Module *>(model))
+        {
+            _modules.push_back(module);
+        }
+
+        // If this is a signal, add it to the list of signals.
+        if (auto *signal = dynamic_cast<SignalBase *>(model))
+        {
+            _signals.push_back(signal);
+        }
     }
 
     void Context::_own_model(ModelPtr model)
@@ -279,25 +299,13 @@ namespace dspsim
         _owned_modules.push_back(module);
     }
 
-    void Context::_push_eval_stack(Model *model)
+    Process *Context::register_process_func(std::function<void()> eval, Model *source, const std::string &name)
     {
-        _eval_stack.push_back(model);
-    }
-
-    void Context::_push_time_event_stack(TimeEvent event)
-    {
-        _time_event_stack.push(event);
-    }
-
-    Process *Context::register_process(std::function<void()> eval)
-    {
-        auto process = std::make_shared<Process>(this, _next_process_id++, eval);
+        auto process = std::make_shared<Process>(this, _next_process_id++, eval, source, name);
         _processes.push_back(process);
-        // Set the active process of the active module.
-        if (_active_module())
-        {
-            _active_module()->always.set_active_process(process.get());
-        }
+        logger->info("Registering process: {}, id: {}", name, _next_process_id - 1);
+        // Set the active process of the context.
+        _active_process = process.get();
         return process.get();
     }
 

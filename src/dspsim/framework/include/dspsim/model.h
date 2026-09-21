@@ -30,9 +30,6 @@ namespace dspsim
         // Called during elaboration.
         virtual void finalize();
 
-        // Simulation methods.
-        virtual void eval();
-        // virtual void update();
         // Trace.
         virtual void dump_trace() {}
 

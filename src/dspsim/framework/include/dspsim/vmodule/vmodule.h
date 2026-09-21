@@ -26,9 +26,11 @@ namespace dspsim
         std::unique_ptr<V> top = std::make_unique<V>(vcontext.get());
         std::shared_ptr<VerilatedTraceBaseC> tracep;
 
-        VModule(ModuleName &name) : VModuleBase(name) {}
+        VModule(ModuleName &name) : VModuleBase(name)
+        {
+        }
 
-        void eval() override
+        void eval_top()
         {
             this->_sync_inputs();
             top->eval();

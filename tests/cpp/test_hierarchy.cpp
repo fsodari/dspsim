@@ -25,10 +25,11 @@ namespace
               b("b", b_),
               c("c", c_)
         {
+            DSPSIM_METHOD(&SomeModule::eval_);
             always << a << b;
         }
 
-        void eval() override
+        void eval_()
         {
             // std::cout << "SomeModule eval()" << std::endl;
             context()->logger->debug("SomeModule eval(), time: {}", context()->time());
@@ -54,10 +55,11 @@ namespace
               q("q", q_),
               some_module("some_module_sync_model", d, d, q)
         {
+            DSPSIM_METHOD(&SyncModel::eval_);
             always << clk.pos();
         }
 
-        void eval() override
+        void eval_()
         {
             if (clk.read() == 1)
             {

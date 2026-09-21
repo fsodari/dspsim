@@ -22,10 +22,12 @@ namespace
         {
             child.i.bind(i);
             child.o.bind(internal);
+
+            DSPSIM_METHOD(&Nested::eval_);
             always << i << internal;
         }
 
-        void eval() override
+        void eval_()
         {
             o.write(internal.read());
         }
@@ -40,10 +42,11 @@ namespace
 
         Nested(ModuleName name) : Module(name)
         {
+            DSPSIM_METHOD(&Nested::eval_);
             always << i;
         }
 
-        void eval() override
+        void eval_()
         {
             o.write(i.read() + 1);
         }

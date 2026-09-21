@@ -21,10 +21,11 @@ namespace
               in("in", in_),
               out("out", out_)
         {
+            DSPSIM_METHOD(&Sub::eval_);
             always << clk.pos();
         }
 
-        void eval() override
+        void eval_()
         {
             context()->logger->debug("Sub eval() called, time: {}", context()->time());
             out.write(in.read());
@@ -48,10 +49,11 @@ namespace
               out("out", out_),
               sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
         {
+            DSPSIM_METHOD(&Parent::eval_);
             always << clk.pos();
         }
 
-        void eval() override
+        void eval_()
         {
             context()->logger->debug("Parent eval() called, time: {}", context()->time());
         }

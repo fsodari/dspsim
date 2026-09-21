@@ -16,10 +16,11 @@ namespace
 
         Child(ModuleName name) : Module(name)
         {
+            DSPSIM_METHOD(&Child::eval_);
             always << i;
         }
 
-        void eval() override
+        void eval_()
         {
             o.write(i.read() + 1);
         }
@@ -59,6 +60,7 @@ namespace
 
         Top(ModuleName name) : Module(name)
         {
+            DSPSIM_METHOD(&Top::eval_);
             always << i << p1_internal << p2_internal;
 
             parent1.i.bind(i);
@@ -66,7 +68,7 @@ namespace
             parent2.i.bind(i);
             parent2.o.bind(p2_internal);
         }
-        void eval() override
+        void eval_()
         {
             o.write(p1_internal.read() + p2_internal.read());
         }

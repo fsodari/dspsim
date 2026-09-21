@@ -22,10 +22,11 @@ namespace
               b("b", b_),
               c("c", c_)
         {
+            DSPSIM_METHOD(&Adder<T>::eval_);
             always << a << b;
         }
 
-        void eval() override
+        void eval_()
         {
             c.write(a.read() + b.read());
         }
@@ -89,10 +90,6 @@ namespace
               adder_g("adder_g", eo, fo, go)
         {
             // always << a1 << a2 << b1 << b2 << c1 << c2 << d1 << d2;
-        }
-
-        void eval() override
-        {
         }
     };
 

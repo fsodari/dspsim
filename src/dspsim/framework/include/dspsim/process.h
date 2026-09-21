@@ -2,9 +2,10 @@
     A process can be registered for evaluation in the simulation context.
 */
 #pragma once
-#include <concepts>
+#include <dspsim/model.h>
 #include <functional>
 #include <cstdint>
+#include <string>
 
 namespace dspsim
 {
@@ -13,17 +14,24 @@ namespace dspsim
     class Process
     {
         Context *_context;
+        Model *_source;
         uint32_t _id;
 
     public:
         std::function<void()> eval;
 
-        Process(Context *context, uint32_t id, std::function<void()> eval);
+    private:
+        std::string _name;
 
+    public:
+        Process(Context *context, uint32_t id, std::function<void()> eval, Model *source, const std::string &name = "");
+
+        Model *source() const;
         uint32_t id() const;
+        const std::string &name() const;
     };
 
-    // Custom utility function
+    // Custom utility function. Wraps a method and this ptr in a lambda.
     template <typename MemberFunc, typename ClassType>
     auto method_to_function(MemberFunc mem_ptr, ClassType *instance)
     {
@@ -33,8 +41,10 @@ namespace dspsim
             return (instance->*mem_ptr)();
         };
     }
-
-#define DSPSIM_PROCESS(method) \
-    context()->register_process(method_to_function(method, this));
-    // context()->register_process(&Dff<T>::some_process, this);
 }
+
+// Convenience macro for registering a method as a process
+#define DSPSIM_METHOD(method) \
+    context()->register_method(method, this, std::string(#method));
+
+//

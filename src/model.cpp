@@ -24,14 +24,6 @@ namespace dspsim
     {
     }
 
-    void Model::eval()
-    {
-    }
-
-    // void Model::update()
-    // {
-    // }
-
     Context *Model::context() const
     {
         return _context;

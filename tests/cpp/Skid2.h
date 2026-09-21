@@ -18,7 +18,11 @@ public:
     DSPSIM_VOUTPUT(m_axis_tvalid);
     DSPSIM_VINPUT(m_axis_tready);
 
-    DSPSIM_VCTOR(Skid2, VSkid2) {}
+    DSPSIM_VCTOR(Skid2, VSkid2)
+    {
+        DSPSIM_METHOD(&Skid2::eval_top);
+        always << clk << rst << s_axis_tdata << s_axis_tvalid << m_axis_tready;
+    }
 
     void _dump_trace();
     void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);

@@ -6,23 +6,18 @@
 namespace dspsim
 {
     class Context;
-    class Module;
     class SensitivityList
     {
     private:
         Context *_context;
-        Module *_module;
-        Process *_active_process;
 
     public:
-        SensitivityList(Module *module);
-        Module *module() const;
+        SensitivityList();
 
-        void set_active_process(Process *process);
-        Process *active_process() const;
+        // Link a process to a sensitivity event. This will ensure the process is triggered when the event occurs.
+        // If a nullptr is passed, it will use the context's active process.
+        void link_process(SensitivityEvent &event, Process *process = nullptr);
 
-        void link_process(SensitivityEvent &event, Process *process);
-        void add_event(SensitivityEvent &event);
         SensitivityList &operator<<(SensitivityEvent &event);
     };
 }
