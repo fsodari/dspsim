@@ -25,20 +25,19 @@
             "description": "Configure the project for a standard local Ninja build.",
             "inherits": "default",
             "generator": "Ninja"
-  
         },
         {
             "name": "windows-default",
             "displayName": "Windows default",
             "description": "Configure the project for a standard local Ninja build.",
-            "inherits":"default",
+            "inherits": "default",
             "cacheVariables": {
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
             }
         },
         {
             "name": "cpp-testing-linux",
-            "displayName": "C++ Testing",
+            "displayName": "C++ Testing Linux",
             "description": "Build only the C++ library and tests.",
             "inherits": "linux-default",
             "cacheVariables": {
@@ -54,7 +53,7 @@
         },
         {
             "name": "cpp-testing-windows",
-            "displayName": "C++ Testing",
+            "displayName": "C++ Testing Windows",
             "description": "Build only the C++ library and tests.",
             "inherits": "windows-default",
             "cacheVariables": {
@@ -70,7 +69,7 @@
         },
         {
             "name": "py-cmake-testing-linux",
-            "displayName": "Python CMake Testing",
+            "displayName": "Python CMake Testing Linux",
             "description": "Test building the python project without using uv/python.",
             "inherits": "default",
             "cacheVariables": {
@@ -86,7 +85,7 @@
         },
         {
             "name": "py-cmake-testing-windows",
-            "displayName": "Python CMake Testing",
+            "displayName": "Python CMake Testing Windows",
             "description": "Test building the python project without using uv/python.",
             "inherits": "windows-default",
             "cacheVariables": {
@@ -109,7 +108,7 @@
         },
         {
             "name": "cpp-testing-linux",
-            "displayName": "C++ Tests",
+            "displayName": "C++ Tests Linux",
             "description": "Build the C++ unit test executables defined in tests/cpp.",
             "configurePreset": "cpp-testing-linux",
             "configuration": "Debug",
@@ -119,7 +118,7 @@
         },
         {
             "name": "cpp-testing-windows",
-            "displayName": "C++ Tests",
+            "displayName": "C++ Tests Windows",
             "description": "Build the C++ unit test executables defined in tests/cpp.",
             "configurePreset": "cpp-testing-windows",
             "configuration": "Debug",
