@@ -52,7 +52,7 @@ namespace dspsim
         static auto create(Args &&...args)
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
-            // Register the model with the context.
+            // Register the model with the context and give shared ownership to the context.
             _own_model_helper(m->context(), m);
             return m;
         }
