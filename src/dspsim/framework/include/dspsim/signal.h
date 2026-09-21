@@ -1,5 +1,5 @@
 #pragma once
-#include <dspsim/forward.h>
+// #include <dspsim/forward.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
@@ -54,8 +54,8 @@ namespace dspsim
         void _clear_event_flag();
     };
 
-    template <typename T>
-    using SignalPtr = std::shared_ptr<class Signal<T>>;
+    // template <typename T>
+    // using SignalPtr = std::shared_ptr<class Signal<T>>;
 
     template <typename T>
     class Signal : public SignalBase
@@ -89,10 +89,10 @@ namespace dspsim
         /*
             Static Methods
         */
-        // static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
-        // {
-        //     return Model::create<Signal<T>>(name, width, init, is_signed);
-        // }
+        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        {
+            return Model::create<Signal<T>>(name, width, init, is_signed);
+        }
     };
 
     using Signal8 = Signal<uint8_t>;

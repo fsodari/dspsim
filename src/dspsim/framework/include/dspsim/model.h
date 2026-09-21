@@ -6,6 +6,9 @@ namespace dspsim
 {
     class Context;
     using ModelPtr = std::shared_ptr<class Model>;
+
+    void _own_model_helper(Context *context, ModelPtr model);
+
     class Model
     {
         friend class Context;
@@ -45,14 +48,14 @@ namespace dspsim
         //
         virtual const std::string repr() const;
 
-        // template <typename T, typename... Args>
-        // static auto create(Args &&...args)
-        // {
-        //     auto m = std::make_shared<T>(std::forward<Args>(args)...);
-        //     // Register the model with the context.
-        //     m->context()->_own_model(m);
-        //     return m;
-        // }
+        template <typename T, typename... Args>
+        static auto create(Args &&...args)
+        {
+            auto m = std::make_shared<T>(std::forward<Args>(args)...);
+            // Register the model with the context.
+            _own_model_helper(m->context(), m);
+            return m;
+        }
     };
 
 }

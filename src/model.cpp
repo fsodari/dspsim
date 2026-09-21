@@ -4,6 +4,11 @@
 #include <format>
 namespace dspsim
 {
+    void _own_model_helper(Context *context, ModelPtr model)
+    {
+        context->_own_model(model);
+    }
+
     Model::Model(const std::string &name, const std::string &kind)
         : _context(Context::obtain().get()),
           _name(name),

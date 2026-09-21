@@ -36,11 +36,6 @@ namespace dspsim
             NB_OVERRIDE(eval);
         }
 
-        void update() override
-        {
-            NB_OVERRIDE(update);
-        }
-
         const std::string repr() const override
         {
             NB_OVERRIDE(repr);
@@ -59,11 +54,6 @@ namespace dspsim
         void eval() override
         {
             NB_OVERRIDE(eval);
-        }
-
-        void update() override
-        {
-            NB_OVERRIDE(update);
         }
 
         const std::string repr() const override
@@ -89,7 +79,7 @@ namespace dspsim
             .def_prop_ro("name", &Context::name)
             .def_prop_ro("id", &Context::id)
             .def_prop_ro("models", &Context::models)
-            .def_prop_ro("modules", &Context::modules)
+            // .def_prop_ro("modules", &Context::modules)
 
             .def_prop_ro("time", &Context::time)
             .def_prop_rw("time_unit", &Context::time_unit, &Context::set_time_unit)
@@ -130,7 +120,7 @@ namespace dspsim
             // Methods.
             .def("finalize", &Model::finalize)
             .def("eval", &Model::eval)
-            .def("update", &Model::update)
+            // .def("update", &Model::update)
             // Properties
             .def_prop_ro("context", &Model::context)
             .def_prop_ro("name", &Model::name)
@@ -214,9 +204,9 @@ namespace dspsim
             .def("__call__", &Output<T>::_bind_signal, nb::arg("signal"))
             .def("__call__", &Output<T>::_bind_port, nb::arg("output"))
             .def("write", &Output<T>::write, nb::arg("value"))
-            .def_prop_rw("value", &Output<T>::_read, &Output<T>::write, nb::arg("value"))
+            .def_prop_rw("value", &Output<T>::read, &Output<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Output<T>::_read_d, &Output<T>::write, nb::arg("value"))
-            .def_prop_ro("q", &Output<T>::_read);
+            .def_prop_ro("q", &Output<T>::read);
     }
 
     static inline auto bind_sensitivity_list(nb::module_ &m, const char *name)
@@ -261,7 +251,7 @@ namespace dspsim
             // Methods.
             .def("finalize", &Module::finalize)
             .def("eval", &Module::eval)
-            .def("update", &Module::update)
+            // .def("update", &Module::update)
             // Always
             .def_prop_ro("_always", &Module::_always_ref, nb::rv_policy::reference_internal)
             .def("always", &_module_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase) -> None: ..."))
