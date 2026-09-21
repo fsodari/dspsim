@@ -22,21 +22,21 @@ NB_MAKE_OPAQUE(dspsim::SensitivityEvent);
 
 namespace dspsim
 {
-    // Base Model Object class. Able to be extended, but modules should really be used.
-    struct PyModel : public Model
-    {
-        NB_TRAMPOLINE(Model);
+    // // Base Model Object class. Able to be extended, but modules should really be used.
+    // struct PyModel : public Model
+    // {
+    //     NB_TRAMPOLINE(Model);
 
-        void finalize() override
-        {
-            NB_OVERRIDE(finalize);
-        }
+    //     void finalize() override
+    //     {
+    //         NB_OVERRIDE(finalize);
+    //     }
 
-        const std::string repr() const override
-        {
-            NB_OVERRIDE(repr);
-        }
-    };
+    //     const std::string repr() const override
+    //     {
+    //         NB_OVERRIDE(repr);
+    //     }
+    // };
 
     // struct PyModule : public Module
     // {
@@ -52,11 +52,6 @@ namespace dspsim
     //         NB_OVERRIDE(repr);
     //     }
     // };
-
-    static Process *register_process_helper(Context &context, const std::function<void()> &eval, Module *module, const std::string &name)
-    {
-        return context.register_process_func(eval, module, name);
-    }
 
     static inline auto bind_context(nb::module_ &m, const char *name)
     {
@@ -89,7 +84,11 @@ namespace dspsim
             .def("own_module", &Context::_own_module, nb::arg("module"))
 
             // Register a process.
-            .def("register_process", &register_process_helper, nb::arg("func"), nb::arg("source"), nb::arg("name") = "", nb::rv_policy::reference)
+            .def("register_process", &Context::register_process_func,
+                 nb::arg("func"),
+                 nb::arg("source"),
+                 nb::arg("name") = "",
+                 nb::rv_policy::reference)
 
             // Static Methods
             .def_static("obtain", &Context::obtain)
@@ -112,7 +111,7 @@ namespace dspsim
     static inline auto bind_model(nb::module_ &m, const char *name)
     {
         // Bind the Model class
-        return nb::class_<Model, PyModel>(m, name)
+        return nb::class_<Model>(m, name)
             .def(nb::init<const std::string &, const std::string &>(),
                  nb::arg("name"),
                  nb::arg("kind") = "model")
@@ -172,7 +171,10 @@ namespace dspsim
             .def("pos", &Signal<T>::pos, nb::rv_policy::reference_internal)
             .def("neg", &Signal<T>::neg, nb::rv_policy::reference_internal)
             // Cast changed operator? Allow passing without this.
-            .def("change", &Signal<T>::operator SensitivityEvent &, nb::rv_policy::reference_internal);
+            .def("change", &Signal<T>::operator SensitivityEvent &, nb::rv_policy::reference_internal)
+            .def("posedge", &Signal<T>::posedge)
+            .def("negedge", &Signal<T>::negedge)
+            .def("changed", &Signal<T>::changed);
     }
 
     static inline auto bind_input_base(nb::module_ &m, const char *name)
@@ -196,7 +198,10 @@ namespace dspsim
             .def("__call__", &Input<T>::_bind_port, nb::arg("input"))
             .def("read", &Input<T>::read)
             .def_prop_ro("value", &Input<T>::read)
-            .def_prop_ro("q", &Input<T>::read);
+            .def_prop_ro("q", &Input<T>::read)
+            .def("posedge", &Input<T>::posedge)
+            .def("negedge", &Input<T>::negedge)
+            .def("changed", &Input<T>::changed);
     }
 
     template <typename T>

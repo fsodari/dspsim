@@ -11,7 +11,7 @@ class SomeModel(Module):
         self.eval_called = 0
 
         # self.context.register_process(lambda: self.eval(), self, "SomeModelProcess")
-        self.register_process(self.eval, "SomeModel.eval")
+        self.process = self.context.register_process(self.eval, self, "SomeModel.eval")
 
     def eval(self):
         self.eval_called += 1
