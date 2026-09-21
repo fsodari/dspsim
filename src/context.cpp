@@ -159,22 +159,24 @@ namespace dspsim
         {
             // Advance to the next time step.
             uint64_t next_time_step = _time_event_stack.top().time_update - _time;
+
             // Advance the simulation time to the next time step.
+            if (next_time_step > time_inc)
+            {
+                next_time_step = time_inc;
+            }
             _time += next_time_step;
             time_inc -= next_time_step;
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
-            do
+            while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time)
             {
-                // auto event = _time_event_stack.pop();
                 auto event = _time_event_stack.top();
                 _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
-                // push_eval_stack(event.subscriber);
-                // _eval_stack.push_back(event.subscriber);
                 _process_eval_stack.push_back(event.process);
-            } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
+            }
             // Perform a delta cycle at this time step.
             eval();
         }
