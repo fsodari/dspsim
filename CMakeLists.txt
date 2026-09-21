@@ -32,7 +32,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(FetchContent)
 
 # spdlog. Use fetch content if not available
-find_package(spdlog QUIET)
+if (NOT MSVC)
+    find_package(spdlog QUIET)
+endif()
 if (NOT spdlog_FOUND)
     set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build spdlog as shared library")
     set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build spdlog with position independent code")
@@ -127,5 +129,5 @@ dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 #
 if (BUILD_CPP_TESTS)
     enable_testing()
-    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp )
 endif()

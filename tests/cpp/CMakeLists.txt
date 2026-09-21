@@ -1,4 +1,15 @@
-find_package(Catch2 3 REQUIRED)
+if (MSVC)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.8.1 # or a later release
+        )
+
+    FetchContent_MakeAvailable(Catch2)
+else()
+    find_package(Catch2 3 REQUIRED)
+endif()
+
 message(STATUS "Found Catch2: ${Catch2_DIR}")
 
 find_package(verilator REQUIRED)
@@ -31,12 +42,18 @@ target_compile_options(tests PRIVATE
         /W2;>
 )
 
+if (MSVC)
+    set(TRACE_TYPE TRACE_VCD)
+else()
+    set(TRACE_TYPE TRACE_FST) 
+endif()
+
 add_library(Skid Skid.cpp)
 # Verilate test modules
 verilate(Skid
     SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
     INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
-    TRACE_VCD 
+    ${TRACE_TYPE} 
     VERILATOR_ARGS --quiet
 )
 target_link_libraries(Skid PUBLIC dspsim::dspsim-core)
@@ -47,7 +64,7 @@ add_library(Skid2 Skid2.cpp)
 verilate(Skid2
     SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
     INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
-    TRACE_FST
+    ${TRACE_TYPE}
     PREFIX VSkid2
     VERILATOR_ARGS --quiet
 )

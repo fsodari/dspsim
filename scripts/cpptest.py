@@ -4,7 +4,7 @@ import argparse
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-
+import sys
 
 @dataclass
 class Args:
@@ -26,15 +26,26 @@ def main():
     """Run the C++ test using subprocess."""
 
     args = Args.parse_args()
-    configure_cmd = ["cmake", "-S", ".", "--preset", "cpp_testing"]
-    build_cmd = ["cmake", "--build", "--preset", "cpp_testing"]
+
+    build_dir = Path("build")
+    if sys.platform == "win32":
+        build_preset = "cpp-testing-windows"
+        configure_cmd = ["cmake", "-S", ".", "--preset", build_preset]
+        build_cmd = ["cmake", "--build", "--preset", build_preset]
+        test_dir = build_dir / "tests" / "cpp" / "Debug"
+    else:
+        build_preset = "cpp-testing-linux"
+        configure_cmd = ["cmake", "-S", ".", "--preset", build_preset]
+        build_cmd = ["cmake", "--build", "--preset", build_preset]
+        test_dir = build_dir / "tests" / "cpp"
+
     if args.configure:
         subprocess.run(configure_cmd, check=True)
     if args.build:
         subprocess.run(build_cmd, check=True)
 
-    build_dir = Path("build")
-    test_dir = build_dir / "tests" / "cpp"
+    
+    
     test_exe = test_dir / "tests"
 
     test_cmd = [test_exe.as_posix()]

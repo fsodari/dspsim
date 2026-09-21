@@ -50,3 +50,8 @@ void VModType::_close_trace()
     }
 #endif
 }
+
+double sc_time_stamp()
+{
+    return 0;
+}
