@@ -12,7 +12,7 @@
             "description": "Configure the project.",
             "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "BUILD_FRAMEWORK": "ON",
                 "BUILD_CPP_TESTS": "OFF",

@@ -22,8 +22,6 @@ namespace dspsim
 
     void SensitivityList::link_process(SensitivityEvent &event, Process *process)
     {
-        _context->logger->debug("Linking process for module: {}", "unknown");
-
         if (process == nullptr)
         {
             process = _context->_active_process;

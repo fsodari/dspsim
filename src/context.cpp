@@ -123,18 +123,6 @@ namespace dspsim
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
-            // while (!_eval_stack.empty())
-            // {
-            //     // auto model = _eval_stack.pop();
-            //     Model *model = _eval_stack.back();
-            //     _eval_stack.pop_back();
-            //     SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
-            //     model->eval();
-
-            //     // Add the model to the update stack after evaluation.
-            //     _trace_stack.push_back(model);
-            // }
-
             // run update cycle on all models that were evaluated.
             while (!_process_eval_stack.empty())
             {
