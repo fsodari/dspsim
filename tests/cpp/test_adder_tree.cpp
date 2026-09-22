@@ -23,7 +23,7 @@ namespace
               c("c", c_)
         {
             DSPSIM_METHOD(&Adder<T>::eval_);
-            always << a << b;
+            sensitive << a << b;
         }
 
         void eval_()

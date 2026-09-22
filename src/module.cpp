@@ -16,7 +16,7 @@ namespace dspsim
 
     SensitivityList &Module::_always_ref()
     {
-        return always;
+        return sensitive;
     }
 
     void Module::_end_construction()

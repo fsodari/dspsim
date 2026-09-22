@@ -22,7 +22,7 @@ namespace dspsim
         AxisRx(ModuleName name) : Module(name)
         {
             DSPSIM_METHOD(&AxisRx<T>::eval_);
-            always << clk.pos();
+            sensitive << clk.pos();
         }
 
         void eval_()

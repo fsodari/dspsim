@@ -3,6 +3,7 @@
 */
 #pragma once
 #include <dspsim/model.h>
+// #include <dspsim/sensitivity_list.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -16,6 +17,7 @@ namespace dspsim
         Context *_context;
         Model *_source;
         uint32_t _id;
+        // SensitivityList _sensitivity_list;
 
     public:
         std::function<void()> eval;

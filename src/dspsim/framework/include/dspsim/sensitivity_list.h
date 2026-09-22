@@ -1,11 +1,12 @@
 #pragma once
 #include <dspsim/event.h>
-#include <dspsim/process.h>
+// #include <dspsim/process.h>
 #include <vector>
 
 namespace dspsim
 {
     class Context;
+    class Process;
     class SensitivityList
     {
     private:

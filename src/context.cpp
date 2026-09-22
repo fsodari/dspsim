@@ -159,12 +159,14 @@ namespace dspsim
         {
             // Advance to the next time step.
             uint64_t next_time_step = _time_event_stack.top().time_update - _time;
+            // What if time update is less than the current time? If we missed a step? Bad model.
 
-            // Advance the simulation time to the next time step.
+            // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
             if (next_time_step > time_inc)
             {
                 next_time_step = time_inc;
             }
+            // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);

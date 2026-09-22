@@ -14,7 +14,7 @@ namespace dspsim
         bool _initialize = true;
 
     public:
-        SensitivityList always;
+        SensitivityList sensitive;
         // Used by python.
         SensitivityList &_always_ref();
 

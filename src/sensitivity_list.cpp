@@ -1,20 +1,10 @@
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/context.h>
-#include <dspsim/module.h>
+#include <dspsim/process.h>
 #include "internal.h"
 
 namespace dspsim
 {
-    // SensitivityList::SensitivityList(Module *module)
-    //     : _context(Context::obtain().get()), _module(module)
-    // {
-    // }
-
-    // Module *SensitivityList::module() const
-    // {
-    //     return _module;
-    // }
-
     SensitivityList::SensitivityList()
         : _context(Context::obtain().get())
     {

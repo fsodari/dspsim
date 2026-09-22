@@ -17,7 +17,7 @@ namespace
         SomeModule(ModuleName name) : Module(name)
         {
             DSPSIM_METHOD(&SomeModule::eval_);
-            always << clk.pos();
+            sensitive << clk.pos();
 
             // Prevent initial eval step
             dont_initialize();
@@ -51,7 +51,7 @@ namespace
         {
             // Register the eval_ method with the simulation kernel.
             DSPSIM_METHOD(&MultiClockSensitive::eval_);
-            always << clk1.pos() << clk2.pos();
+            sensitive << clk1.pos() << clk2.pos();
 
             // Prevent initial eval step
             dont_initialize();
