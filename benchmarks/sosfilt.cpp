@@ -147,7 +147,13 @@ int main(int argc, char *argv[])
     size_t N = 1000000;
     Clock clk{"clk", 10};
     Top top{"top", N};
+    Top top2{"top2", N};
+    Top top3{"top3", N};
+    Top top4{"top4", N};
     top.clk.bind(clk);
+    top2.clk.bind(clk);
+    top3.clk.bind(clk);
+    top4.clk.bind(clk);
 
     ctx->elaborate();
     ctx->print_hierarchy();
