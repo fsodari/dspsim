@@ -75,6 +75,13 @@ set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
 #     add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
 # endif()
 
+option(TMC_USE_HWLOC "Enable hwloc topology-aware thread placement" OFF)
+
+include(cmake/CPM.cmake)
+CPMAddPackage(
+    NAME TooManyCooks
+    GIT_REPOSITORY https://github.com/tzcnt/TooManyCooks.git
+    GIT_TAG v1.5)
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})
 
