@@ -163,4 +163,7 @@ namespace dspsim
     template class Signal<uint32_t>;
     template class Signal<uint64_t>;
     template class Signal<int>;
+
+    template class Signal<float>;
+    template class Signal<double>;
 }

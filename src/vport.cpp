@@ -79,10 +79,15 @@ namespace dspsim
     template class VInput<uint32_t>;
     template class VInput<uint64_t>;
     template class VInput<int>;
+    template class VInput<float>;
+    template class VInput<double>;
 
     template class VOutput<uint8_t>;
     template class VOutput<uint16_t>;
     template class VOutput<uint32_t>;
     template class VOutput<uint64_t>;
     template class VOutput<int>;
+
+    template class VOutput<float>;
+    template class VOutput<double>;
 }
