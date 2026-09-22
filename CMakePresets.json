@@ -117,6 +117,16 @@
             ]
         },
         {
+            "name": "cpp-benchmarks-linux",
+            "displayName": "C++ Benchmarks Linux",
+            "description": "Build the C++ benchmark executables defined in benchmarks.",
+            "configurePreset": "cpp-testing-linux",
+            "configuration": "Debug",
+            "targets": [
+                "sosfilt"
+            ]
+        },
+        {
             "name": "cpp-testing-windows",
             "displayName": "C++ Tests Windows",
             "description": "Build the C++ unit test executables defined in tests/cpp.",

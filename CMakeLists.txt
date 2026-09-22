@@ -126,6 +126,9 @@ install(TARGETS _framework
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
+# Build benchmarks
+add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+
 #
 if (BUILD_CPP_TESTS)
     enable_testing()
