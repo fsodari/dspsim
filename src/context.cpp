@@ -47,6 +47,9 @@ namespace dspsim
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
+
+        // Idempotent: does nothing if already initialized.
+        tmc::cpu_executor().init();
     }
 
     Context::~Context()
@@ -124,13 +127,43 @@ namespace dspsim
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
-            // run update cycle on all models that were evaluated.
-            while (!_process_eval_stack.empty())
+            // Processes scheduled for a later round (via signal updates below) are not visible
+            // until the next iteration, so it's safe to drain the stack up front as one batch.
+            if (!_process_eval_stack.empty())
             {
-                Process *process = _process_eval_stack.back();
-                _process_eval_stack.pop_back();
-                SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
-                process->eval();
+                if (_process_eval_stack.size() < _parallel_eval_threshold)
+                {
+
+                    // Too few processes to amortize thread pool dispatch/wake latency; run inline.
+                    for (auto process : _process_eval_stack)
+                    {
+                        SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
+                        process->eval();
+                    }
+                }
+                else
+                {
+                    _process_eval_batch.assign(_process_eval_stack.begin(), _process_eval_stack.end());
+
+                    struct ProcessEvalFunc
+                    {
+                        Process *process;
+                        void operator()() const { process->eval(); }
+                    };
+
+                    std::vector<ProcessEvalFunc> functors;
+                    functors.reserve(_process_eval_batch.size());
+                    for (auto process : _process_eval_batch)
+                    {
+                        SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
+                        functors.push_back({process});
+                    }
+
+                    _process_eval_parallel.store(true, std::memory_order_release);
+                    tmc::post_bulk_waitable(tmc::cpu_executor(), functors.begin(), functors.size()).get();
+                    _process_eval_parallel.store(false, std::memory_order_release);
+                }
+                _process_eval_stack.clear();
             }
 
             while (!_signal_update_stack.empty())

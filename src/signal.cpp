@@ -91,19 +91,15 @@ namespace dspsim
         if (_d != _q)
         {
             SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} scheduled for update", name());
-            // Schedule for update
-            context()->_signal_update_stack.push_back(this);
+            // Schedule for update. Thread-safe: may be called from a process running
+            // concurrently on the TMC thread pool.
+            context()->_schedule_signal_update(this);
         }
         else
         {
             // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
-            auto it = context()->_signal_update_stack.find(this);
-
-            if (it != context()->_signal_update_stack.end())
-            {
-                context()->_signal_update_stack.erase(it);
-                SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} removed from update stack", name());
-            }
+            context()->_unschedule_signal_update(this);
+            SPDLOG_LOGGER_TRACE(context()->logger, "Signal {} removed from update stack", name());
         }
     }
 

@@ -147,7 +147,13 @@ int main(int argc, char *argv[])
     size_t N = 1000000;
     Clock clk{"clk", 10};
     Top top{"top", N};
+    Top top2{"top2", N};
+    Top top3{"top3", N};
+    Top top4{"top4", N};
     top.clk.bind(clk);
+    top2.clk.bind(clk);
+    top3.clk.bind(clk);
+    top4.clk.bind(clk);
 
     ctx->elaborate();
     ctx->print_hierarchy();
@@ -160,7 +166,13 @@ int main(int argc, char *argv[])
     std::cout << "Output data size: " << top.out_data.size() << std::endl;
 
     /*
-        With original single threaded eval loop: 2.92027
+        With original single threaded eval loop: 7.79935s, 7.86026 (Release)
+
+        NOTE: this benchmark's delta rounds are tiny (tens of processes), well under
+        Context::kParallelEvalThreshold, so it always takes the inline (non-TMC) path.
+        Always benchmark with a Release build - in a Debug build, the extra non-inlined
+        function calls/atomic checks added for TMC support can make this look like a large
+        regression even though there is no such regression in Release.
     */
 
     return 0;

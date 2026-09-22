@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <set>
 #include <functional>
+#include <mutex>
+#include <atomic>
 
 namespace spdlog
 {
@@ -71,6 +73,21 @@ namespace dspsim
         Process *_active_process;
 
     private:
+        // Guards _signal_update_stack, since processes may run concurrently on the TMC thread
+        // pool and each call Signal::write(), which schedules/unschedules signal updates.
+        std::mutex _signal_update_mutex;
+        // Set only while a batch is actually dispatched to the TMC thread pool. Lets
+        // _schedule_signal_update/_unschedule_signal_update skip locking entirely for the common
+        // single-threaded round, which has no concurrent writers.
+        std::atomic<bool> _process_eval_parallel{false};
+
+        // Reused scratch buffer for draining _process_eval_stack each round, to avoid a heap
+        // allocation per delta cycle.
+        std::vector<Process *> _process_eval_batch;
+        // Below this many pending processes, the TMC thread pool's dispatch/wake latency
+        // outweighs any parallelism benefit, so the round is run inline instead.
+        size_t _parallel_eval_threshold = 64;
+
         // Current simulation time.
         uint64_t _time;
         // Time unit used for tracing.
@@ -126,6 +143,11 @@ namespace dspsim
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
 
+        // Minimum pending processes in a delta round before dispatching to the TMC thread pool
+        // instead of running inline. Mainly useful for benchmarking the crossover point.
+        size_t parallel_eval_threshold() const { return _parallel_eval_threshold; }
+        void set_parallel_eval_threshold(size_t threshold) { _parallel_eval_threshold = threshold; }
+
         // Properties
         // Context name. Initialized when created.
         const std::string &name() const;
@@ -180,6 +202,31 @@ namespace dspsim
 
         // Register a process with the context. This will create a Process object and set it as the active process.
         Process *register_process_func(const std::function<void()> &eval, Model *source, const std::string &name = "");
+
+        // Thread-safe: schedule a signal for update. Called by Signal::write(), possibly from a
+        // process running concurrently on the TMC thread pool. Defined inline so this hot path
+        // (invoked on every signal write) can be inlined into Signal<T>::write() across TUs.
+        void _schedule_signal_update(SignalBase *signal)
+        {
+            if (!_process_eval_parallel.load(std::memory_order_acquire))
+            {
+                _signal_update_stack.push_back(signal);
+                return;
+            }
+            std::lock_guard lock(_signal_update_mutex);
+            _signal_update_stack.push_back(signal);
+        }
+        // Thread-safe: cancel a previously scheduled signal update.
+        void _unschedule_signal_update(SignalBase *signal)
+        {
+            if (!_process_eval_parallel.load(std::memory_order_acquire))
+            {
+                _signal_update_stack.erase(signal);
+                return;
+            }
+            std::lock_guard lock(_signal_update_mutex);
+            _signal_update_stack.erase(signal);
+        }
 
         template <typename MemberFunc, typename ClassType>
         Process *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
