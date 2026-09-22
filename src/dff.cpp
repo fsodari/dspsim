@@ -9,7 +9,7 @@ namespace dspsim
         : Module(name)
     {
         DSPSIM_METHOD(&Dff<T>::some_process);
-        sensitive << clk.pos();
+        always << clk.pos();
     }
 
     template <typename T>
