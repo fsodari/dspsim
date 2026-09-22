@@ -13,6 +13,8 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "tmc/all_headers.hpp"
+
 namespace dspsim
 {
     static inline auto parse_level(const std::string &level)
@@ -117,7 +119,6 @@ namespace dspsim
         }
 
         // Run eval cycle.
-        // while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
         while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
