@@ -36,7 +36,7 @@ namespace dspsim
 
     void SensitivityEvent::notify()
     {
-        for (auto p : _processes)
+        for (const auto &p : _processes.stack())
         {
             _context->_process_eval_stack.push_back(p);
         }

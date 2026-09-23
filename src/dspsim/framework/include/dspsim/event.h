@@ -1,8 +1,5 @@
 #pragma once
-#include <dspsim/model.h>
-#include <dspsim/process.h>
 #include <dspsim/utils/unique_stack.h>
-#include <vector>
 #include <cstdint>
 
 namespace dspsim
@@ -14,6 +11,8 @@ namespace dspsim
         Posedge,
         Negedge
     };
+    class Context;
+    class Process;
 
     class TimeEvent
     {

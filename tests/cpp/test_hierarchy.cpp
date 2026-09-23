@@ -26,7 +26,7 @@ namespace
               c("c", c_)
         {
             DSPSIM_METHOD(&SomeModule::eval_);
-            sensitive << a << b;
+            always << a << b;
         }
 
         void eval_()
@@ -56,7 +56,7 @@ namespace
               some_module("some_module_sync_model", d, d, q)
         {
             DSPSIM_METHOD(&SyncModel::eval_);
-            sensitive << clk.pos();
+            always << clk.pos();
         }
 
         void eval_()
@@ -99,70 +99,3 @@ TEST_CASE("test_hierarchy", "[hierarchy]")
         ctx->logger->debug("Model: {}, hier_name: {}", m->name(), m->hier_name());
     }
 }
-
-// int main(int argc, char **argv)
-// {
-//     auto ctx = Context::obtain();
-
-//     // Signal<int> ai1("ai1").init(0);
-//     auto ai1 = Signal<int>{"ai1"};
-//     Signal<int> ai2{"ai2"};
-//     Signal<int> ao{"ao"};
-
-//     Signal<int> bi1{"bi1"};
-//     Signal<int> bi2{"bi2"};
-//     Signal<int> bo{"bo"};
-
-//     Signal<int> ci1{"ci1"};
-//     Signal<int> ci2{"ci2"};
-//     Signal<int> co{"co"};
-
-//     Signal<int> di1{"di1"};
-//     Signal<int> di2{"di2"};
-//     Signal<int> do_{"do"};
-
-//     Signal<int> eo{"eo"};
-//     Signal<int> fo{"fo"};
-
-//     Signal<int> go{"go"};
-
-//     SomeModule moda{"moda", ai1, ai2, ao};
-//     // moda.a.bind(&ai1);
-//     // moda.b.bind(&ai2);
-//     // moda.c.bind(&ao);
-
-//     SomeModule modb{"modb", bi1, bi2, bo};
-//     // modb.a.bind(&bi1);
-//     // modb.b.bind(&bi2);
-//     // modb.c.bind(&bo);
-
-//     SomeModule modc{"modc", ci1, ci2, co};
-
-//     SomeModule modd{"modd", di1, di2, do_};
-
-//     SomeModule mode{"mode", ao, bo, eo};
-
-//     SomeModule modf{"modf", co, do_, fo};
-
-//     SomeModule modg{"modg", eo, fo, go};
-
-//     auto n_iter = ctx->delta_cycle();
-//     std::cout << "Number of delta cycles: " << n_iter << std::endl;
-//     std::cout << "go: " << go.read() << std::endl;
-
-//     // Write to signals.
-//     ai1.write(2);
-//     ai2.write(1);
-//     bi1.write(1);
-//     bi2.write(1);
-//     ci1.write(1);
-//     ci2.write(1);
-//     di1.write(1);
-//     di2.write(1);
-
-//     n_iter = ctx->delta_cycle();
-//     std::cout << "Number of delta cycles: " << n_iter << std::endl;
-//     std::cout << "go: " << go.read() << std::endl;
-
-//     return 0;
-// }

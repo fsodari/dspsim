@@ -23,7 +23,7 @@ namespace
               c("c", c_)
         {
             DSPSIM_METHOD(&Adder<T>::eval_);
-            sensitive << a << b;
+            always << a << b;
         }
 
         void eval_()
@@ -185,7 +185,7 @@ namespace
     };
 }
 
-TEST_CASE("test_adder_tree")
+TEST_CASE("test_adder_tree", "[adder_tree]")
 {
     auto ctx = Context::create();
     ctx->logger->set_level(spdlog::level::trace);

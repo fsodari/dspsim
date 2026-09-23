@@ -24,7 +24,7 @@ namespace
             child.o.bind(internal);
 
             DSPSIM_METHOD(&Nested::eval_);
-            sensitive << i << internal;
+            always << i << internal;
         }
 
         void eval_()
@@ -43,7 +43,7 @@ namespace
         Nested(ModuleName name) : Module(name)
         {
             DSPSIM_METHOD(&Nested::eval_);
-            sensitive << i;
+            always << i;
         }
 
         void eval_()

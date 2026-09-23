@@ -33,9 +33,9 @@ namespace dspsim
     template <typename T>
     void Input<T>::update_bound_signal_subscribers()
     {
-        _bound_signal->pos().processes().push_range(_posedge_event.processes());
-        _bound_signal->neg().processes().push_range(_negedge_event.processes());
-        _bound_signal->_change().processes().push_range(_change_event.processes());
+        _bound_signal->pos()->processes().push_range(_posedge_event.processes());
+        _bound_signal->neg()->processes().push_range(_negedge_event.processes());
+        _bound_signal->_change()->processes().push_range(_change_event.processes());
     }
 
     template <typename T>

@@ -126,6 +126,9 @@ namespace dspsim
             return _stack.end();
         }
 
+        std::vector<T> &stack() { return _stack; }
+        const std::vector<T> &stack() const { return _stack; }
+
     private:
         std::vector<T> _stack;
         // Indexed by element->id(); uint8_t avoids std::vector<bool>'s bit-packing overhead.

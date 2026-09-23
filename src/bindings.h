@@ -123,7 +123,7 @@ namespace dspsim
         return nb::class_<SignalBase, Model>(m, name)
             .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
             .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
-            .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
+            .def("change", &SignalBase::operator SensitivityEvent *, nb::rv_policy::reference_internal)
             .def("posedge", &SignalBase::posedge)
             .def("negedge", &SignalBase::negedge)
             .def("changed", &SignalBase::changed);
@@ -205,7 +205,7 @@ namespace dspsim
         {
             if (nb::isinstance<SensitivityEvent>(arg))
             {
-                self.always.link_process(nb::cast<SensitivityEvent &>(arg), nullptr);
+                self.always.link_process(&nb::cast<SensitivityEvent &>(arg), nullptr);
             }
             else if (nb::isinstance<InputBase>(arg))
             {

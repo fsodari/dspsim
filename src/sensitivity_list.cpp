@@ -1,5 +1,6 @@
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/context.h>
+#include <dspsim/event.h>
 #include <dspsim/process.h>
 #include "internal.h"
 
@@ -10,7 +11,7 @@ namespace dspsim
     {
     }
 
-    void SensitivityList::link_process(SensitivityEvent &event, Process *process)
+    void SensitivityList::link_process(SensitivityEvent *event, Process *process)
     {
         if (process == nullptr)
         {
@@ -21,10 +22,10 @@ namespace dspsim
             _context->logger->error("No active process to link for event. Current Hierarchy: {}", _context->_current_hierarchy());
             return;
         }
-        event.add_process(process);
+        event->add_process(process);
     }
 
-    SensitivityList &SensitivityList::operator<<(SensitivityEvent &event)
+    SensitivityList &SensitivityList::operator<<(SensitivityEvent *event)
     {
         link_process(event, nullptr);
         return *this;

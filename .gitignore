@@ -16,6 +16,8 @@ CMakeUserPresets.json
 .vscode
 *.code-workspace
 
+deps/
+
 local
 install
 *.so

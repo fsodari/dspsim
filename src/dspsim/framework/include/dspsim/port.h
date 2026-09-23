@@ -30,12 +30,12 @@ namespace dspsim
 
         // Modules can be sensitive to port changes.
         // Defined inline: bind-time only, but trivial and cheap to keep consistent with signal.h.
-        SensitivityEvent &pos() { return _posedge_event; }
-        SensitivityEvent &neg() { return _negedge_event; }
-        SensitivityEvent &_change() { return _change_event; }
+        SensitivityEvent *pos() { return &_posedge_event; }
+        SensitivityEvent *neg() { return &_negedge_event; }
+        SensitivityEvent *_change() { return &_change_event; }
 
         // Cast this class as _change() event when using in a sensitivity list.
-        operator SensitivityEvent &() { return _change(); }
+        operator SensitivityEvent *() { return _change(); }
     };
 
     template <typename T>

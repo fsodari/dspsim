@@ -22,7 +22,7 @@ namespace
               out("out", out_)
         {
             DSPSIM_METHOD(&Sub::eval_);
-            sensitive << clk.pos();
+            always << clk.pos();
         }
 
         void eval_()
@@ -50,7 +50,7 @@ namespace
               sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
         {
             DSPSIM_METHOD(&Parent::eval_);
-            sensitive << clk.pos();
+            always << clk.pos();
         }
 
         void eval_()

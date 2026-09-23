@@ -1,15 +1,4 @@
-if (MSVC)
-    FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v3.8.1 # or a later release
-        )
-
-    FetchContent_MakeAvailable(Catch2)
-else()
-    find_package(Catch2 3 REQUIRED)
-endif()
-
+find_package(Catch2 3 REQUIRED)
 message(STATUS "Found Catch2: ${Catch2_DIR}")
 
 find_package(verilator REQUIRED)

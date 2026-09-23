@@ -26,6 +26,28 @@ option(BUILD_CPP_TESTS "Build the C++ tests" OFF)
 
 option(BUILD_BENCHMARKS "Build the C++ benchmark executables" OFF)
 
+# Dependencies installation directory
+option(USE_LOCAL_DEPS "Add the deps/install folder to the module search path" ON)
+option(INSTALL_DEV_DEPS "Install developer dependencies" OFF)
+
+if(USE_LOCAL_DEPS)
+    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/deps/install")
+    list(APPEND CMAKE_PREFIX_PATH "${DEPS_INSTALL_DIR}")
+
+    # If it doesn't exist. Run the install script.
+    if (NOT IS_DIRECTORY "${DEPS_INSTALL_DIR}")
+        message(STATUS "Local dependencies directory not found: ${DEPS_INSTALL_DIR}")
+        message(STATUS "Running install_deps.sh to set up local dependencies.")
+
+        # If installing dev dependencies, run the corresponding script. Otherwise, run the standard install script.
+        if (${INSTALL_DEV_DEPS})
+            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_dev_deps.sh)
+        else()
+            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_deps.sh)
+        endif()
+    endif()
+endif()
+
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -34,19 +56,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(FetchContent)
 
 # spdlog. Use fetch content if not available
-if (NOT MSVC)
-    find_package(spdlog QUIET)
-endif()
-if (NOT spdlog_FOUND)
-    set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build spdlog as shared library")
-    set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build spdlog with position independent code")
-    FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.17.0
-    )
-    FetchContent_MakeAvailable(spdlog)
-endif()
+find_package(spdlog REQUIRED)
+message(STATUS "Found spdlog: ${spdlog_DIR}")
 
 # Windows requires the Python SABIModule component.
 find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
