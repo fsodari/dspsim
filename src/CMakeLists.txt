@@ -14,7 +14,9 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/process.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
-set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(dspsim-core PROPERTIES 
+    POSITION_INDEPENDENT_CODE ON
+    INTERPROCEDURAL_OPTIMIZATION ON)
 
 if(${LOG_TRACE})
     target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
