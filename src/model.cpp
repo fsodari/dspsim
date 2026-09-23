@@ -29,18 +29,6 @@ namespace dspsim
     {
     }
 
-    Context *Model::context() const
-    {
-        return _context;
-    }
-    uint32_t Model::id() const
-    {
-        return _id;
-    }
-    const std::string &Model::name() const
-    {
-        return _name;
-    }
     const std::string &Model::kind() const
     {
         return _kind;

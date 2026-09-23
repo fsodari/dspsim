@@ -17,7 +17,7 @@ namespace dspsim
     {
         this->write(!this->_q);
         context()->_time_event_stack.emplace(_process, context()->time() + _half_period);
-        context()->logger->info("Clock tick scheduled for process: {}, time: {}", _process->name(), context()->time() + _half_period);
+        SPDLOG_LOGGER_TRACE(context()->logger, "Clock tick scheduled for process: {}, time: {}", _process->name(), context()->time() + _half_period);
     }
 
     int Clock::period() const

@@ -29,12 +29,13 @@ namespace dspsim
         virtual void finalize() override = 0;
 
         // Modules can be sensitive to port changes.
-        SensitivityEvent &pos();
-        SensitivityEvent &neg();
-        SensitivityEvent &_change();
+        // Defined inline: bind-time only, but trivial and cheap to keep consistent with signal.h.
+        SensitivityEvent &pos() { return _posedge_event; }
+        SensitivityEvent &neg() { return _negedge_event; }
+        SensitivityEvent &_change() { return _change_event; }
 
         // Cast this class as _change() event when using in a sensitivity list.
-        operator SensitivityEvent &();
+        operator SensitivityEvent &() { return _change(); }
     };
 
     template <typename T>
@@ -63,12 +64,13 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Input<T> &port);
 
-        const T &read() const;
+        // Defined inline: called every eval() in the hot path, must be inlinable without LTO.
+        const T &read() const { return _bound_signal->read(); }
 
         // Set in the update cycle after a signal event. Derived from bound signal.
-        bool posedge() const;
-        bool negedge() const;
-        bool changed() const;
+        bool posedge() const { return _bound_signal->posedge(); }
+        bool negedge() const { return _bound_signal->negedge(); }
+        bool changed() const { return _bound_signal->changed(); }
     };
 
     class OutputBase : public PortBase
@@ -103,10 +105,18 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Output<T> &port);
 
-        void write(const T &value);
+        // Defined inline: called every eval() in the hot path, must be inlinable without LTO.
+        void write(const T &value)
+        {
+            _bound_signal->write(value);
+            for (auto &port : _bound_ports)
+            {
+                port->write(value);
+            }
+        }
 
-        const T &_read_d() const;
-        const T &read() const;
+        const T &_read_d() const { return _bound_signal->_read_d(); }
+        const T &read() const { return _bound_signal->read(); }
     };
 
 }

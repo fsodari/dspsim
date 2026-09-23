@@ -1,22 +1,20 @@
 #pragma once
 #include <vector>
 #include <cstdint>
-#include <concepts>
 #include <ranges>
 #include <algorithm>
 
 namespace dspsim
 {
-    template <typename T>
-    concept UniqueStackType = requires(T ptr) {
-        ptr->id();
-    };
-
     // Stack-like container that only allows unique elements based on their id().
     // T must be a pointer whose pointee exposes a dense, small, non-negative id() (e.g. Model*).
     // Membership is tracked by indexing a flag array with id() instead of hashing, giving true
     // O(1) push/pop with no hashing/bucket overhead.
-    template <UniqueStackType T>
+    //
+    // Intentionally unconstrained (no concept) so that T's pointee can still be an incomplete
+    // type where UniqueStack<T> is merely named as a member; ptr->id() is only checked when a
+    // member function that calls it is actually instantiated, same as any ordinary template.
+    template <typename T>
     class UniqueStack
     {
     public:
@@ -26,10 +24,13 @@ namespace dspsim
         using iterator = typename std::vector<T>::iterator;
         using const_iterator = typename std::vector<T>::const_iterator;
 
-        UniqueStack()
+        // Small default: most UniqueStacks are per-signal/per-port sensitivity lists with
+        // only a handful of subscribers. Context's own shared eval/update stacks pass an
+        // explicit larger capacity since those can hold every process/signal in the design.
+        explicit UniqueStack(size_t initial_capacity = 8)
         {
-            _stack.reserve(1000);
-            _in_stack.reserve(1000);
+            _stack.reserve(initial_capacity);
+            _in_stack.reserve(initial_capacity);
         }
         const T &back() const
         {

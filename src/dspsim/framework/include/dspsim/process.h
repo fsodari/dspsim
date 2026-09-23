@@ -18,6 +18,8 @@ namespace dspsim
         Model *_source;
         uint32_t _id;
         // SensitivityList _sensitivity_list;
+        // Set while this process sits in Context::_process_eval_stack; used by FlaggedStack.
+        bool _scheduled = false;
 
     public:
         std::function<void()> eval;
@@ -28,9 +30,12 @@ namespace dspsim
     public:
         Process(Context *context, uint32_t id, std::function<void()> eval, Model *source, const std::string &name = "");
 
-        Model *source() const;
-        uint32_t id() const;
-        const std::string &name() const;
+        // Defined inline: id() is called on every UniqueStack push/pop/find in the
+        // delta-cycle hot path, so it must be inlinable without relying on LTO.
+        Model *source() const { return _source; }
+        uint32_t id() const { return _id; }
+        const std::string &name() const { return _name; }
+        bool &_scheduled_flag() { return _scheduled; }
     };
 
     // Custom utility function. Wraps a method and this ptr in a lambda.

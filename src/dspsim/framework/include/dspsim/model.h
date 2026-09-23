@@ -36,9 +36,11 @@ namespace dspsim
         /*
             Properties
         */
-        Context *context() const;
-        uint32_t id() const;
-        const std::string &name() const;
+        // Defined inline: called on every signal/process bookkeeping operation in the
+        // delta-cycle hot path, so it must be inlinable without relying on LTO.
+        Context *context() const { return _context; }
+        uint32_t id() const { return _id; }
+        const std::string &name() const { return _name; }
         const std::string &kind() const;
         const std::string hier_name() const;
         Model *parent() const;

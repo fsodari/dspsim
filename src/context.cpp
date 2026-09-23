@@ -49,7 +49,10 @@ namespace dspsim
 
     Context::~Context()
     {
-        spdlog::drop(_name);
+        // Do not touch spdlog's global registry here: Context can be destroyed by the
+        // static destruction of _global_context_factory, and spdlog's registry (a
+        // function-local static) may already have been torn down by that point,
+        // making spdlog::drop() dereference freed memory.
         clear();
     }
 

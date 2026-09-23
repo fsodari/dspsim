@@ -14,23 +14,6 @@ namespace dspsim
     {
     }
 
-    SensitivityEvent &InputBase::pos()
-    {
-        return _posedge_event;
-    }
-    SensitivityEvent &InputBase::neg()
-    {
-        return _negedge_event;
-    }
-    SensitivityEvent &InputBase::_change()
-    {
-        return _change_event;
-    }
-    InputBase::operator SensitivityEvent &()
-    {
-        return _change();
-    }
-
     template <typename T>
     Input<T>::Input(const std::string &name) : InputBase(name)
     {
@@ -114,31 +97,6 @@ namespace dspsim
         bind(port);
     }
 
-    template <typename T>
-    const T &Input<T>::read() const
-    {
-        return _bound_signal->read();
-    }
-
-    // Set in the update cycle after a signal event. Derived from bound signal.
-    template <typename T>
-    bool Input<T>::posedge() const
-    {
-        return _bound_signal->posedge();
-    }
-
-    template <typename T>
-    bool Input<T>::negedge() const
-    {
-        return _bound_signal->negedge();
-    }
-
-    template <typename T>
-    bool Input<T>::changed() const
-    {
-        return _bound_signal->changed();
-    }
-
     //
     // OUTPUT<T>
     //
@@ -215,28 +173,6 @@ namespace dspsim
     void Output<T>::_bind_port(Output<T> &port)
     {
         bind(port);
-    }
-
-    template <typename T>
-    void Output<T>::write(const T &value)
-    {
-        _bound_signal->write(value);
-        for (auto &port : _bound_ports)
-        {
-            port->write(value);
-        }
-    }
-
-    template <typename T>
-    const T &Output<T>::_read_d() const
-    {
-        return _bound_signal->_read_d();
-    }
-
-    template <typename T>
-    const T &Output<T>::read() const
-    {
-        return _bound_signal->read();
     }
 
     template class Input<uint8_t>;

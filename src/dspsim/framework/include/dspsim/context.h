@@ -1,10 +1,10 @@
 #pragma once
 #include <dspsim/forward.h>
 #include <dspsim/model.h>
-#include <dspsim/signal.h>
 #include <dspsim/event.h>
 #include <dspsim/process.h>
 #include <dspsim/utils/unique_stack.h>
+#include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
 #include <memory>
 #include <vector>
@@ -63,10 +63,11 @@ namespace dspsim
         std::unordered_map<Model *, std::vector<Model *>> _children;
 
     public:
-        // All processes that need to run in the current delta cycle.
-        UniqueStack<Process *> _process_eval_stack;
-        // All signals that need to be updated in the current delta cycle.
-        UniqueStack<SignalBase *> _signal_update_stack;
+        // All processes that need to run in the current delta cycle. Can hold every
+        // process in the design, so it's given a larger initial capacity than the default.
+        FlaggedStack<Process *> _process_eval_stack{1000};
+        // All signals that need to be updated in the current delta cycle. Same reasoning.
+        FlaggedStack<SignalBase *> _signal_update_stack{1000};
         // The last declared process. Used with sensitivity lists.
         Process *_active_process;
 

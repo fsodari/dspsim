@@ -7,19 +7,4 @@ namespace dspsim
         : _context(context), _source(source), _id(id), eval(eval), _name(name)
     {
     }
-
-    Model *Process::source() const
-    {
-        return _source;
-    }
-
-    uint32_t Process::id() const
-    {
-        return _id;
-    }
-
-    const std::string &Process::name() const
-    {
-        return _name;
-    }
 }
