@@ -1,2 +1,11 @@
-add_executable(sosfilt sosfilt.cpp)
-target_link_libraries(sosfilt PRIVATE dspsim::dspsim-core spdlog::spdlog)
+find_package(SystemCLanguage REQUIRED)
+
+macro(add_benchmark name)
+    add_executable(${name} ${name}.cpp)
+    target_link_libraries(${name} PRIVATE dspsim::dspsim-core spdlog::spdlog SystemC::systemc)
+endmacro()
+
+add_benchmark(simple)
+add_benchmark(nested_wire)
+add_benchmark(nested_dff)
+add_benchmark(wide)

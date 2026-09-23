@@ -270,18 +270,15 @@ namespace dspsim
         // Reset the active process of the context.
         // Processes must be registered after all other submodules have been added to a parent module.
         _active_process = nullptr;
+    }
+    void Context::_add_module(Module *module)
+    {
+        _modules.push_back(module);
+    }
 
-        // If this is a module, add it to the list of modules.
-        if (auto *module = dynamic_cast<Module *>(model))
-        {
-            _modules.push_back(module);
-        }
-
-        // If this is a signal, add it to the list of signals.
-        if (auto *signal = dynamic_cast<SignalBase *>(model))
-        {
-            _signals.push_back(signal);
-        }
+    void Context::_add_signal(SignalBase *signal)
+    {
+        _signals.push_back(signal);
     }
 
     void Context::_own_model(ModelPtr model)

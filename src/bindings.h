@@ -22,37 +22,6 @@ NB_MAKE_OPAQUE(dspsim::SensitivityEvent);
 
 namespace dspsim
 {
-    // // Base Model Object class. Able to be extended, but modules should really be used.
-    // struct PyModel : public Model
-    // {
-    //     NB_TRAMPOLINE(Model);
-
-    //     void finalize() override
-    //     {
-    //         NB_OVERRIDE(finalize);
-    //     }
-
-    //     const std::string repr() const override
-    //     {
-    //         NB_OVERRIDE(repr);
-    //     }
-    // };
-
-    // struct PyModule : public Module
-    // {
-    //     NB_TRAMPOLINE(Module);
-
-    //     void finalize() override
-    //     {
-    //         NB_OVERRIDE(finalize);
-    //     }
-
-    //     const std::string repr() const override
-    //     {
-    //         NB_OVERRIDE(repr);
-    //     }
-    // };
-
     static inline auto bind_context(nb::module_ &m, const char *name)
     {
         // Bind the Context class
@@ -70,7 +39,8 @@ namespace dspsim
             .def_prop_ro("name", &Context::name)
             .def_prop_ro("id", &Context::id)
             .def_prop_ro("models", &Context::models)
-            // .def_prop_ro("modules", &Context::modules)
+            .def_prop_ro("modules", &Context::modules)
+            .def_prop_ro("signals", &Context::signals)
 
             .def_prop_ro("time", &Context::time)
             .def_prop_rw("time_unit", &Context::time_unit, &Context::set_time_unit)
@@ -117,8 +87,6 @@ namespace dspsim
                  nb::arg("kind") = "model")
             // Methods.
             .def("finalize", &Model::finalize)
-            // .def("eval", &Model::eval)
-            // .def("update", &Model::update)
             // Properties
             .def_prop_ro("context", &Model::context)
             .def_prop_ro("name", &Model::name)
@@ -150,10 +118,21 @@ namespace dspsim
         return nb::class_<SensitivityEvent>(m, name);
     }
 
+    static inline auto bind_signal_base(nb::module_ &m, const char *name)
+    {
+        return nb::class_<SignalBase, Model>(m, name)
+            .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
+            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
+            .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
+            .def("posedge", &SignalBase::posedge)
+            .def("negedge", &SignalBase::negedge)
+            .def("changed", &SignalBase::changed);
+    }
+
     template <typename T>
     static inline auto bind_signal_class(nb::module_ &m, const char *name)
     {
-        return nb::class_<Signal<T>, Model>(m, name)
+        return nb::class_<Signal<T>, SignalBase>(m, name)
             .def(nb::new_(&Signal<T>::create),
                  nb::arg("name"),
                  nb::arg("width") = default_bitwidth<T>::value,
@@ -167,14 +146,7 @@ namespace dspsim
             .def_prop_ro("is_signed", &Signal<T>::is_signed)
             .def_prop_rw("value", &Signal<T>::read, &Signal<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Signal<T>::_read_d, &Signal<T>::write, nb::arg("value"))
-            .def_prop_ro("q", &Signal<T>::read)
-            .def("pos", &Signal<T>::pos, nb::rv_policy::reference_internal)
-            .def("neg", &Signal<T>::neg, nb::rv_policy::reference_internal)
-            // Cast changed operator? Allow passing without this.
-            .def("change", &Signal<T>::operator SensitivityEvent &, nb::rv_policy::reference_internal)
-            .def("posedge", &Signal<T>::posedge)
-            .def("negedge", &Signal<T>::negedge)
-            .def("changed", &Signal<T>::changed);
+            .def_prop_ro("q", &Signal<T>::read);
     }
 
     static inline auto bind_input_base(nb::module_ &m, const char *name)
@@ -182,7 +154,6 @@ namespace dspsim
         return nb::class_<InputBase, Model>(m, name)
             .def("pos", &InputBase::pos, nb::rv_policy::reference_internal)
             .def("neg", &InputBase::neg, nb::rv_policy::reference_internal);
-        // .def("change", &InputBase::_change, nb::rv_policy::reference_internal);
     }
 
     template <typename T>
@@ -234,13 +205,15 @@ namespace dspsim
         {
             if (nb::isinstance<SensitivityEvent>(arg))
             {
-                // self.always.add_event(nb::cast<SensitivityEvent &>(arg));
                 self.always.link_process(nb::cast<SensitivityEvent &>(arg), nullptr);
             }
             else if (nb::isinstance<InputBase>(arg))
             {
-                // self.always.add_event(nb::cast<InputBase &>(arg)._change());
                 self.always.link_process(nb::cast<InputBase &>(arg)._change(), nullptr);
+            }
+            else if (nb::isinstance<SignalBase>(arg))
+            {
+                self.always.link_process(nb::cast<SignalBase &>(arg)._change(), nullptr);
             }
             else
             {
@@ -263,11 +236,9 @@ namespace dspsim
             .def(nb::init<ModuleName &>(), nb::arg("name"))
             // Methods.
             .def("finalize", &Module::finalize)
-            // .def("eval", &Module::eval)
-            // .def("update", &Module::update)
             // Always
             .def_prop_ro("_always", &Module::_always_ref, nb::rv_policy::reference_internal)
-            .def("always", &_module_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase) -> None: ..."))
+            .def("always", &_module_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> None: ..."))
             // Properties
             .def_prop_ro("context", &Module::context)
             .def_prop_ro("name", &Module::name)

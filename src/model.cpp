@@ -18,6 +18,11 @@ namespace dspsim
         // Register this model with the context.
         _parent = _context->_active_module();
         _context->_add_model(this);
+
+        if (_name.empty())
+        {
+            _name = _kind + std::to_string(_id);
+        }
     }
 
     void Model::finalize()

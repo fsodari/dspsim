@@ -28,10 +28,12 @@ NB_MODULE(_framework, m)
     bind_sensitivity_event(m, "SensitivityEvent");
 
     // Bind Signals
+    bind_signal_base(m, "SignalBase");
     bind_signal_class<uint8_t>(m, "Signal8");
     bind_signal_class<uint16_t>(m, "Signal16");
     bind_signal_class<uint32_t>(m, "Signal32");
     bind_signal_class<uint64_t>(m, "Signal64");
+    bind_signal_class<double>(m, "SignalFloat");
 
     // Bind Ports
     bind_input_base(m, "InputBase");
@@ -39,10 +41,12 @@ NB_MODULE(_framework, m)
     bind_input<uint16_t>(m, "Input16");
     bind_input<uint32_t>(m, "Input32");
     bind_input<uint64_t>(m, "Input64");
+    bind_input<double>(m, "InputFloat");
     bind_output<uint8_t>(m, "Output8");
     bind_output<uint16_t>(m, "Output16");
     bind_output<uint32_t>(m, "Output32");
     bind_output<uint64_t>(m, "Output64");
+    bind_output<double>(m, "OutputFloat");
 
     // Sensitivity List
     bind_sensitivity_list(m, "SensitivityList");

@@ -69,7 +69,7 @@ namespace dspsim
         T _d, _q;
 
     public:
-        Signal(const std::string &name, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
 
         Signal<T> &init(const T &value);
         /*

@@ -15,6 +15,7 @@ namespace dspsim
           _negedge_flag(false),
           _changed_flag(false)
     {
+        context()->_add_signal(this);
     }
 
     SensitivityEvent &SignalBase::pos()

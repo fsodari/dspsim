@@ -68,6 +68,23 @@
             }
         },
         {
+            "name": "cpp-benchmarks-linux",
+            "displayName": "Benchmarks Linux",
+            "description": "Build the C++ benchmark executables defined in benchmarks.",
+            "inherits": "cpp-testing-linux",
+            "cacheVariables": {
+                "SKBUILD_PROJECT_NAME": "dspsim",
+                "SKBUILD_PROJECT_VERSION": "0.0.0",
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_FRAMEWORK": "OFF",
+                "BUILD_CPP_TESTS": "OFF",
+                "BUILD_BENCHMARKS": "ON",
+                "LOG_TRACE": "OFF",
+                "Python_ROOT_DIR": "${sourceDir}/.venv",
+                "CMAKE_PREFIX_PATH": "${sourceDir}/.venv/lib/python3.14/site-packages"
+            }
+        },
+        {
             "name": "py-cmake-testing-linux",
             "displayName": "Python CMake Testing Linux",
             "description": "Test building the python project without using uv/python.",
@@ -120,8 +137,8 @@
             "name": "cpp-benchmarks-linux",
             "displayName": "C++ Benchmarks Linux",
             "description": "Build the C++ benchmark executables defined in benchmarks.",
-            "configurePreset": "cpp-testing-linux",
-            "configuration": "Debug",
+            "configurePreset": "cpp-benchmarks-linux",
+            "configuration": "Release",
             "targets": [
                 "sosfilt"
             ]

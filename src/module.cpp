@@ -7,6 +7,7 @@ namespace dspsim
 
     Module::Module() : Module(*Context::obtain()->_active_module_name_stack.back())
     {
+        context()->_add_module(this);
     }
     Module::Module(ModuleName &name) : Model(name.name(), "module")
     {

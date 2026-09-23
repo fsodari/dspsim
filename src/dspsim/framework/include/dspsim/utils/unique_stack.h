@@ -26,6 +26,11 @@ namespace dspsim
         using iterator = typename std::vector<T>::iterator;
         using const_iterator = typename std::vector<T>::const_iterator;
 
+        UniqueStack()
+        {
+            _stack.reserve(1000);
+            _in_stack.reserve(1000);
+        }
         const T &back() const
         {
             return _stack.back();

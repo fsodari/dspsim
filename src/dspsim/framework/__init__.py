@@ -37,21 +37,24 @@ from dspsim.framework._framework import (
     Input16,
     Input32,
     Input64,
+    InputFloat,
+    Model,
     ModuleName,
     Output8,
     Output16,
     Output32,
     Output64,
+    OutputFloat,
     Signal8,
     Signal16,
     Signal32,
     Signal64,
+    SignalFloat,
     get_global_context_factory,
     reset_global_context_factory,
     # set_global_context_factory,
 )
 from dspsim.framework._framework import Context as _Context
-from dspsim.framework._framework import Model as _Model
 from dspsim.framework._framework import Module as _Module
 
 # Prevent nb leak warnings.
@@ -112,23 +115,6 @@ class Context(_Context):
         finally:
             # Release the global context lock after elaboration
             self.release()
-
-
-class Model(_Model):
-    """
-    Use Python models in a simulation. Subclasses of this class MUST call super().__init__() in their constructor.
-    """
-
-    def __init__(self, name: str, kind: str = "model"):
-        super().__init__(name, kind)
-        # Register the model with its context.
-        self.context.own_model(self)
-
-    def __repr__(self):
-        return f"<{self.__class__.__name__} id={self.id} context_id={self.context.id}>"
-
-    def __str__(self):
-        return self.__repr__()
 
 
 class Module(_Module):
@@ -194,16 +180,19 @@ __all__ = [
     "Input16",
     "Input32",
     "Input64",
+    "InputFloat",
     "Model",
     "ModuleName",
     "Output8",
     "Output16",
     "Output32",
     "Output64",
+    "OutputFloat",
     "Signal8",
     "Signal16",
     "Signal32",
     "Signal64",
+    "SignalFloat",
     "get_global_context_factory",
     # "set_global_context_factory",
     "signal",

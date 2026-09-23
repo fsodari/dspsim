@@ -170,6 +170,8 @@ namespace dspsim
 
         // Register a model with the context. This will automatically add it to the appropriate lists (modules, signals, etc.) with a dynamic_cast.
         void _add_model(Model *model);
+        void _add_module(Module *module);
+        void _add_signal(SignalBase *signal);
 
         /*
             Take shared ownership of a model. The model will stay alive as long as the context does.

@@ -24,6 +24,8 @@ option(LOG_TRACE "Set the log level for spdlog" OFF)
 # Enable CPP Tetss
 option(BUILD_CPP_TESTS "Build the C++ tests" OFF)
 
+option(BUILD_BENCHMARKS "Build the C++ benchmark executables" OFF)
+
 # Simplest way of exporting symbols for windows.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
@@ -127,7 +129,9 @@ install(TARGETS _framework
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
 # Build benchmarks
-add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+if (BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
 
 #
 if (BUILD_CPP_TESTS)
