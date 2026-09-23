@@ -105,7 +105,8 @@ namespace dspsim
         return nb::class_<Process>(m, name)
             .def_prop_ro("name", &Process::name)
             .def_prop_ro("id", &Process::id)
-            .def_prop_ro("source", &Process::source);
+            .def_prop_ro("source", &Process::source)
+            .def_prop_ro("always", &Process::_always);
     }
 
     static inline auto bind_time_event(nb::module_ &m, const char *name)
@@ -192,11 +193,36 @@ namespace dspsim
             .def_prop_ro("q", &Output<T>::read);
     }
 
+    static inline auto _sensitivity_list_call_func(SensitivityList &self, nb::args args)
+    {
+        for (auto arg : args)
+        {
+            if (nb::isinstance<SensitivityEvent>(arg))
+            {
+                self.link_process(&nb::cast<SensitivityEvent &>(arg), nullptr);
+            }
+            else if (nb::isinstance<InputBase>(arg))
+            {
+                self.link_process(nb::cast<InputBase &>(arg)._change(), nullptr);
+            }
+            else if (nb::isinstance<SignalBase>(arg))
+            {
+                self.link_process(nb::cast<SignalBase &>(arg)._change(), nullptr);
+            }
+            else
+            {
+                throw std::runtime_error("Unsupported argument type for SensitivityList");
+            }
+        }
+    }
     static inline auto bind_sensitivity_list(nb::module_ &m, const char *name)
     {
         return nb::class_<SensitivityList>(m, name)
             .def(nb::init<>())
-            .def("link_process", &SensitivityList::link_process, nb::arg("event"), nb::arg("process"));
+            .def("link_process", &SensitivityList::link_process, nb::arg("event"), nb::arg("process"))
+            .def("link_process_str", &SensitivityList::link_process_str, nb::arg("event_name"))
+            .def("__call__", &SensitivityList::link_process_str, nb::arg("event_name"))
+            .def("__call__", &_sensitivity_list_call_func, nb::sig("def __call__(self, *args: SensitivityEvent | InputBase | SignalBase) -> None: ..."));
         // Function to add events using *args
     }
     static inline auto _module_always_func(Module &self, nb::args args)

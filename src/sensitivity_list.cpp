@@ -3,6 +3,7 @@
 #include <dspsim/event.h>
 #include <dspsim/process.h>
 #include <dspsim/module.h>
+#include <dspsim/context.h>
 
 #include "internal.h"
 
@@ -27,13 +28,7 @@ namespace dspsim
         event->add_process(process);
     }
 
-    SensitivityList &SensitivityList::operator<<(SensitivityEvent *event)
-    {
-        link_process(event, nullptr);
-        return *this;
-    }
-
-    void SensitivityList::operator()(const std::string &event_name)
+    void SensitivityList::link_process_str(const std::string &event_name)
     {
         if (event_name == "*")
         {
@@ -43,5 +38,20 @@ namespace dspsim
                 link_process(input->_change(), nullptr);
             }
         }
+        else
+        {
+            _context->logger->error("Unsupported event name: {}", event_name);
+        }
+    }
+
+    SensitivityList &SensitivityList::operator<<(SensitivityEvent *event)
+    {
+        link_process(event, nullptr);
+        return *this;
+    }
+
+    void SensitivityList::operator()(const std::string &event_name)
+    {
+        link_process_str(event_name);
     }
 }

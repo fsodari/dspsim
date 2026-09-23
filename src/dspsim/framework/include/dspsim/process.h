@@ -3,7 +3,7 @@
 */
 #pragma once
 #include <dspsim/model.h>
-// #include <dspsim/sensitivity_list.h>
+#include <dspsim/sensitivity_list.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -17,12 +17,13 @@ namespace dspsim
         Context *_context;
         Model *_source;
         uint32_t _id;
-        // SensitivityList _sensitivity_list;
+
         // Set while this process sits in Context::_process_eval_stack; used by FlaggedStack.
         bool _scheduled = false;
 
     public:
         std::function<void()> eval;
+        SensitivityList always;
 
     private:
         std::string _name;
@@ -36,6 +37,8 @@ namespace dspsim
         uint32_t id() const { return _id; }
         const std::string &name() const { return _name; }
         bool &_scheduled_flag() { return _scheduled; }
+
+        SensitivityList &_always() { return always; }
     };
 
     // Custom utility function. Wraps a method and this ptr in a lambda.
@@ -52,6 +55,6 @@ namespace dspsim
 
 // Convenience macro for registering a method as a process
 #define DSPSIM_METHOD(method) \
-    context()->register_method(method, this, std::string(#method));
+    context()->register_method(method, this, std::string(#method))
 
 //

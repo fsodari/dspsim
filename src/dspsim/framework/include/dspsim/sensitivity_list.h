@@ -18,6 +18,9 @@ namespace dspsim
         // If a nullptr is passed, it will use the context's active process.
         void link_process(SensitivityEvent *event, Process *process = nullptr);
 
+        // Allow ("*") to be sensitive to all events. Or specify inputs by name maybe?
+        void link_process_str(const std::string &event_name);
+
         SensitivityList &operator<<(SensitivityEvent *event);
 
         // Allow ("*") to be sensitive to all events. Or specify inputs by name maybe?

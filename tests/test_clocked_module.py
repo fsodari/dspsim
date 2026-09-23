@@ -13,8 +13,7 @@ class Counter(Module):
         self.rst = Input8("rst")
         self.count = Output32("count")
 
-        self.register_process(self.eval, "Counter.eval")
-        self.always(self.clk.pos())
+        self.process(self.eval, "Counter.eval").always(self.clk.pos())
 
         # Skip the initial eval step
         self.initialize = False

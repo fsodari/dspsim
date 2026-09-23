@@ -20,9 +20,9 @@ public:
 
     DSPSIM_VCTOR(Skid, VSkid)
     {
-        DSPSIM_METHOD(&Skid::eval_top);
+        DSPSIM_METHOD(&Skid::eval_top)->always("*");
         // Sensitive to all inputs.
-        always("*");
+        // always("*");
     }
 
     void _dump_trace();

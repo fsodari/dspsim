@@ -152,8 +152,8 @@ class Module(_Module):
         # Have the context own the module.
         self.context.own_module(self)
 
-    def register_process(self, method: Callable[[], None], name: str = ""):
-        self.context.register_process(method, self, name)
+    def process(self, method: Callable[[], None], name: str = ""):
+        return self.context.register_process(method, self, name)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):

@@ -13,8 +13,7 @@ class SubAdder(Module):
         self.b = Input32("b")
         self.c = Output32("c")
 
-        self.register_process(self.eval, "SubAdder.eval")
-        self.always(self.a, self.b)
+        self.process(self.eval, "SubAdder.eval").always("*")
 
     def eval(self):
         self.c.d = self.a.q + self.b.q
@@ -103,11 +102,9 @@ class TwoAdder(Module):
         self.e = Input32("e")
         self.f = Output32("f")
 
-        self.register_process(self.eval, "SubAdder.eval")
-        self.always(self.a, self.b)
+        self.process(self.eval, "SubAdder.eval").always(self.a, self.b)
 
-        self.register_process(self.eval2, "SubAdder.eval2")
-        self.always(self.d, self.e)
+        self.process(self.eval2, "SubAdder.eval2").always(self.d, self.e)
 
     def eval(self):
         self.c.d = self.a.q + self.b.q
