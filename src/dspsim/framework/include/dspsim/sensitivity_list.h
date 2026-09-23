@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 
 namespace dspsim
 {
@@ -18,5 +19,8 @@ namespace dspsim
         void link_process(SensitivityEvent *event, Process *process = nullptr);
 
         SensitivityList &operator<<(SensitivityEvent *event);
+
+        // Allow ("*") to be sensitive to all events. Or specify inputs by name maybe?
+        void operator()(const std::string &event_name);
     };
 }

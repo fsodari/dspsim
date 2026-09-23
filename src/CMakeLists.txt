@@ -18,9 +18,9 @@ set_target_properties(dspsim-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     INTERPROCEDURAL_OPTIMIZATION ON)
 
-if(${LOG_TRACE})
-    target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
-endif()
+# Trace logging in debug mode only.
+target_compile_definitions(dspsim-core PUBLIC
+    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>")
 
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.

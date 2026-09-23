@@ -76,7 +76,7 @@ namespace dspsim
     class OutputBase : public PortBase
     {
     public:
-        OutputBase(const std::string &name) : PortBase(name, "output") {}
+        OutputBase(const std::string &name);
         virtual void finalize() override = 0;
     };
 

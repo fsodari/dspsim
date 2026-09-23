@@ -58,12 +58,12 @@ namespace dspsim
 
     void Context::clear()
     {
+        // Clearing this will cause a segfault if signals go out of scope first.
+        // _process_eval_stack.clear();
+        // _signal_update_stack.clear();
         _registered_models.clear();
         _owned_models.clear();
         _children.clear();
-        // _eval_stack.clear();
-        _signal_update_stack.clear();
-        // _time_event_stack.clear();
         _time_event_stack = PriorityQueue<TimeEvent>();
     }
 

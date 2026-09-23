@@ -43,7 +43,7 @@ dspsim = "dspsim.framework.cli:main"
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 wheel.packages = ["src/dspsim"]
-cmake.args = ["--preset=default", "-DLOG_TRACE=ON"]
+build.targets =["_framework"]
 
 [tool.uv]
 cache-keys = [

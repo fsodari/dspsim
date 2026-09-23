@@ -2,6 +2,8 @@
 #include <dspsim/context.h>
 #include <dspsim/event.h>
 #include <dspsim/process.h>
+#include <dspsim/module.h>
+
 #include "internal.h"
 
 namespace dspsim
@@ -29,5 +31,17 @@ namespace dspsim
     {
         link_process(event, nullptr);
         return *this;
+    }
+
+    void SensitivityList::operator()(const std::string &event_name)
+    {
+        if (event_name == "*")
+        {
+            // Make the sensitivity list sensitive to all events.
+            for (auto &input : _context->_active_module()->_inputs)
+            {
+                link_process(input->_change(), nullptr);
+            }
+        }
     }
 }

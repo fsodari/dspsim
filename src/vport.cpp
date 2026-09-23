@@ -12,7 +12,7 @@ namespace dspsim
         _vmodel_base->_inputs.push_back(this);
 
         // Always sensitive to inputs.
-        _vmodel_base->always << *this;
+        // _vmodel_base->always << *this;
     }
 
     template <typename T>

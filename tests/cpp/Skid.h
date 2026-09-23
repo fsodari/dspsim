@@ -21,7 +21,8 @@ public:
     DSPSIM_VCTOR(Skid, VSkid)
     {
         DSPSIM_METHOD(&Skid::eval_top);
-        always << clk << rst << s_axis_tdata << s_axis_tvalid << m_axis_tready;
+        // Sensitive to all inputs.
+        always("*");
     }
 
     void _dump_trace();

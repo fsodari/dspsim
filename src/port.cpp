@@ -8,10 +8,27 @@ namespace dspsim
     PortBase::PortBase(const std::string &name, const std::string &kind)
         : Model(name, kind)
     {
+        if (context()->_active_module())
+        {
+            context()->_active_module()->_ports.push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register port {}", name);
+        }
     }
 
     InputBase::InputBase(const std::string &name) : PortBase(name, "input")
     {
+        // Register an input port with the parent module.
+        if (context()->_active_module())
+        {
+            context()->_active_module()->_inputs.push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register input port {}", name);
+        }
     }
 
     template <typename T>
@@ -100,6 +117,18 @@ namespace dspsim
     //
     // OUTPUT<T>
     //
+
+    OutputBase::OutputBase(const std::string &name) : PortBase(name, "output")
+    {
+        if (context()->_active_module())
+        {
+            context()->_active_module()->_outputs.push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register output port {}", name);
+        }
+    }
 
     template <typename T>
     Output<T>::Output(const std::string &name) : OutputBase(name)

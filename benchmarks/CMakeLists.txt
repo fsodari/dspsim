@@ -1,8 +1,8 @@
-find_package(SystemCLanguage REQUIRED)
-
+add_custom_target(benchmarks)
 macro(add_benchmark name)
     add_executable(${name} ${name}.cpp)
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core spdlog::spdlog SystemC::systemc)
+    add_dependencies(${name} benchmarks)
 endmacro()
 
 add_benchmark(simple)
@@ -12,3 +12,4 @@ add_benchmark(nested_dff_really_deep)
 add_benchmark(wide)
 add_benchmark(heavy)
 add_benchmark(nested_heavy)
+add_benchmark(sc_parity)

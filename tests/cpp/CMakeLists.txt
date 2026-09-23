@@ -1,8 +1,4 @@
-find_package(Catch2 3 REQUIRED)
-message(STATUS "Found Catch2: ${Catch2_DIR}")
-
-find_package(verilator REQUIRED)
-
+#
 set(TEST_HDL_MODULES_DIR ${CMAKE_SOURCE_DIR}/tests/test_modules)
 
 add_executable(tests
@@ -39,27 +35,28 @@ else()
 endif()
 
 add_library(Skid Skid.cpp)
-# Verilate test modules
-verilate(Skid
-    SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
-    INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
-    ${TRACE_TYPE} 
-    VERILATOR_ARGS --quiet
-)
 target_link_libraries(Skid PUBLIC dspsim::dspsim-core)
 target_link_libraries(tests PRIVATE Skid)
 
 add_library(Skid2 Skid2.cpp)
-# Verilate test modules
-verilate(Skid2
-    SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
-    INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
-    ${TRACE_TYPE}
-    PREFIX VSkid2
-    VERILATOR_ARGS --quiet
-)
 target_link_libraries(Skid2 PUBLIC dspsim::dspsim-core)
 target_link_libraries(tests PRIVATE Skid2)
+
+# Verilating. Skip verilating if tests were excluded
+if(${verilator_FOUND})
+    # Verilate test modules
+    verilate(Skid
+        SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
+        INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
+        ${TRACE_TYPE} 
+        VERILATOR_ARGS --quiet)
+    verilate(Skid2
+        SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
+        INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
+        ${TRACE_TYPE}
+        PREFIX VSkid2
+        VERILATOR_ARGS --quiet)   
+endif()
 
 include(CTest)
 include(Catch)

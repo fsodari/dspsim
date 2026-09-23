@@ -3,6 +3,7 @@
 #include <dspsim/sensitivity_list.h>
 #include <dspsim/module_name.h>
 #include <dspsim/process.h>
+#include <dspsim/port.h>
 #include <vector>
 
 namespace dspsim
@@ -14,6 +15,10 @@ namespace dspsim
         bool _initialize = true;
 
     public:
+        // Information about the module's ports.
+        std::vector<PortBase *> _ports;
+        std::vector<InputBase *> _inputs;
+        std::vector<OutputBase *> _outputs;
         SensitivityList always;
         // Used by python.
         SensitivityList &_always_ref();
