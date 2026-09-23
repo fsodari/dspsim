@@ -219,7 +219,7 @@ namespace dspsim
     {
         return nb::class_<SensitivityList>(m, name)
             .def(nb::init<>())
-            .def("link_process", &SensitivityList::link_process, nb::arg("event"), nb::arg("process"))
+            .def("link_process", &SensitivityList::_link_process, nb::arg("event"), nb::arg("process"))
             .def("link_process_str", &SensitivityList::link_process_str, nb::arg("event_name"))
             .def("__call__", &SensitivityList::link_process_str, nb::arg("event_name"))
             .def("__call__", &_sensitivity_list_call_func, nb::sig("def __call__(self, *args: SensitivityEvent | InputBase | SignalBase) -> None: ..."));

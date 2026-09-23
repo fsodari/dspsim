@@ -8,8 +8,7 @@ namespace dspsim
     Dff<T>::Dff(ModuleName name)
         : Module(name)
     {
-        DSPSIM_METHOD(&Dff<T>::some_process);
-        always << clk.pos();
+        DSPSIM_METHOD(&Dff<T>::some_process)->always(clk.pos());
     }
 
     template <typename T>

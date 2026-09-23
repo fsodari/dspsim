@@ -25,8 +25,7 @@ namespace
               b("b", b_),
               c("c", c_)
         {
-            DSPSIM_METHOD(&SomeModule::eval_);
-            always << a << b;
+            DSPSIM_METHOD(&SomeModule::eval_)->always("*");
         }
 
         void eval_()
@@ -55,8 +54,7 @@ namespace
               q("q", q_),
               some_module("some_module_sync_model", d, d, q)
         {
-            DSPSIM_METHOD(&SyncModel::eval_);
-            always << clk.pos();
+            DSPSIM_METHOD(&SyncModel::eval_)->always(clk.pos());
         }
 
         void eval_()

@@ -19,9 +19,9 @@ namespace dspsim
         std::vector<PortBase *> _ports;
         std::vector<InputBase *> _inputs;
         std::vector<OutputBase *> _outputs;
-        SensitivityList always;
-        // Used by python.
-        SensitivityList &_always_ref();
+        // SensitivityList always;
+        // // Used by python.
+        // SensitivityList &_always_ref();
 
         Module(ModuleName &name);
         Module();

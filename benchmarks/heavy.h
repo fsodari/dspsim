@@ -17,8 +17,7 @@ namespace benchmarks
         HeavyDff(dspsim::ModuleName name) : dspsim::Module(name)
         {
             // DSPSIM_METHOD(&HeavyDff<T, N>::eval);
-            context()->register_method(&HeavyDff<T, N>::eval, this, "eval");
-            always << clk.pos();
+            context()->register_method(&HeavyDff<T, N>::eval, this, "eval")->always(clk.pos());
         }
 
         void eval()
@@ -43,8 +42,7 @@ namespace benchmarks
         HeavyWire(dspsim::ModuleName name) : dspsim::Module(name)
         {
             // DSPSIM_METHOD(&HeavyWire<T, N>::eval);
-            context()->register_method(&HeavyWire<T, N>::eval, this, "eval");
-            always << clk << in;
+            context()->register_method(&HeavyWire<T, N>::eval, this, "eval")->always("*");
         }
 
         void eval()

@@ -16,8 +16,7 @@ namespace benchmarks
 
         SimpleDff(dspsim::ModuleName name) : dspsim::Module(name)
         {
-            DSPSIM_METHOD(&SimpleDff<T>::eval);
-            always << clk.pos();
+            DSPSIM_METHOD(&SimpleDff<T>::eval)->always(clk.pos());
         }
 
         void eval()
@@ -40,8 +39,7 @@ namespace benchmarks
 
         SimpleWire(dspsim::ModuleName name) : dspsim::Module(name)
         {
-            DSPSIM_METHOD(&SimpleWire<T>::eval);
-            always << clk << in;
+            DSPSIM_METHOD(&SimpleWire<T>::eval)->always("*");
         }
 
         void eval()

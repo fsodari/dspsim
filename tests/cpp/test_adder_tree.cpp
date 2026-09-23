@@ -22,8 +22,7 @@ namespace
               b("b", b_),
               c("c", c_)
         {
-            DSPSIM_METHOD(&Adder<T>::eval_);
-            always << a << b;
+            DSPSIM_METHOD(&Adder<T>::eval_)->always("*");
         }
 
         void eval_()

@@ -2,7 +2,7 @@ add_custom_target(benchmarks)
 macro(add_benchmark name)
     add_executable(${name} ${name}.cpp)
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core spdlog::spdlog SystemC::systemc)
-    add_dependencies(${name} benchmarks)
+    add_dependencies(benchmarks ${name})
 endmacro()
 
 add_benchmark(simple)

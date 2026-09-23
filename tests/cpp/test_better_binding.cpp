@@ -16,8 +16,7 @@ namespace
 
         Child(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(&Child::eval_);
-            always << i;
+            DSPSIM_METHOD(&Child::eval_)->always(i);
         }
 
         void eval_()
@@ -60,8 +59,7 @@ namespace
 
         Top(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(&Top::eval_);
-            always << i << p1_internal << p2_internal;
+            DSPSIM_METHOD(&Top::eval_)->always(i, p1_internal, p2_internal);
 
             parent1.i.bind(i);
             parent1.o.bind(p1_internal);

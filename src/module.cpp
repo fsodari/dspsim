@@ -15,10 +15,10 @@ namespace dspsim
         context()->_active_module_stack.push_back(this);
     }
 
-    SensitivityList &Module::_always_ref()
-    {
-        return always;
-    }
+    // SensitivityList &Module::_always_ref()
+    // {
+    //     return always;
+    // }
 
     void Module::_end_construction()
     {

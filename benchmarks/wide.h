@@ -20,8 +20,7 @@ namespace benchmarks
 
         Wide(dspsim::ModuleName name) : dspsim::Module(name)
         {
-            context()->register_method(&Wide<T, N>::eval, this, "eval");
-            always << clk.pos();
+            context()->register_method(&Wide<T, N>::eval, this, "eval")->always(clk.pos());
         }
 
         void eval()
