@@ -68,8 +68,6 @@ namespace dspsim
         FlaggedStack<Process *> _process_eval_stack{1000};
         // All signals that need to be updated in the current delta cycle. Same reasoning.
         FlaggedStack<SignalBase *> _signal_update_stack{1000};
-        // The last declared process. Used with sensitivity lists.
-        Process *_active_process;
 
     private:
         // Current simulation time.

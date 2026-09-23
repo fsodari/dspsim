@@ -1,7 +1,6 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
-#include <dspsim/sensitivity_list.h>
 #include <memory>
 #include <vector>
 

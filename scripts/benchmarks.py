@@ -63,11 +63,9 @@ def main():
         f"-DCMAKE_PREFIX_PATH={sysconfig.get_path('purelib')}",
     ]
     build_cmd = ["cmake", "--build", args.build_dir, "--config", "Release"]
-
+    exe_dir = args.build_dir / "benchmarks"
     if sys.platform == "win32":
-        exe_dir = args.build_dir / "benchmarks" / "Release"
-    else:
-        exe_dir = args.build_dir / "benchmarks"
+        exe_dir = exe_dir / "Release"
 
     if args.configure:
         subprocess.run(configure_cmd, check=True)

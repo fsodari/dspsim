@@ -37,7 +37,7 @@ namespace dspsim
           _id(id),
           _next_model_id(0),
           _next_process_id(0),
-          _active_process(nullptr),
+          //   _active_process(nullptr),
           _time(0),
           _time_unit("1ns"),
           _signal_event(false)
@@ -272,7 +272,7 @@ namespace dspsim
 
         // Reset the active process of the context.
         // Processes must be registered after all other submodules have been added to a parent module.
-        _active_process = nullptr;
+        // _active_process = nullptr;
     }
     void Context::_add_module(Module *module)
     {
@@ -296,11 +296,11 @@ namespace dspsim
 
     Process *Context::register_process_func(const std::function<void()> &eval, Model *source, const std::string &name)
     {
-        auto process = std::make_shared<Process>(this, _next_process_id++, eval, source, name);
+        auto process = std::make_shared<Process>(_next_process_id++, eval, source, name);
         _processes.push_back(process);
         logger->info("Registering process: {}, id: {}", name, _next_process_id - 1);
         // Set the active process of the context.
-        _active_process = process.get();
+        // _active_process = process.get();
         return process.get();
     }
 

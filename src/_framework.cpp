@@ -48,9 +48,6 @@ NB_MODULE(_framework, m)
     bind_output<uint64_t>(m, "Output64");
     bind_output<double>(m, "OutputFloat");
 
-    // Sensitivity List
-    bind_sensitivity_list(m, "SensitivityList");
-
     // Module
     bind_module_name(m, "ModuleName");
     bind_module(m, "Module");

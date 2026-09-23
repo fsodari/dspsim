@@ -7,7 +7,6 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/module.cpp
     ${DSPSIM_SRC_DIR}/module_name.cpp
     ${DSPSIM_SRC_DIR}/port.cpp
-    ${DSPSIM_SRC_DIR}/sensitivity_list.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
     ${DSPSIM_SRC_DIR}/vmodule_base.cpp
     ${DSPSIM_SRC_DIR}/vport.cpp
