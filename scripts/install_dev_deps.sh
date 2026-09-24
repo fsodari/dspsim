@@ -3,6 +3,11 @@
 
 mkdir -p ./deps
 
+CMAKE_C_COMPILER="gcc"
+CMAKE_CXX_COMPILER="g++"
+# CMAKE_C_COMPILER="clang"
+# CMAKE_CXX_COMPILER="clang++"
+
 # Install base dependencies.
 ./scripts/install_deps.sh
 
@@ -12,7 +17,7 @@ CATCH2_DIR="./deps/Catch2"
 
 if [[ ! -d "${SYSTEMC_DIR}" ]]; then
     git clone https://github.com/accellera-official/systemc.git ./deps/systemc --branch 3.0.2 --depth 1
-    cmake -S ./deps/systemc -B ./deps/systemc/build -DCMAKE_CXX_STANDARD=23 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_COPYRIGHT_MESSAGE=ON -DBUILD_SHARED_LIBS=OFF
+    cmake -S ./deps/systemc -B ./deps/systemc/build -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}" -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}" -DCMAKE_CXX_STANDARD=23 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_COPYRIGHT_MESSAGE=ON -DBUILD_SHARED_LIBS=OFF
     cmake --build ./deps/systemc/build --config Release
     cmake --install ./deps/systemc/build --prefix ./deps/install
 else
@@ -22,7 +27,7 @@ fi
 # Catch2
 if [[ ! -d "${CATCH2_DIR}" ]]; then
     git clone https://github.com/catchorg/Catch2.git ./deps/Catch2 --branch v3.16.0 --depth 1
-    cmake -S ./deps/Catch2 -B ./deps/Catch2/build -DCMAKE_CXX_STANDARD=23 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release
+    cmake -S ./deps/Catch2 -B ./deps/Catch2/build -DCMAKE_C_COMPILER="${CMAKE_C_COMPILER}" -DCMAKE_CXX_COMPILER="${CMAKE_CXX_COMPILER}" -DCMAKE_CXX_STANDARD=23 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_BUILD_TYPE=Release
     cmake --build ./deps/Catch2/build --config Release
     cmake --install ./deps/Catch2/build --prefix ./deps/install
 else

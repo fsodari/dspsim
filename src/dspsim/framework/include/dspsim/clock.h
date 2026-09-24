@@ -4,7 +4,7 @@
 
 namespace dspsim
 {
-    class Clock : public Signal<uint8_t>
+    class Clock final : public Signal<uint8_t>
     {
     private:
         int _period;

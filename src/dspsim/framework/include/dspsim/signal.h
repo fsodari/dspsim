@@ -79,6 +79,7 @@ namespace dspsim
 
     public:
         Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        virtual ~Signal() = default;
         Signal<T> &init(const T &value);
 
         /*

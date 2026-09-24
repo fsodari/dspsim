@@ -13,8 +13,7 @@ class Args:
     configure: bool
     build: bool
     build_dir: Path
-    benchmarks: list[str]
-    target: str
+    target: list[str]
     extra: list[str]
 
     @classmethod
@@ -28,18 +27,12 @@ class Args:
             default=Path("build"),
             dest="build_dir",
         )
-        parser.add_argument(
-            "-b",
-            "--benchmark",
-            action="append",
-            type=str,
-            default=[],
-            dest="benchmarks",
-        )
+
         parser.add_argument(
             "--target",
             type=str,
-            default="benchmarks",
+            action="append",
+            default=[],
             dest="target",
         )
         # args = parser.parse_args()
@@ -48,7 +41,6 @@ class Args:
             configure=args.configure,
             build=args.build,
             build_dir=args.build_dir,
-            benchmarks=args.benchmarks,
             target=args.target,
             extra=extra,
         )
@@ -74,11 +66,14 @@ def main():
         "cmake",
         "--build",
         args.build_dir,
-        "--target",
-        args.target,
         "--config",
         "Release",
     ]
+    for target in args.target:
+        build_cmd.extend(["--target", target])
+    if len(args.target) == 0:
+        build_cmd.extend(["--target", "benchmarks"])
+
     exe_dir = args.build_dir / "benchmarks"
     if sys.platform == "win32":
         exe_dir = exe_dir / "Release"
@@ -88,19 +83,19 @@ def main():
     if args.build:
         subprocess.run(build_cmd, check=True)
 
-    if len(args.benchmarks) == 0:
+    if len(args.target) == 0:
         # Find all exes in the exe dir and run them.
         suffix = ".exe" if sys.platform == "win32" else ""
         for test_exe in exe_dir.glob("*"):
             if test_exe.is_file() and test_exe.suffix == suffix:
-                args.benchmarks.append(test_exe.name)
+                args.target.append(test_exe.name)
 
-    for benchmark in args.benchmarks:
-        test_exe = exe_dir / benchmark
+    for target in args.target:
+        test_exe = exe_dir / target
         test_cmd = [test_exe.as_posix()]
         test_cmd.extend(args.extra)
 
-        print(f"Running benchmark: {benchmark}")
+        print(f"Running benchmark: {target}")
         # No need to check test command since we want to see its output on failure
         subprocess.run(test_cmd, check=False)
 
