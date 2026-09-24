@@ -11,15 +11,12 @@ namespace
     class Sub : public Module
     {
     public:
-        Input<uint8_t> clk;
-        Input<uint8_t> in;
-        Output<uint8_t> out;
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> in{"in"};
+        Output<uint8_t> out{"out"};
 
-        Sub(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-            : Module(name),
-              clk("clk", clk_),
-              in("in", in_),
-              out("out", out_)
+        Sub(ModuleName name)
+            : Module(name)
         {
             DSPSIM_METHOD(&Sub::eval_)->always(clk.pos());
         }
@@ -34,20 +31,19 @@ namespace
     class Parent : public Module
     {
     public:
-        Input<uint8_t> clk;
-        Input<uint8_t> in;
-        Output<uint8_t> out;
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> in{"in"};
+        Output<uint8_t> out{"out"};
 
         // Submodules must be initialized last.
-        Sub sub;
+        Sub sub{"sub"};
 
-        Parent(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-            : Module(name),
-              clk("clk", clk_),
-              in("in", in_),
-              out("out", out_),
-              sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
+        Parent(ModuleName name)
+            : Module(name)
         {
+            sub.clk.bind(clk);
+            sub.in.bind(in);
+            sub.out.bind(out);
             DSPSIM_METHOD(&Parent::eval_)->always(clk.pos());
         }
 
@@ -67,7 +63,10 @@ TEST_CASE("test_submodule")
     Signal<uint8_t> in_signal{"in_signal"};
     Signal<uint8_t> out_signal{"out_signal"};
 
-    Parent parent{"parent", clk, in_signal, out_signal};
+    Parent parent{"parent"};
+    parent.clk.bind(clk);
+    parent.in.bind(in_signal);
+    parent.out.bind(out_signal);
 
     ctx->elaborate();
 

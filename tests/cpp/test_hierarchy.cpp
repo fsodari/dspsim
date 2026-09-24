@@ -15,16 +15,16 @@ namespace
     class SomeModule : public Module
     {
     public:
-        Input<uint8_t> a;
-        Input<uint8_t> b;
-        Output<uint8_t> c;
+        Input<uint8_t> a{"a"};
+        Input<uint8_t> b{"b"};
+        Output<uint8_t> c{"c"};
 
         SomeModule(ModuleName name, Signal<uint8_t> &a_, Signal<uint8_t> &b_, Signal<uint8_t> &c_)
-            : Module(name),
-              a("a", a_),
-              b("b", b_),
-              c("c", c_)
+            : Module(name)
         {
+            a.bind(a_);
+            b.bind(b_);
+            c.bind(c_);
             DSPSIM_METHOD(&SomeModule::eval_)->always("*");
         }
 
@@ -39,9 +39,9 @@ namespace
     class SyncModel : public Module
     {
     public:
-        Input<uint8_t> clk;
-        Input<uint8_t> d;
-        Output<uint8_t> q;
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> d{"d"};
+        Output<uint8_t> q{"q"};
 
         SomeModule some_module;
 
@@ -49,11 +49,11 @@ namespace
         // DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
         SyncModel(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &d_, Signal<uint8_t> &q_)
             : Module(name),
-              clk("clk", clk_),
-              d("d", d_),
-              q("q", q_),
               some_module("some_module_sync_model", d, d, q)
         {
+            clk.bind(clk_);
+            d.bind(d_);
+            q.bind(q_);
             DSPSIM_METHOD(&SyncModel::eval_)->always(clk.pos());
         }
 

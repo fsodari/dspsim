@@ -7,14 +7,14 @@ public:
     // Parameters
     // Requires knowing the verilog module name, not just the prefix. Must be generated.
 
-    DSPSIM_VINPUT(clk);
-    DSPSIM_VINPUT(rst);
-    DSPSIM_VINPUT(s_axis_tdata);
-    DSPSIM_VINPUT(s_axis_tvalid);
-    DSPSIM_VOUTPUT(s_axis_tready);
-    DSPSIM_VOUTPUT(m_axis_tdata);
-    DSPSIM_VOUTPUT(m_axis_tvalid);
-    DSPSIM_VINPUT(m_axis_tready);
+    DSPSIM_VINPUT(clk, 1);
+    DSPSIM_VINPUT(rst, 1);
+    DSPSIM_VINPUT(s_axis_tdata, 24);
+    DSPSIM_VINPUT(s_axis_tvalid, 1);
+    DSPSIM_VOUTPUT(s_axis_tready, 1);
+    DSPSIM_VOUTPUT(m_axis_tdata, 24);
+    DSPSIM_VOUTPUT(m_axis_tvalid, 1);
+    DSPSIM_VINPUT(m_axis_tready, 1);
 
     // Standard eval func. Sensitive to all inputs.
     DSPSIM_VCTOR(Skid2, VSkid2);

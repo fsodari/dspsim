@@ -8,8 +8,10 @@ namespace dspsim
 {
     class PortBase : public Model
     {
+        int _width;
+
     public:
-        PortBase(const std::string &name, const std::string &kind);
+        PortBase(const std::string &name, int width, const std::string &kind);
         virtual void finalize() override = 0;
         // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
         virtual void _sync() {}
@@ -24,11 +26,10 @@ namespace dspsim
         SensitivityEvent _negedge_event;
 
     public:
-        InputBase(const std::string &name);
+        InputBase(const std::string &name, int width);
         virtual void finalize() override = 0;
 
-        // Modules can be sensitive to port changes.
-        // Defined inline: bind-time only, but trivial and cheap to keep consistent with signal.h.
+        // Processes can be sensitive to port changes.
         SensitivityEvent *pos() { return &_posedge_event; }
         SensitivityEvent *neg() { return &_negedge_event; }
         SensitivityEvent *_change() { return &_change_event; }
@@ -44,8 +45,8 @@ namespace dspsim
         std::vector<Input<T> *> _bound_ports;
 
     public:
-        Input(const std::string &name);
-        Input(const std::string &name, Signal<T> &signal);
+        Input(const std::string &name, int width = default_bitwidth<T>::value);
+        // Input(const std::string &name, Signal<T> &signal);
         void finalize() override;
 
     protected:
@@ -75,7 +76,7 @@ namespace dspsim
     class OutputBase : public PortBase
     {
     public:
-        OutputBase(const std::string &name);
+        OutputBase(const std::string &name, int width);
         virtual void finalize() override = 0;
     };
 
@@ -87,8 +88,8 @@ namespace dspsim
         std::vector<Output<T> *> _bound_ports;
 
     public:
-        Output(const std::string &name);
-        Output(const std::string &name, Signal<T> &signal);
+        Output(const std::string &name, int width = default_bitwidth<T>::value);
+        // Output(const std::string &name, Signal<T> &signal);
         void finalize() override;
 
     protected:

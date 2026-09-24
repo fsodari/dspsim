@@ -1,5 +1,5 @@
 module Skid #(
-    parameter DW = 32
+    parameter DW = 24
 ) (
     input logic clk,
     input logic rst,

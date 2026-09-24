@@ -5,8 +5,8 @@
 
 namespace dspsim
 {
-    PortBase::PortBase(const std::string &name, const std::string &kind)
-        : Model(name, kind)
+    PortBase::PortBase(const std::string &name, int width, const std::string &kind)
+        : Model(name, kind), _width(width)
     {
         if (context()->_active_module())
         {
@@ -18,7 +18,7 @@ namespace dspsim
         }
     }
 
-    InputBase::InputBase(const std::string &name) : PortBase(name, "input")
+    InputBase::InputBase(const std::string &name, int width) : PortBase(name, width, "input")
     {
         // Register an input port with the parent module.
         if (context()->_active_module())
@@ -32,15 +32,15 @@ namespace dspsim
     }
 
     template <typename T>
-    Input<T>::Input(const std::string &name) : InputBase(name)
+    Input<T>::Input(const std::string &name, int width) : InputBase(name, width)
     {
     }
 
-    template <typename T>
-    Input<T>::Input(const std::string &name, Signal<T> &signal) : InputBase(name)
-    {
-        bind(signal);
-    }
+    // template <typename T>
+    // Input<T>::Input(const std::string &name, Signal<T> &signal) : InputBase(name, signal.width())
+    // {
+    //     bind(signal);
+    // }
     template <typename T>
     void Input<T>::finalize()
     {
@@ -118,7 +118,7 @@ namespace dspsim
     // OUTPUT<T>
     //
 
-    OutputBase::OutputBase(const std::string &name) : PortBase(name, "output")
+    OutputBase::OutputBase(const std::string &name, int width) : PortBase(name, width, "output")
     {
         if (context()->_active_module())
         {
@@ -131,15 +131,15 @@ namespace dspsim
     }
 
     template <typename T>
-    Output<T>::Output(const std::string &name) : OutputBase(name)
+    Output<T>::Output(const std::string &name, int width) : OutputBase(name, width)
     {
     }
 
-    template <typename T>
-    Output<T>::Output(const std::string &name, Signal<T> &signal) : Output<T>(name)
-    {
-        bind(signal);
-    }
+    // template <typename T>
+    // Output<T>::Output(const std::string &name, Signal<T> &signal) : Output<T>(name)
+    // {
+    //     bind(signal);
+    // }
 
     template <typename T>
     void Output<T>::finalize()
