@@ -22,7 +22,7 @@ namespace benchmarks
         Wide(dspsim::ModuleName name) : dspsim::Module(name)
         {
             auto proc = context()->register_method(&Wide<T, N>::eval, this, "eval");
-            proc->always(clk.pos());
+            proc->always(clk, in);
         }
 
         void eval()
@@ -50,7 +50,7 @@ namespace benchmarks
         SC_CTOR(WideSC)
         {
             SC_METHOD(eval);
-            sensitive << clk.pos();
+            sensitive << clk << in;
         }
 
         void eval()
