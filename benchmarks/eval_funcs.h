@@ -13,14 +13,4 @@ namespace benchmarks
         }
         return x;
     }
-
-    // template <typename T>
-    // static inline T mult_random(T in, size_t iters)
-    // {
-    //     for (size_t i = 0; i < iters; ++i)
-    //     {
-    //         in *= Random::get();
-    //     }
-    //     return in;
-    // }
 } // namespace benchmarks

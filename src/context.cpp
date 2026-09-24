@@ -74,10 +74,10 @@ namespace dspsim
             model->finalize();
         }
 
-        if (!_initialized) [[unlikely]]
-        {
-            _do_initialize();
-        }
+        // if (!_initialized) [[unlikely]]
+        // {
+        //     _do_initialize();
+        // }
     }
 
     int Context::eval()
@@ -173,6 +173,10 @@ namespace dspsim
     }
     void Context::run(uint64_t time_inc)
     {
+        if (!_initialized) [[unlikely]]
+        {
+            _do_initialize();
+        }
         // Compute delta cycle.
         eval();
 

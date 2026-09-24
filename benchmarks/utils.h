@@ -66,7 +66,6 @@ namespace benchmarks
         some_model.out.bind(out_signal);
 
         ctx->elaborate();
-
         // Lambda to change data and call sc_run every clock.
         double checksum = 0.0;
         auto simulate = [&](size_t n)
