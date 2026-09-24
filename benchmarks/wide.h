@@ -5,6 +5,7 @@
 #include "eval_funcs.h"
 #include <iostream>
 #include <memory>
+#include <spdlog/spdlog.h>
 
 namespace benchmarks
 {
@@ -20,7 +21,8 @@ namespace benchmarks
 
         Wide(dspsim::ModuleName name) : dspsim::Module(name)
         {
-            context()->register_method(&Wide<T, N>::eval, this, "eval")->always(clk.pos());
+            auto proc = context()->register_method(&Wide<T, N>::eval, this, "eval");
+            proc->always(clk.pos());
         }
 
         void eval()

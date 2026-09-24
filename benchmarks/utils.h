@@ -2,6 +2,7 @@
 #include <random>
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 #include <type_traits>
 #include <utility>
 #include <functional>
@@ -10,6 +11,9 @@
 
 namespace benchmarks
 {
+    constexpr int min_range = 0;
+    constexpr int max_range = 100;
+
     namespace Random
     {
         // Random number generator engine
@@ -51,11 +55,12 @@ namespace benchmarks
         return elapsed.count(); // Returns duration in seconds (double)
     }
 
-    template <typename M, typename T = double>
-    auto dspsim_runner(size_t n_iter, size_t run_step = 10, unsigned int seed = 42)
+    template <typename M, typename T>
+    auto dspsim_runner(size_t n_iter, int run_step = 10, unsigned int seed = 42)
     {
         Random::init_engine(seed);
         auto ctx = dspsim::Context::create();
+        // ctx->set_log_level("debug");
         dspsim::Clock clk{"clk", 10};
         dspsim::Signal<T> in_signal{"in"};
         dspsim::Signal<T> out_signal{"out"};
@@ -67,24 +72,24 @@ namespace benchmarks
 
         ctx->elaborate();
         // Lambda to change data and call sc_run every clock.
-        double checksum = 0.0;
+        T checksum = 0;
         auto simulate = [&](size_t n)
         {
             for (size_t i = 0; i < n; ++i)
             {
-                in_signal.write(Random::get<T>(-1, 1));
+                in_signal.write(Random::get<T>(min_range, max_range));
                 ctx->run(run_step);
                 checksum += out_signal.read();
             }
         };
 
         double result = measure_duration(simulate, n_iter);
-        std::cout << "DSPSim Simulation time : " << result << " seconds, Checksum: " << checksum << ", n_iter: " << n_iter << "\n";
+        std::cout << "DSPSim Simulation time : " << std::fixed << std::setprecision(6) << result << " seconds, Checksum: " << checksum << ", n_iter: " << n_iter << "\n";
         return result;
     }
 
-    template <typename M, typename T = double>
-    auto systemc_runner(size_t n_iter, double _step = 10, unsigned int seed = 42)
+    template <typename M, typename T>
+    auto systemc_runner(size_t n_iter, int run_step = 10, unsigned int seed = 42)
     {
         Random::init_engine(seed);
         sc_core::sc_clock clk("clk", 10, sc_core::SC_NS);
@@ -97,19 +102,19 @@ namespace benchmarks
         some_module.out(out_signal);
 
         // Lambda to change data and call sc_run every clock.
-        double checksum = 0.0;
+        T checksum = 0;
         auto simulate = [&](size_t n)
         {
             for (size_t i = 0; i < n; ++i)
             {
-                in_signal.write(Random::get<T>(-1, 1));
-                sc_core::sc_start(_step, sc_core::SC_NS);
+                in_signal.write(Random::get<T>(min_range, max_range));
+                sc_core::sc_start(run_step, sc_core::SC_NS);
                 checksum += out_signal.read();
             }
         };
 
         double result = measure_duration(simulate, n_iter);
-        std::cout << "SystemC Simulation time: " << result << " seconds, Checksum: " << checksum << ", n_iter: " << n_iter << "\n";
+        std::cout << "SystemC Simulation time: " << std::fixed << std::setprecision(6) << result << " seconds, Checksum: " << checksum << ", n_iter: " << n_iter << "\n";
         return result;
     }
 } // namespace benchmarks

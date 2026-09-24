@@ -69,8 +69,6 @@ namespace benchmarks
             _nested.clk.bind(clk);
             _nested.in.bind(sig);
             _nested.out.bind(out);
-
-            // this->dont_initialize();
         }
     };
 
@@ -89,8 +87,6 @@ namespace benchmarks
             some_model.clk.bind(clk);
             some_model.in.bind(in);
             some_model.out.bind(out);
-
-            // this->dont_initialize();
         }
     };
 }
