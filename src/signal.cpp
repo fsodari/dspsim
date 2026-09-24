@@ -44,7 +44,7 @@ namespace dspsim
             // Schedule for update
             context()->_signal_update_stack.push_back(this);
         }
-        else
+        else [[unlikely]]
         {
             // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
             // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns

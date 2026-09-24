@@ -6,13 +6,11 @@
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
+#include <dspsim/utils/stack.h>
 #include <memory>
 #include <vector>
-#include <string>
-#include <deque>
-#include <unordered_set>
 #include <unordered_map>
-#include <set>
+#include <string>
 #include <functional>
 
 namespace spdlog
@@ -52,6 +50,7 @@ namespace dspsim
 
         // Each process is assigned a unique ID, starting from 0.
         uint32_t _next_process_id;
+        // Processes are allocated from functions, so they need to live somewhere.
         std::vector<std::shared_ptr<Process>> _processes;
 
         // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
@@ -62,36 +61,31 @@ namespace dspsim
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
         std::unordered_map<Model *, std::vector<Model *>> _children;
 
+        // Current simulation time.
+        uint64_t _time;
+        // Time unit used for tracing.
+        std::string _time_unit;
+
     public:
         // All processes that need to run in the current delta cycle. Can hold every
         // process in the design, so it's given a larger initial capacity than the default.
         FlaggedStack<Process *> _process_eval_stack{1000};
         // All signals that need to be updated in the current delta cycle. Same reasoning.
         FlaggedStack<SignalBase *> _signal_update_stack{1000};
-
-    private:
-        // Current simulation time.
-        uint64_t _time;
-        // Time unit used for tracing.
-        std::string _time_unit;
-
-        /*
-        Pseudo-private members that are not intended
-        to be accessed publicly. Need to set up friend classes.
-        */
-    public:
-        std::shared_ptr<spdlog::logger> logger;
-
-        // Keep track of the currently active module to build a hierarchy.
-        std::deque<Module *> _active_module_stack;
-        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
-        std::deque<ModuleName *> _active_module_name_stack;
         // Scheduled time events.
         PriorityQueue<TimeEvent> _time_event_stack;
 
+        std::vector<Model *> _trace_stack;
         // Flag indicating if there has been a signal event in the current delta cycle.
         // All signal event flags are cleared at the start of every delta cycle.
         bool _signal_event;
+
+        std::shared_ptr<spdlog::logger> logger;
+
+        // Keep track of the currently active module to build a hierarchy.
+        Stack<Module *> _active_module_stack;
+        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
+        Stack<ModuleName *> _active_module_name_stack;
 
     private:
         // Can't create context directly. Must use obtain() to get global context, or create() to make a new global context.
@@ -178,6 +172,8 @@ namespace dspsim
         */
         void _own_model(ModelPtr model);
         void _own_module(ModulePtr module);
+
+        void trace_model(Model *model) { _trace_stack.push_back(model); }
 
         // Register a process with the context. This will create a Process object and set it as the active process.
         Process *register_process_func(const std::function<void()> &eval, Model *source, const std::string &name = "");

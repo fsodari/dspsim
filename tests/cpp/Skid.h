@@ -1,12 +1,11 @@
 #include <dspsim/vmodule/vmodule.h>
 #include <VSkid.h>
-// #include <VSkid___024root.h>
 
 DSPSIM_VMOD(Skid, VSkid)
 {
 public:
     // Parameters
-    // Requires knowing the verilog module name, not just the prefix.
+    // Requires knowing the verilog module name, not just the prefix. Need to be generated.
     // static constexpr auto DW = VSkid___024root::Skid__DOT__DW;
 
     DSPSIM_VINPUT(clk);
@@ -18,12 +17,8 @@ public:
     DSPSIM_VOUTPUT(m_axis_tvalid);
     DSPSIM_VINPUT(m_axis_tready);
 
-    DSPSIM_VCTOR(Skid, VSkid)
-    {
-        DSPSIM_METHOD(&Skid::eval_top)->always("*");
-        // Sensitive to all inputs.
-        // always("*");
-    }
+    // Standard eval func. Sensitive to all inputs.
+    DSPSIM_VCTOR(Skid, VSkid);
 
     void _dump_trace();
     void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);

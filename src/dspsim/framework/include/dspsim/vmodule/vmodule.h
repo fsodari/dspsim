@@ -9,8 +9,14 @@
 #define DSPSIM_VMOD(_name, _vtype) \
     class _name : public ::dspsim::VModule<_vtype, _name>
 
-#define DSPSIM_VCTOR(_name, _vtype) \
+#define DSPSIM_VCTOR_PART(_name, _vtype) \
     _name(::dspsim::ModuleName name) : ::dspsim::VModule<_vtype, _name>(name)
+
+#define DSPSIM_VCTOR(_name, _vtype)                                                           \
+    _name(::dspsim::ModuleName name) : ::dspsim::VModule<_vtype, _name>(name)                 \
+    {                                                                                         \
+        context()->register_method(&_name::eval_top, this, #_name "::eval_top")->always("*"); \
+    }
 
 #define DSPSIM_VPARAM(_name, _vtype, _param) \
     static constexpr auto _param = _vtype##___024root::_name##__DOT__##_param;
@@ -36,11 +42,6 @@ namespace dspsim
             top->eval();
             this->_sync_outputs();
         }
-        // void update() override
-        // {
-        //     top->eval_end_step();
-        //     this->_sync_outputs();
-        // }
 
         void dump_trace() override
         {
@@ -49,6 +50,7 @@ namespace dspsim
 
         void open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0)
         {
+            context()->trace_model(this);
             static_cast<Derived *>(this)->_open_trace(trace_path, levels, options);
         }
 

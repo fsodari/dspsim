@@ -8,7 +8,7 @@ namespace dspsim
     ModuleName::ModuleName(const std::string &name) : _context(Context::obtain().get()), _name(name)
     {
         _context->logger->info("Constructing ModuleName: {}", name);
-        _context->_active_module_name_stack.push_back(this);
+        _context->_active_module_name_stack.push(this);
     }
 
     ModuleName::ModuleName(const char *name) : ModuleName(std::string(name))
@@ -24,7 +24,7 @@ namespace dspsim
             _context->logger->info("Destructing ModuleName, {}, parent: {}", _name, m->name());
             m->_end_construction();
         }
-        _context->_active_module_name_stack.pop_back();
+        _context->_active_module_name_stack.pop();
     }
 
     const std::string &ModuleName::name() const

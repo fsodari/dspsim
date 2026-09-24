@@ -104,9 +104,8 @@ namespace dspsim
     int Context::eval()
     {
         int n_iter = 0;
-
+        bool any_model_updated = false;
         // Any model that was updated this cycle should be traced.
-        UniqueStack<Model *> _trace_stack;
 
         // Reset signal event flag at the beginning of each delta cycle.
         if (_signal_event)
@@ -123,6 +122,7 @@ namespace dspsim
         // while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
         while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
+            any_model_updated = true;
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
@@ -144,10 +144,13 @@ namespace dspsim
             }
         }
 
-        // Trace.
-        for (auto m : _trace_stack)
+        // Trace modules that requested tracing.
+        if (any_model_updated)
         {
-            m->dump_trace();
+            [[unlikely]] for (auto m : _trace_stack)
+            {
+                m->dump_trace();
+            }
         }
         return n_iter;
     }
@@ -306,7 +309,7 @@ namespace dspsim
 
     Module *Context::_active_module() const
     {
-        return _active_module_stack.empty() ? nullptr : _active_module_stack.back();
+        return _active_module_stack.empty() ? nullptr : _active_module_stack.top();
     }
 
     const std::string Context::_current_hierarchy() const

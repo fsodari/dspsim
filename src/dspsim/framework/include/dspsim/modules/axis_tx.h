@@ -3,7 +3,6 @@
 #include <ranges>
 #include <concepts>
 #include <algorithm>
-// #include <deque>
 #include <queue>
 #include <spdlog/spdlog.h>
 
@@ -12,7 +11,7 @@ namespace dspsim
     template <typename T>
     class AxisTx : public Module
     {
-        using QueueType = std::queue<T>;
+        using QueueType = std::deque<T>;
 
     public:
         Input<uint8_t> clk{"clk"};
@@ -25,21 +24,19 @@ namespace dspsim
 
         AxisTx(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(&AxisTx<T>::eval_)->always(clk.pos());
+            DSPSIM_METHOD(&AxisTx<T>::eval)->always(clk.pos());
         }
 
-        void eval_()
+        void eval()
         {
             if (clk.posedge())
             {
-                this->context()->logger->debug("AxisTx eval at posedge clk");
                 // A valid transaction has occurred, pop the front of the FIFO.
                 if (m_axis_tvalid.read() && m_axis_tready.read())
                 {
                     // Clear the valid signal as the transaction has been accepted.
                     m_axis_tvalid.write(1);
-                    // fifo.pop_front();
-                    fifo.pop();
+                    fifo.pop_front();
                 }
 
                 // Bus is waiting for downstream to be ready.
@@ -54,7 +51,7 @@ namespace dspsim
                 }
                 else
                 {
-                    // Can we get here?
+                    // No data to send, set valid low.
                     m_axis_tvalid.write(0);
                 }
 
@@ -87,33 +84,19 @@ namespace dspsim
             fifo.push_back(element);
         }
 
-        // template <std::ranges::input_range R>
-        //     requires std::convertible_to<std::ranges::range_reference_t<R>, T>
-        // void append_range(R &&rg)
-        // {
-        //     // fifo.append_range(std::forward<R>(rg));
-        //     fifo.insert(fifo.end(), std::ranges::begin(rg), std::ranges::end(rg));
-        // }
         template <std::ranges::input_range R>
             requires std::convertible_to<std::ranges::range_reference_t<R>, T>
         void push_range(R &&rg)
         {
-            // fifo.push_range(std::forward<R>(rg));
-            // fifo.insert(fifo.end(), std::ranges::begin(rg), std::ranges::end(rg));
             for (const auto &a : rg)
             {
-                fifo.push(a);
+                fifo.push_back(a);
             }
         }
 
-        // Don't allow removing data once queued?
-        // void pop_front()
-        // {
-        //     fifo.pop_front();
-        // }
         void pop()
         {
-            fifo.pop();
+            fifo.pop_front();
         }
         void clear()
         {

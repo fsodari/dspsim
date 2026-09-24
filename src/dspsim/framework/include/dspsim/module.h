@@ -13,6 +13,9 @@ namespace dspsim
     private:
         bool _initialize = true;
 
+    protected:
+        bool _trace_enabled = false;
+
     public:
         // Information about the module's ports.
         std::vector<PortBase *> _ports;
@@ -22,6 +25,7 @@ namespace dspsim
         Module(ModuleName &name);
         Module();
 
+        bool trace_enabled() const { return _trace_enabled; }
         void _end_construction();
 
         // Opt out of the initial evaluation pass Context::elaborate() otherwise schedules for every module.
