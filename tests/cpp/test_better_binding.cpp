@@ -77,7 +77,7 @@ namespace
 TEST_CASE("Better binding test", "[better_binding]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};

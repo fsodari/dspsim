@@ -19,18 +19,14 @@ namespace
         Input<uint8_t> b{"b"};
         Output<uint8_t> c{"c"};
 
-        SomeModule(ModuleName name, Signal<uint8_t> &a_, Signal<uint8_t> &b_, Signal<uint8_t> &c_)
+        SomeModule(ModuleName name)
             : Module(name)
         {
-            a.bind(a_);
-            b.bind(b_);
-            c.bind(c_);
             DSPSIM_METHOD(&SomeModule::eval_)->always("*");
         }
 
         void eval_()
         {
-            // std::cout << "SomeModule eval()" << std::endl;
             context()->logger->debug("SomeModule eval(), time: {}", context()->time());
             c.write(a.read() + b.read());
         }
@@ -43,26 +39,25 @@ namespace
         Input<uint8_t> d{"d"};
         Output<uint8_t> q{"q"};
 
-        SomeModule some_module;
+        Signal<uint8_t> sig{"sig"};
 
-        // SyncModel(ModuleName name) : Module(name)
-        // DSPSIM_CTOR(SyncModel) : some_module("some_module_sync_model")
-        SyncModel(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &d_, Signal<uint8_t> &q_)
-            : Module(name),
-              some_module("some_module_sync_model", d, d, q)
+        SomeModule some_module{"some_module"};
+
+        SyncModel(ModuleName name)
+            : Module(name)
         {
-            clk.bind(clk_);
-            d.bind(d_);
-            q.bind(q_);
+            some_module.a.bind(clk);
+            some_module.b.bind(d);
+            some_module.c.bind(sig);
             DSPSIM_METHOD(&SyncModel::eval_)->always(clk.pos());
         }
 
         void eval_()
         {
-            if (clk.read() == 1)
+            if (clk.posedge())
             {
                 context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
-                q.write(d.read());
+                q.write(sig.read());
             }
             else
             {
@@ -84,7 +79,10 @@ TEST_CASE("test_hierarchy", "[hierarchy]")
     Signal<uint8_t> q_top{"q_top"};
 
     // SyncModel sync_model{"sync_model"};
-    auto sync_model = SyncModel("sync_model", clk_top, d_top, q_top);
+    auto sync_model = SyncModel("sync_model");
+    sync_model.clk.bind(clk_top);
+    sync_model.d.bind(d_top);
+    sync_model.q.bind(q_top);
 
     ctx->logger->info("Here");
 

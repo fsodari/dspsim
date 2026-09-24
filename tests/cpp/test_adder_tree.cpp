@@ -188,7 +188,7 @@ namespace
 TEST_CASE("test_adder_tree", "[adder_tree]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     // Clock clk{"clk", 10};
     Signal<int> ai1{"ai1"};

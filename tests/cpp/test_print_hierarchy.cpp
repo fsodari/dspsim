@@ -55,7 +55,7 @@ namespace
 TEST_CASE("print_hierarchy doesn't segfault on nested modules", "[print_hierarchy]")
 {
     auto ctx = Context::create();
-    ctx->set_log_level("info");
+    ctx->set_log_level("warn");
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};

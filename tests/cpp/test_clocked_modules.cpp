@@ -73,7 +73,7 @@ namespace
 TEST_CASE("Clocked module", "[clock][clock1]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::err);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<int> a{"a"};
@@ -111,7 +111,7 @@ TEST_CASE("Clocked module", "[clock][clock1]")
 TEST_CASE("multi clocks", "[clock][clock2]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk1{"clk1", 6};
     Clock clk2{"clk2", clk1.period() * 2};

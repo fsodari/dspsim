@@ -32,6 +32,10 @@ namespace dspsim
         void dont_initialize();
         void _set_initialize(bool value);
         bool initialize() const;
+
+        std::vector<PortBase *> &ports() { return _ports; }
+        std::vector<InputBase *> &inputs() { return _inputs; }
+        std::vector<OutputBase *> &outputs() { return _outputs; }
     };
 
 } // namespace dspsim

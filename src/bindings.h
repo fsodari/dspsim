@@ -231,6 +231,9 @@ namespace dspsim
             .def(nb::init<ModuleName &>(), nb::arg("name"))
             // Methods.
             .def("finalize", &Module::finalize)
+            .def("ports", &Module::ports)
+            .def("inputs", &Module::inputs)
+            .def("outputs", &Module::outputs)
             // Properties
             .def_prop_ro("context", &Module::context)
             .def_prop_ro("name", &Module::name)
