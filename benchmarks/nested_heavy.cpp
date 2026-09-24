@@ -9,7 +9,7 @@ using namespace dspsim;
 
 int sc_main(int argc, char *argv[])
 {
-    size_t n_iter = argc > 1 ? std::stoul(argv[1]) : 1000000;
+    size_t n_iter = argc > 1 ? std::stoul(argv[1]) : 100000;
     size_t run_step = argc > 2 ? std::stoul(argv[2]) : 10;
     constexpr size_t n_heavy_calcs = 10;
     constexpr size_t depth = 100; // Example depth for the nested module

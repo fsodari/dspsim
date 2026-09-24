@@ -14,6 +14,7 @@ class Args:
     build: bool
     build_dir: Path
     benchmarks: list[str]
+    target: str
     extra: list[str]
 
     @classmethod
@@ -35,6 +36,12 @@ class Args:
             default=[],
             dest="benchmarks",
         )
+        parser.add_argument(
+            "--target",
+            type=str,
+            default="benchmarks",
+            dest="target",
+        )
         # args = parser.parse_args()
         args, extra = parser.parse_known_args()
         return cls(
@@ -42,6 +49,7 @@ class Args:
             build=args.build,
             build_dir=args.build_dir,
             benchmarks=args.benchmarks,
+            target=args.target,
             extra=extra,
         )
 
@@ -62,7 +70,15 @@ def main():
         "-DSKBUILD_PROJECT_VERSION=0.0.0",
         f"-DCMAKE_PREFIX_PATH={sysconfig.get_path('purelib')}",
     ]
-    build_cmd = ["cmake", "--build", args.build_dir, "--config", "Release"]
+    build_cmd = [
+        "cmake",
+        "--build",
+        args.build_dir,
+        "--target",
+        args.target,
+        "--config",
+        "Release",
+    ]
     exe_dir = args.build_dir / "benchmarks"
     if sys.platform == "win32":
         exe_dir = exe_dir / "Release"

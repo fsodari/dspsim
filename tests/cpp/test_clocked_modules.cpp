@@ -50,9 +50,6 @@ namespace
         {
             // Register the eval_ method with the simulation kernel.
             DSPSIM_METHOD(&MultiClockSensitive::eval_)->always(clk1.pos(), clk2.pos());
-
-            // Prevent initial eval step
-            dont_initialize();
         }
 
         void eval_()
@@ -92,12 +89,14 @@ TEST_CASE("Clocked module", "[clock][clock1]")
     // Elaboration will finalize the construction.
     ctx->elaborate();
 
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == a.read());
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() != a.read());
     ctx->run(10);
+    REQUIRE(b.read() != a.read());
+    ctx->run(5);
     REQUIRE(b.read() == a.read());
     ctx->run(100);
 
@@ -131,15 +130,7 @@ TEST_CASE("multi clocks", "[clock][clock2]")
     ctx->elaborate();
 
     // Clocks will update on first delta cycle.
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(top.clk1_counts == 1);
     REQUIRE(top.clk2_counts == 1);
-
-    // for (int x = 1; x < 100; x++)
-    // {
-    //     a.write(x);
-    //     ctx->run(clk1.period());
-    //     REQUIRE(top.clk1_counts == x + 1);
-    //     REQUIRE(top.clk2_counts == x / 2 + 1);
-    // }
 }

@@ -6,7 +6,7 @@
 
 using namespace dspsim;
 
-TEST_CASE("test_dff")
+TEST_CASE("test_dff", "[dff]")
 {
     auto ctx = Context::create();
     ctx->logger->set_level(spdlog::level::trace);
@@ -28,7 +28,10 @@ TEST_CASE("test_dff")
 
     ctx->elaborate();
 
-    ctx->run(20);
+    ctx->run(15);
+    REQUIRE(q_top.read() == 0);
+    REQUIRE(q_top2.read() == 0);
+    REQUIRE(d_top.read() == 0);
     for (int i = 1; i < 3; i++)
     {
         d_top.write(i);

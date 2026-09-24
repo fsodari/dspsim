@@ -2,7 +2,8 @@
 #include <dspsim/dspsim.h>
 #include <systemc>
 #include "eval_funcs.h"
-
+#include <iostream>
+#include <spdlog/spdlog.h>
 namespace benchmarks
 {
     // Same model with dspsim
@@ -16,15 +17,17 @@ namespace benchmarks
 
         SimpleDff(dspsim::ModuleName name) : dspsim::Module(name)
         {
-            DSPSIM_METHOD(&SimpleDff<T>::eval)->always(clk.pos());
+            DSPSIM_METHOD(&SimpleDff<T>::eval)
+                ->always(clk);
+            // ->always(clk.pos());
         }
 
         void eval()
         {
-            // if (clk.posedge())
-            // {
-            out.write(in.read());
-            // }
+            if (clk.posedge())
+            {
+                out.write(in.read());
+            }
         }
     };
 
@@ -58,15 +61,16 @@ namespace benchmarks
         SC_CTOR(SimpleDffSC)
         {
             SC_METHOD(eval);
-            sensitive << clk.pos();
+            // sensitive << clk.pos();
+            sensitive << clk;
         }
 
         void eval()
         {
-            // if (clk.posedge())
-            // {
-            out.write(in.read());
-            // }
+            if (clk.posedge())
+            {
+                out.write(in.read());
+            }
         }
     };
 

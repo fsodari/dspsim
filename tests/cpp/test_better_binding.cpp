@@ -91,9 +91,9 @@ TEST_CASE("Better binding test", "[better_binding]")
     // Elaboration will finalize the construction.
     ctx->elaborate();
 
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 2);
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 12);
 }

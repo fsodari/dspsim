@@ -22,7 +22,7 @@ TEST_CASE("Test Running Processes", "[process]")
 
     ctx->elaborate();
 
-    ctx->run(20);
+    ctx->run(15);
     for (int i = 1; i < 3; i++)
     {
         d_top.write(i);

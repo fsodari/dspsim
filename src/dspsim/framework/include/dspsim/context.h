@@ -65,6 +65,7 @@ namespace dspsim
         uint64_t _time;
         // Time unit used for tracing.
         std::string _time_unit;
+        bool _initialized = false;
 
     public:
         // All processes that need to run in the current delta cycle. Can hold every
@@ -193,6 +194,9 @@ namespace dspsim
             The current, expanded hierarchy name.
         */
         const std::string _current_hierarchy() const;
+
+    private:
+        void _do_initialize();
 
     public:
         /*

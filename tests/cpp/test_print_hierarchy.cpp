@@ -83,9 +83,9 @@ TEST_CASE("print_hierarchy doesn't segfault on nested modules", "[print_hierarch
     REQUIRE_NOTHROW(ctx->print_hierarchy());
 
     // Sanity check that the ports/signals actually wired up correctly through all 4 levels.
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 1);
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 6);
 }

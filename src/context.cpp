@@ -74,30 +74,9 @@ namespace dspsim
             model->finalize();
         }
 
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto process : _processes)
+        if (!_initialized) [[unlikely]]
         {
-            // Modules can opt out of initializing.
-            if (process->source() == nullptr)
-                continue;
-            if (auto *module = dynamic_cast<Module *>(process->source()))
-            {
-                if (module->initialize())
-                {
-                    _process_eval_stack.push_back(process.get());
-                }
-            }
-            else
-            {
-                _process_eval_stack.push_back(process.get());
-            }
-        }
-
-        // Force an initial update of all signals.
-        for (auto signal : _signals)
-        {
-            _signal_update_stack.push_back(signal);
+            _do_initialize();
         }
     }
 
@@ -119,7 +98,6 @@ namespace dspsim
         }
 
         // Run eval cycle.
-        // while (!_eval_stack.empty() || !_process_eval_stack.empty() || !_signal_update_stack.empty())
         while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
             any_model_updated = true;
@@ -155,13 +133,51 @@ namespace dspsim
         return n_iter;
     }
 
+    void Context::_do_initialize()
+    {
+        if (_initialized) [[likely]]
+            return;
+        _initialized = true;
+        // Update all signals
+        while (!_signal_update_stack.empty())
+        {
+            SignalBase *signal = _signal_update_stack.back();
+            _signal_update_stack.pop_back();
+            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            signal->update();
+        }
+
+        // Force an initial settle: schedule every module for evaluation once so that
+        // combinational logic propagates from initial signal values before the first eval().
+        for (auto process : _processes)
+        {
+            // Modules can opt out of initializing.
+            if (process->source() == nullptr)
+                continue;
+            if (auto *module = dynamic_cast<Module *>(process->source()))
+            {
+                if (module->initialize())
+                {
+                    _process_eval_stack.push_back(process.get());
+                }
+                else
+                {
+                    _process_eval_stack.erase(process.get());
+                }
+            }
+            else
+            {
+                _process_eval_stack.push_back(process.get());
+            }
+        }
+    }
     void Context::run(uint64_t time_inc)
     {
         // Compute delta cycle.
         eval();
 
         // Evaluate all time steps.
-        while (!_time_event_stack.empty() and time_inc > 0)
+        while (!_time_event_stack.empty() && time_inc > 0)
         {
             // Advance to the next time step.
             uint64_t next_time_step = _time_event_stack.top().time_update - _time;
@@ -175,6 +191,10 @@ namespace dspsim
             // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
+            if (time_inc == 0)
+            {
+                break;
+            }
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.

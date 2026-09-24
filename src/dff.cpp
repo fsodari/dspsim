@@ -14,7 +14,7 @@ namespace dspsim
     template <typename T>
     void Dff<T>::some_process()
     {
-        if (clk.read())
+        if (clk.posedge())
         {
             context()->logger->info("Dff some_process called!");
             q.write(d.read());
