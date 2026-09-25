@@ -6,7 +6,6 @@
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
-#include <dspsim/utils/stack.h>
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -68,17 +67,17 @@ namespace dspsim
         bool _initialized = false;
 
     public:
-        // All processes that need to run in the current delta cycle. Can hold every
-        // process in the design, so it's given a larger initial capacity than the default.
+        // All processes that need to run in the current delta cycle.
         FlaggedStack<Process *> _process_eval_stack;
-        // All signals that need to be updated in the current delta cycle. Same reasoning.
+        // All signals that need to be updated in the current delta cycle.
         FlaggedStack<SignalBase *> _signal_update_stack;
         // Scheduled sensitivity events.
         std::vector<SensitivityEvent *> _sensitivity_event_stack;
         // Scheduled time events.
         PriorityQueue<TimeEvent> _time_event_stack;
-
+        // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
         std::vector<Model *> _trace_stack;
+
         // Flag indicating if there has been a signal event in the current delta cycle.
         // All signal event flags are cleared at the start of every delta cycle.
         bool _signal_event;

@@ -110,31 +110,28 @@ namespace dspsim
             ++n_iter;
 
             // run eval cycle on all models that were scheduled to be evaluated.
-            while (!_process_eval_stack.empty())
+            for (const auto &process : _process_eval_stack)
             {
-                Process *process = _process_eval_stack.back();
-                _process_eval_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
                 process->eval();
             }
+            _process_eval_stack.clear();
 
             // run update cycle on all signals that were scheduled to be updated.
-            while (!_signal_update_stack.empty())
+            for (const auto &signal : _signal_update_stack)
             {
-                SignalBase *signal = _signal_update_stack.back();
-                _signal_update_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
                 signal->update();
             }
+            _signal_update_stack.clear();
 
             // run notify cycle on all sensitivity events that were scheduled to be notified.
-            while (!_sensitivity_event_stack.empty())
+            for (const auto &event : _sensitivity_event_stack)
             {
-                SensitivityEvent *event = _sensitivity_event_stack.back();
-                _sensitivity_event_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
                 event->notify();
             }
+            _sensitivity_event_stack.clear();
         }
 
         // Trace modules that requested tracing.

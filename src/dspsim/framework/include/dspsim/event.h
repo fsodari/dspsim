@@ -14,20 +14,6 @@ namespace dspsim
     class Context;
     class Process;
 
-    // class Event
-    // {
-    // protected:
-    //     Context *_context;
-    //     UniqueStack<Process *> _processes;
-
-    // public:
-    //     Event(Context *context);
-    //     Context *context() { return _context; }
-    //     UniqueStack<Process *> &processes() { return _processes; }
-
-    //     virtual void notify();
-    // };
-
     /*
         Rather than only allowing Models with an eval function,
         we could register a process.
@@ -57,5 +43,4 @@ namespace dspsim
         bool operator<(const TimeEvent &other) const;
         bool operator>(const TimeEvent &other) const;
     };
-
 } // namespace dspsim
