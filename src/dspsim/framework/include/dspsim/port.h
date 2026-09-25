@@ -30,9 +30,9 @@ namespace dspsim
         virtual void finalize() override = 0;
 
         // Processes can be sensitive to port changes.
+        SensitivityEvent *_change() { return &_change_event; }
         SensitivityEvent *pos() { return &_posedge_event; }
         SensitivityEvent *neg() { return &_negedge_event; }
-        SensitivityEvent *_change() { return &_change_event; }
 
         // Cast this class as _change() event when using in a sensitivity list.
         operator SensitivityEvent *() { return _change(); }
@@ -64,13 +64,13 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Input<T> &port);
 
-        // Defined inline: called every eval() in the hot path, must be inlinable without LTO.
+        // Read the value of the port (bound signal).
         const T &read() const { return _bound_signal->read(); }
 
-        // Set in the update cycle after a signal event. Derived from bound signal.
+        // Set in the update cycle after a signal event. Derived from the bound signal.
+        bool changed() const { return _bound_signal->changed(); }
         bool posedge() const { return _bound_signal->posedge(); }
         bool negedge() const { return _bound_signal->negedge(); }
-        bool changed() const { return _bound_signal->changed(); }
     };
 
     class OutputBase : public PortBase

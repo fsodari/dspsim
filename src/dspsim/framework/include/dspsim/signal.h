@@ -21,50 +21,44 @@ namespace dspsim
     class SignalBase : public Model
     {
     protected:
-        // std::vector<PortBase *> _drivers;
-        // std::vector<PortBase *> _subscribers;
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
+        bool _changed_flag;
         bool _posedge_flag;
         bool _negedge_flag;
-        bool _changed_flag;
+
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
-        bool _scheduled = false;
+        bool _scheduled;
 
     public:
         SignalBase(const std::string &name = "");
 
-        // void _add_driver(PortBase *driver);
-        // void _add_subscriber(PortBase *subscriber);
         virtual void update() = 0;
         using Model::id;
 
-        // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
-        // without needing an intermediate Port.
-        // Defined inline: read on every eval() in the hot path, must be inlinable without LTO.
+        // Access the sensitivity events for this signal.
+        SensitivityEvent *_change() { return &_change_event; }
         SensitivityEvent *pos() { return &_posedge_event; }
         SensitivityEvent *neg() { return &_negedge_event; }
-        SensitivityEvent *_change() { return &_change_event; }
+
         operator SensitivityEvent *() { return _change(); }
 
+        // Set if there was a change event in the previous update cycle.
+        bool changed() const { return _changed_flag; }
         // Set if there was a posedge event in the previous update cycle.
         bool posedge() const { return _posedge_flag; }
         // Set if there was a negedge event in the previous update cycle.
         bool negedge() const { return _negedge_flag; }
 
-        bool changed() const { return _changed_flag; }
         void _clear_event_flag()
         {
+            _changed_flag = false;
             _posedge_flag = false;
             _negedge_flag = false;
-            _changed_flag = false;
         }
         bool &_scheduled_flag() { return _scheduled; }
     };
-
-    // template <typename T>
-    // using SignalPtr = std::shared_ptr<class Signal<T>>;
 
     template <typename T>
     class Signal : public SignalBase

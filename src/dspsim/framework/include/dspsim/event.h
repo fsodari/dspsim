@@ -25,7 +25,7 @@ namespace dspsim
         UniqueStack<Process *> _processes;
 
     public:
-        SensitivityEvent();
+        SensitivityEvent(Context *context);
         UniqueStack<Process *> &processes();
         void add_process(Process *process);
 
@@ -34,12 +34,14 @@ namespace dspsim
 
     class TimeEvent
     {
+        Context *_context;
+
     public:
         Process *process;
         uint64_t time_update;
 
     public:
-        TimeEvent(Process *process, uint64_t time_update);
+        TimeEvent(Context *context, Process *process, uint64_t time_update);
         bool operator<(const TimeEvent &other) const;
         bool operator>(const TimeEvent &other) const;
     };

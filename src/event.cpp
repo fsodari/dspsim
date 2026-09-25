@@ -4,23 +4,9 @@
 #include <dspsim/module.h>
 namespace dspsim
 {
-    TimeEvent::TimeEvent(Process *process, uint64_t time_update)
-        : process(process), time_update(time_update)
-    {
-    }
 
-    bool TimeEvent::operator<(const TimeEvent &other) const
-    {
-        return time_update < other.time_update;
-    }
-
-    bool TimeEvent::operator>(const TimeEvent &other) const
-    {
-        return time_update > other.time_update;
-    }
-
-    SensitivityEvent::SensitivityEvent()
-        : _context(Context::obtain().get())
+    SensitivityEvent::SensitivityEvent(Context *context)
+        : _context(context)
     {
     }
 
@@ -40,5 +26,22 @@ namespace dspsim
         {
             _context->_process_eval_stack.push_back(p);
         }
+    }
+
+    TimeEvent::TimeEvent(Context *context, Process *process, uint64_t time_update)
+        : _context(context),
+          process(process),
+          time_update(time_update)
+    {
+    }
+
+    bool TimeEvent::operator<(const TimeEvent &other) const
+    {
+        return time_update < other.time_update;
+    }
+
+    bool TimeEvent::operator>(const TimeEvent &other) const
+    {
+        return time_update > other.time_update;
     }
 }

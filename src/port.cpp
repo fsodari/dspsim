@@ -18,7 +18,11 @@ namespace dspsim
         }
     }
 
-    InputBase::InputBase(const std::string &name, int width) : PortBase(name, width, "input")
+    InputBase::InputBase(const std::string &name, int width)
+        : PortBase(name, width, "input"),
+          _change_event(context()),
+          _posedge_event(context()),
+          _negedge_event(context())
     {
         // Register an input port with the parent module.
         if (context()->_active_module())

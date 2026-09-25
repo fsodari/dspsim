@@ -11,9 +11,13 @@ namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name)
         : Model(name, "signal"),
+          _change_event(context()),
+          _posedge_event(context()),
+          _negedge_event(context()),
+          _changed_flag(false),
           _posedge_flag(false),
           _negedge_flag(false),
-          _changed_flag(false)
+          _scheduled(false)
     {
         context()->_add_signal(this);
     }
