@@ -1,8 +1,10 @@
 #pragma once
-#include <dspsim/context.h>
-#include <dspsim/model.h>
-#include <dspsim/signal.h>
-#include <dspsim/port.h>
-#include <dspsim/module.h>
 #include <dspsim/clock.h>
-// #include <dspsim/vmodel.h>
+#include <dspsim/context.h>
+#include <dspsim/event.h>
+#include <dspsim/model.h>
+#include <dspsim/module_name.h>
+#include <dspsim/module.h>
+#include <dspsim/port.h>
+#include <dspsim/process.h>
+#include <dspsim/signal.h>

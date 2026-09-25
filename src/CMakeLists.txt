@@ -2,14 +2,11 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/model.cpp
     ${DSPSIM_SRC_DIR}/signal.cpp
-    ${DSPSIM_SRC_DIR}/dff.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
     ${DSPSIM_SRC_DIR}/module.cpp
     ${DSPSIM_SRC_DIR}/module_name.cpp
     ${DSPSIM_SRC_DIR}/port.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
-    ${DSPSIM_SRC_DIR}/vmodule_base.cpp
-    ${DSPSIM_SRC_DIR}/vport.cpp
     ${DSPSIM_SRC_DIR}/process.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)

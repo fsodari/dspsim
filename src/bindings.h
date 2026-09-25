@@ -1,7 +1,7 @@
 #pragma once
 
 #include <dspsim/dspsim.h>
-#include <dspsim/dff.h>
+#include <dspsim/modules/dff.h>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -100,27 +100,28 @@ namespace dspsim
             .def("__str__", &Model::repr);
     }
 
-    static inline auto _process_always_func(Process &self, nb::args args)
+    static inline Process *_process_always_func(Process *self, nb::args args)
     {
         for (auto arg : args)
         {
             if (nb::isinstance<SensitivityEvent>(arg))
             {
-                self.link_event(&nb::cast<SensitivityEvent &>(arg));
+                self->always(&nb::cast<SensitivityEvent &>(arg));
             }
             else if (nb::isinstance<InputBase>(arg))
             {
-                self.link_event(nb::cast<InputBase &>(arg)._change());
+                self->always(nb::cast<InputBase &>(arg)._change());
             }
             else if (nb::isinstance<SignalBase>(arg))
             {
-                self.link_event(nb::cast<SignalBase &>(arg)._change());
+                self->always(nb::cast<SignalBase &>(arg)._change());
             }
             else
             {
                 throw std::runtime_error("Unsupported argument type for SensitivityList");
             }
         }
+        return self;
     }
 
     static inline auto bind_process(nb::module_ &m, const char *name)
@@ -129,8 +130,9 @@ namespace dspsim
             .def_prop_ro("name", &Process::name)
             .def_prop_ro("id", &Process::id)
             .def_prop_ro("source", &Process::source)
-            .def("always", &Process::_always_str, nb::arg("event_name"))
-            .def("always", &_process_always_func, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> None: ..."));
+            .def("initialize", &Process::_set_initialize, nb::arg("init"), nb::rv_policy::reference_internal)
+            .def("always", &Process::_always_str, nb::arg("event_name"), nb::rv_policy::reference_internal)
+            .def("always", &_process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> Process"));
     }
 
     static inline auto bind_time_event(nb::module_ &m, const char *name)
@@ -241,7 +243,6 @@ namespace dspsim
             .def_prop_ro("kind", &Module::kind)
             .def_prop_ro("hier_name", &Module::hier_name)
             .def_prop_ro("parent", &Module::parent)
-            .def_prop_rw("initialize", &Module::initialize, &Module::_set_initialize)
             .def("repr", &Module::repr)
             .def("__repr__", &Module::repr)
             .def("__str__", &Module::repr);

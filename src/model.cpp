@@ -4,7 +4,7 @@
 #include <format>
 namespace dspsim
 {
-    void _own_model_helper(Context *context, ModelPtr model)
+    void _own_model_helper(Context *context, std::shared_ptr<Model> model)
     {
         context->_own_model(model);
     }

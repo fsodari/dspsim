@@ -10,7 +10,7 @@
 namespace benchmarks
 {
     template <typename T, int N>
-    class Wide : public dspsim::Module
+    DSPSIM_MODULE(Wide)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
@@ -19,10 +19,10 @@ namespace benchmarks
 
         std::vector<dspsim::Signal<T>> sigs{N};
 
-        Wide(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(Wide)
         {
-            auto proc = context()->register_method(&Wide<T, N>::eval, this, "eval");
-            proc->always(clk, in);
+            DSPSIM_METHOD(eval)
+                ->always(clk, in);
         }
 
         void eval()

@@ -5,8 +5,8 @@ DSPSIM_VMOD(Skid2, VSkid2)
 {
 public:
     // Parameters
-    // Requires knowing the verilog module name, not just the prefix. Must be generated.
 
+    // Ports
     DSPSIM_VINPUT(clk, 1);
     DSPSIM_VINPUT(rst, 1);
     DSPSIM_VINPUT(s_axis_tdata, 24);
@@ -16,9 +16,13 @@ public:
     DSPSIM_VOUTPUT(m_axis_tvalid, 1);
     DSPSIM_VINPUT(m_axis_tready, 1);
 
-    // Standard eval func. Sensitive to all inputs.
-    DSPSIM_VCTOR(Skid2, VSkid2);
+    DSPSIM_CTOR(Skid2)
+    {
+        DSPSIM_METHOD(eval) // Standard eval func for verilated modules.
+            ->always("*");  // Default is sensitive to all inputs.
+    }
 
+    // If the model is trace enabled, these need to be defined.
     void _dump_trace();
     void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
     void _close_trace();

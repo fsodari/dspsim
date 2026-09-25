@@ -1,5 +1,5 @@
 #include <dspsim/dspsim.h>
-#include <dspsim/dff.h>
+#include <dspsim/modules/dff.h>
 #include <dspsim/modules/axis_tx.h>
 #include <dspsim/modules/axis_rx.h>
 #include <spdlog/spdlog.h>

@@ -38,66 +38,6 @@ namespace dspsim
         return *this;
     }
 
-    template <typename T>
-    void Signal<T>::write(const T &value)
-    {
-        _d = value;
-
-        if (_d != _q)
-        {
-            // Schedule for update
-            context()->_signal_update_stack.push_back(this);
-        }
-        else [[unlikely]]
-        {
-            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
-            // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
-            // will write the same signal multiple times within the same update cycle.
-            auto it = context()->_signal_update_stack.find(this);
-
-            if (it != context()->_signal_update_stack.end())
-            {
-                context()->_signal_update_stack.erase(it);
-            }
-        }
-    }
-
-    template <typename T>
-    void Signal<T>::update()
-    {
-        EventType event = EventType::Changed;
-        _changed_flag = true;
-        context()->_signal_event = true;
-
-        if (_d && !_q)
-        {
-            event = EventType::Posedge;
-            _posedge_flag = true;
-        }
-        else if (!_d && _q)
-        {
-            event = EventType::Negedge;
-            _negedge_flag = true;
-        }
-
-        this->_q = this->_d;
-
-        // Notify modules sensitized directly to this signal (no intermediate Port).
-        if (event == EventType::Posedge)
-        {
-            // pos()->notify();
-            context()->_sensitivity_event_stack.push_back(pos());
-        }
-        else if (event == EventType::Negedge)
-        {
-            // neg()->notify();
-            context()->_sensitivity_event_stack.push_back(neg());
-        }
-
-        // _change()->notify();
-        context()->_sensitivity_event_stack.push_back(_change());
-    }
-
     template class Signal<uint8_t>;
     template class Signal<uint16_t>;
     template class Signal<uint32_t>;

@@ -7,16 +7,17 @@ namespace benchmarks
 {
     // Same model with dspsim
     template <typename T, int N>
-    class HeavyDff : public dspsim::Module
+    DSPSIM_MODULE(HeavyDff)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
         dspsim::Input<T> in{"in"};
         dspsim::Output<T> out{"out"};
 
-        HeavyDff(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(HeavyDff)
         {
-            context()->register_method(&HeavyDff<T, N>::eval, this, "eval")->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
         void eval()
@@ -30,16 +31,17 @@ namespace benchmarks
 
     // Same model with dspsim
     template <typename T, int N>
-    class HeavyWire : public dspsim::Module
+    DSPSIM_MODULE(HeavyWire)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
         dspsim::Input<T> in{"in"};
         dspsim::Output<T> out{"out"};
 
-        HeavyWire(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(HeavyWire)
         {
-            context()->register_method(&HeavyWire<T, N>::eval, this, "eval")->always("*");
+            DSPSIM_METHOD(eval)
+                ->always("*");
         }
 
         void eval()

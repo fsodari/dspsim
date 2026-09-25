@@ -16,13 +16,12 @@ namespace
 
         SomeModule(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(&SomeModule::eval_)->always(clk.pos());
-
-            // Prevent initial eval step
-            dont_initialize();
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos())
+                ->initialize(false);
         }
 
-        void eval_()
+        void eval()
         {
             if (clk.posedge())
             {
@@ -30,7 +29,7 @@ namespace
             }
             else
             {
-                FAIL("This should never eval unless there is a posedge event on clk");
+                FAIL("This should never eval unless there is a posedge event on clk, since initialize(false) was set");
             }
         }
     };
@@ -49,21 +48,22 @@ namespace
         MultiClockSensitive(ModuleName name) : Module(name)
         {
             // Register the eval_ method with the simulation kernel.
-            DSPSIM_METHOD(&MultiClockSensitive::eval_)->always(clk1.pos(), clk2.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk1.pos(), clk2.pos());
         }
 
-        void eval_()
+        void eval()
         {
-            context()->logger->info("multi.eval_()");
+            context()->logger->info("multi.eval()");
             if (clk1.posedge())
             {
                 clk1_counts++;
-                context()->logger->info("multi.eval_(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
             }
             if (clk2.posedge())
             {
                 clk2_counts++;
-                context()->logger->info("multi.eval_(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
             }
         }
     };

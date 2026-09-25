@@ -19,10 +19,11 @@ namespace
         Adder(ModuleName name)
             : Module(name)
         {
-            DSPSIM_METHOD(&Adder<T>::eval_)->always("*");
+            DSPSIM_METHOD(eval)
+                ->always("*");
         }
 
-        void eval_()
+        void eval()
         {
             c.write(a.read() + b.read());
         }

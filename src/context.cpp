@@ -163,21 +163,21 @@ namespace dspsim
         // combinational logic propagates from initial signal values before the first eval().
         for (auto process : _processes)
         {
-            // Modules can opt out of initializing.
-            if (process->source() == nullptr)
-                continue;
-            if (auto *module = dynamic_cast<Module *>(process->source()))
-            {
-                if (module->initialize())
-                {
-                    _process_eval_stack.push_back(process.get());
-                }
-                else
-                {
-                    _process_eval_stack.erase(process.get());
-                }
-            }
-            else
+            // // Modules can opt out of initializing.
+            // if (process->source() == nullptr)
+            //     continue;
+            // if (auto *module = dynamic_cast<Module *>(process->source()))
+            // {
+            //     if (module->initialize())
+            //     {
+            //         _process_eval_stack.push_back(process.get());
+            //     }
+            //     else
+            //     {
+            //         _process_eval_stack.erase(process.get());
+            //     }
+            // }
+            if (process->initialize())
             {
                 _process_eval_stack.push_back(process.get());
             }
@@ -323,12 +323,12 @@ namespace dspsim
         _signals.push_back(signal);
     }
 
-    void Context::_own_model(ModelPtr model)
+    void Context::_own_model(std::shared_ptr<Model> model)
     {
         _owned_models.push_back(model);
     }
 
-    void Context::_own_module(ModulePtr module)
+    void Context::_own_module(std::shared_ptr<Module> module)
     {
         _owned_modules.push_back(module);
     }
@@ -339,7 +339,6 @@ namespace dspsim
         _processes.push_back(process);
         logger->info("Registering process: {}, id: {}", name, _next_process_id - 1);
         // Set the active process of the context.
-        // _active_process = process.get();
         return process.get();
     }
 
@@ -360,7 +359,7 @@ namespace dspsim
         return hierarchy;
     }
 
-    ContextPtr Context::obtain()
+    std::shared_ptr<Context> Context::obtain()
     {
         return get_global_context_factory()->obtain();
     }
@@ -369,7 +368,7 @@ namespace dspsim
     {
         get_global_context_factory()->reset();
     }
-    ContextPtr Context::create(const std::string &name)
+    std::shared_ptr<Context> Context::create(const std::string &name)
     {
         return get_global_context_factory()->create(name);
     }
@@ -381,7 +380,7 @@ namespace dspsim
     {
     }
 
-    ContextPtr ContextFactory::obtain()
+    std::shared_ptr<Context> ContextFactory::obtain()
     {
         if (_active_context == nullptr)
         {
@@ -397,7 +396,7 @@ namespace dspsim
         _active_context = nullptr;
     }
 
-    ContextPtr ContextFactory::create(const std::string &name)
+    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
         _active_context = nullptr;
         std::string _context_name = name;
@@ -409,9 +408,9 @@ namespace dspsim
         return _active_context;
     }
 
-    static ContextFactoryPtr _global_context_factory = nullptr;
+    static std::shared_ptr<ContextFactory> _global_context_factory = nullptr;
 
-    ContextFactoryPtr get_global_context_factory()
+    std::shared_ptr<ContextFactory> get_global_context_factory()
     {
         if (!_global_context_factory)
         {
@@ -420,7 +419,7 @@ namespace dspsim
         return _global_context_factory;
     }
 
-    void set_global_context_factory(ContextFactoryPtr factory)
+    void set_global_context_factory(std::shared_ptr<ContextFactory> factory)
     {
         _global_context_factory = factory;
     }

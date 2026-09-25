@@ -46,7 +46,6 @@ namespace dspsim
 
     public:
         Input(const std::string &name, int width = default_bitwidth<T>::value);
-        // Input(const std::string &name, Signal<T> &signal);
         void finalize() override;
 
     protected:
@@ -56,7 +55,6 @@ namespace dspsim
         void resolve();
 
     public:
-        operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Input<T> &port);
 
@@ -89,7 +87,6 @@ namespace dspsim
 
     public:
         Output(const std::string &name, int width = default_bitwidth<T>::value);
-        // Output(const std::string &name, Signal<T> &signal);
         void finalize() override;
 
     protected:
@@ -97,7 +94,6 @@ namespace dspsim
         void resolve();
 
     public:
-        operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Output<T> &port);
 
@@ -105,18 +101,14 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Output<T> &port);
 
-        // Defined inline: called every eval() in the hot path, must be inlinable without LTO.
-        void write(const T &value)
-        {
-            _bound_signal->write(value);
-            for (auto &port : _bound_ports)
-            {
-                port->write(value);
-            }
-        }
-
-        const T &_read_d() const { return _bound_signal->_read_d(); }
+        // Read the value of the bound signal.
         const T &read() const { return _bound_signal->read(); }
+
+        // Write to the bound signal.
+        void write(const T &value) { _bound_signal->write(value); }
+
+        // Read the pending value. Shouldn't be used, but is available.
+        const T &_read_d() const { return _bound_signal->_read_d(); }
     };
 
 }

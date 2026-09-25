@@ -19,6 +19,7 @@ namespace dspsim
         void update() override;
 
     private:
+        // Toggles the clock signal and schedules the next time event.
         void tick();
 
     public:
@@ -27,5 +28,4 @@ namespace dspsim
             return Model::create<Clock>(name, period);
         }
     };
-    using ClockPtr = std::shared_ptr<Clock>;
 } // namespace dspsim

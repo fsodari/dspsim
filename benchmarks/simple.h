@@ -8,18 +8,17 @@ namespace benchmarks
 {
     // Same model with dspsim
     template <typename T>
-    class SimpleDff : public dspsim::Module
+    DSPSIM_MODULE(SimpleDff)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
         dspsim::Input<T> in{"in"};
         dspsim::Output<T> out{"out"};
 
-        SimpleDff(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(SimpleDff)
         {
-            DSPSIM_METHOD(&SimpleDff<T>::eval)
-                ->always(clk);
-            // ->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
         void eval()
@@ -33,16 +32,17 @@ namespace benchmarks
 
     // Same model with dspsim
     template <typename T>
-    class SimpleWire : public dspsim::Module
+    DSPSIM_MODULE(SimpleWire)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
         dspsim::Input<T> in{"in"};
         dspsim::Output<T> out{"out"};
 
-        SimpleWire(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(SimpleWire)
         {
-            DSPSIM_METHOD(&SimpleWire<T>::eval)->always("*");
+            DSPSIM_METHOD(eval)
+                ->always("*");
         }
 
         void eval()
@@ -61,8 +61,7 @@ namespace benchmarks
         SC_CTOR(SimpleDffSC)
         {
             SC_METHOD(eval);
-            // sensitive << clk.pos();
-            sensitive << clk;
+            sensitive << clk.pos();
         }
 
         void eval()

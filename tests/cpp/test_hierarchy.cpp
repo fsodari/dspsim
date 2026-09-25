@@ -22,10 +22,11 @@ namespace
         SomeModule(ModuleName name)
             : Module(name)
         {
-            DSPSIM_METHOD(&SomeModule::eval_)->always("*");
+            DSPSIM_METHOD(eval)
+                ->always("*");
         }
 
-        void eval_()
+        void eval()
         {
             context()->logger->debug("SomeModule eval(), time: {}", context()->time());
             c.write(a.read() + b.read());
@@ -49,10 +50,11 @@ namespace
             some_module.a.bind(clk);
             some_module.b.bind(d);
             some_module.c.bind(sig);
-            DSPSIM_METHOD(&SyncModel::eval_)->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval_()
+        void eval()
         {
             if (clk.posedge())
             {

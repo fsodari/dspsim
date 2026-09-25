@@ -8,24 +8,25 @@ using namespace dspsim;
 namespace
 {
 
-    class Child : public Module
+    DSPSIM_MODULE(Child)
     {
     public:
         Input<int> i{"i"};
         Output<int> o{"o"};
 
-        Child(ModuleName name) : Module(name)
+        DSPSIM_CTOR(Child)
         {
-            DSPSIM_METHOD(&Child::eval_)->always(i);
+            DSPSIM_METHOD(eval)
+                ->always(i);
         }
 
-        void eval_()
+        void eval()
         {
             o.write(i.read() + 1);
         }
     };
 
-    class Parent : public Module
+    DSPSIM_MODULE(Parent)
     {
     public:
         // Order in class shouldn't matter.
@@ -34,7 +35,7 @@ namespace
         Input<int> i{"i"};
         Output<int> o{"o"};
 
-        Parent(ModuleName name) : Module(name)
+        DSPSIM_CTOR(Parent)
         {
             // Bind in the constructor.
             child.i.bind(i);
@@ -59,14 +60,15 @@ namespace
 
         Top(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(&Top::eval_)->always(i, p1_internal, p2_internal);
+            DSPSIM_METHOD(eval)
+                ->always(i, p1_internal, p2_internal);
 
             parent1.i.bind(i);
             parent1.o.bind(p1_internal);
             parent2.i.bind(i);
             parent2.o.bind(p2_internal);
         }
-        void eval_()
+        void eval()
         {
             o.write(p1_internal.read() + p2_internal.read());
         }

@@ -25,7 +25,7 @@ namespace dspsim
         // Make the sensitivity list sensitive to all events.
         if (event_name == "*")
         {
-            for (auto &input : _context->_active_module()->_inputs)
+            for (auto &input : _context->_active_module()->inputs())
             {
                 link_event(input->_change());
             }

@@ -10,7 +10,7 @@ namespace dspsim
     {
         if (context()->_active_module())
         {
-            context()->_active_module()->_ports.push_back(this);
+            context()->_active_module()->ports().push_back(this);
         }
         else
         {
@@ -27,7 +27,7 @@ namespace dspsim
         // Register an input port with the parent module.
         if (context()->_active_module())
         {
-            context()->_active_module()->_inputs.push_back(this);
+            context()->_active_module()->inputs().push_back(this);
         }
         else
         {
@@ -40,11 +40,6 @@ namespace dspsim
     {
     }
 
-    // template <typename T>
-    // Input<T>::Input(const std::string &name, Signal<T> &signal) : InputBase(name, signal.width())
-    // {
-    //     bind(signal);
-    // }
     template <typename T>
     void Input<T>::finalize()
     {
@@ -87,12 +82,6 @@ namespace dspsim
     }
 
     template <typename T>
-    Input<T>::operator Signal<T> &()
-    {
-        return *_bound_signal;
-    }
-
-    template <typename T>
     void Input<T>::bind(Signal<T> &signal)
     {
         if (_bound_signal)
@@ -126,7 +115,7 @@ namespace dspsim
     {
         if (context()->_active_module())
         {
-            context()->_active_module()->_outputs.push_back(this);
+            context()->_active_module()->outputs().push_back(this);
         }
         else
         {
@@ -138,12 +127,6 @@ namespace dspsim
     Output<T>::Output(const std::string &name, int width) : OutputBase(name, width)
     {
     }
-
-    // template <typename T>
-    // Output<T>::Output(const std::string &name, Signal<T> &signal) : Output<T>(name)
-    // {
-    //     bind(signal);
-    // }
 
     template <typename T>
     void Output<T>::finalize()
@@ -172,12 +155,6 @@ namespace dspsim
         {
             context()->logger->error("Output port {} could not be resolved to a signal", hier_name());
         }
-    }
-
-    template <typename T>
-    Output<T>::operator Signal<T> &()
-    {
-        return *_bound_signal;
     }
 
     template <typename T>

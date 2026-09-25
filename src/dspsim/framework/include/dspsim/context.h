@@ -1,5 +1,4 @@
 #pragma once
-#include <dspsim/forward.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/process.h>
@@ -19,6 +18,10 @@ namespace spdlog
 
 namespace dspsim
 {
+    class Model;
+    class Module;
+    class ModuleName;
+    class SignalBase;
 
     /*
         Context contains a vector of all the models.
@@ -31,7 +34,6 @@ namespace dspsim
           The context can be used for simulation, but no new models can be added to it.
           New contexts can be created with new parameters so that they can run in parallel.
     */
-    using ContextPtr = std::shared_ptr<class Context>;
     class Context
     {
         friend class ContextFactory;
@@ -54,8 +56,8 @@ namespace dspsim
 
         // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
         // More likely to be used in Python
-        std::vector<ModelPtr> _owned_models;
-        std::vector<ModulePtr> _owned_modules;
+        std::vector<std::shared_ptr<Model>> _owned_models;
+        std::vector<std::shared_ptr<Module>> _owned_modules;
 
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
         std::unordered_map<Model *, std::vector<Model *>> _children;
@@ -172,8 +174,8 @@ namespace dspsim
             Take shared ownership of a model. The model will stay alive as long as the context does.
             Useful in python if a design is constructed in a function and the context is returned.
         */
-        void _own_model(ModelPtr model);
-        void _own_module(ModulePtr module);
+        void _own_model(std::shared_ptr<Model> model);
+        void _own_module(std::shared_ptr<Module> module);
 
         void trace_model(Model *model) { _trace_stack.push_back(model); }
 
@@ -204,32 +206,32 @@ namespace dspsim
             Static Methods
         */
         // Obtain the global context.
-        static ContextPtr obtain();
+        static std::shared_ptr<Context> obtain();
         // Set the global context to nullptr. New designs will create a new context.
         static void reset();
         // Reset the global context, then obtain a new one.
-        static ContextPtr create(const std::string &name = "");
+        static std::shared_ptr<Context> create(const std::string &name = "");
     };
 
     class ContextFactory
     {
     private:
         int _next_context_id;
-        ContextPtr _active_context;
+        std::shared_ptr<Context> _active_context;
 
     public:
         ContextFactory();
 
         // Obtain the current active context
-        ContextPtr obtain();
+        std::shared_ptr<Context> obtain();
         // Reset the active context.
         void reset();
         // Reset the global context, then obtain a new one.
-        ContextPtr create(const std::string &name = "");
+        std::shared_ptr<Context> create(const std::string &name = "");
     };
 
     using ContextFactoryPtr = std::shared_ptr<ContextFactory>;
-    ContextFactoryPtr get_global_context_factory();
-    void set_global_context_factory(ContextFactoryPtr factory);
+    std::shared_ptr<ContextFactory> get_global_context_factory();
+    void set_global_context_factory(std::shared_ptr<ContextFactory> factory);
     void reset_global_context_factory();
 }

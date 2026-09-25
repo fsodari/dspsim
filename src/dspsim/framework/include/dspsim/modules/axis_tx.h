@@ -9,7 +9,7 @@
 namespace dspsim
 {
     template <typename T>
-    class AxisTx : public Module
+    DSPSIM_MODULE(AxisTx)
     {
         using QueueType = std::deque<T>;
 
@@ -22,9 +22,10 @@ namespace dspsim
 
         QueueType fifo;
 
-        AxisTx(ModuleName name) : Module(name)
+        DSPSIM_CTOR(AxisTx)
         {
-            DSPSIM_METHOD(&AxisTx<T>::eval)->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
         void eval()
@@ -86,7 +87,7 @@ namespace dspsim
 
         template <std::ranges::input_range R>
             requires std::convertible_to<std::ranges::range_reference_t<R>, T>
-        void push_range(R &&rg)
+        void push_range(R && rg)
         {
             for (const auto &a : rg)
             {

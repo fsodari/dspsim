@@ -5,9 +5,9 @@
 namespace dspsim
 {
     class Context;
-    using ModelPtr = std::shared_ptr<class Model>;
+    class Model;
 
-    void _own_model_helper(Context *context, ModelPtr model);
+    void _own_model_helper(Context *context, std::shared_ptr<Model> model);
 
     class Model
     {

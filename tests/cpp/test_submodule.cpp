@@ -8,27 +8,27 @@ using namespace dspsim;
 
 namespace
 {
-    class Sub : public Module
+    DSPSIM_MODULE(Sub)
     {
     public:
         Input<uint8_t> clk{"clk"};
         Input<uint8_t> in{"in"};
         Output<uint8_t> out{"out"};
 
-        Sub(ModuleName name)
-            : Module(name)
+        DSPSIM_CTOR(Sub)
         {
-            DSPSIM_METHOD(&Sub::eval_)->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval_()
+        void eval()
         {
             context()->logger->debug("Sub eval() called, time: {}", context()->time());
             out.write(in.read());
         }
     };
 
-    class Parent : public Module
+    DSPSIM_MODULE(Parent)
     {
     public:
         Input<uint8_t> clk{"clk"};
@@ -38,16 +38,16 @@ namespace
         // Submodules must be initialized last.
         Sub sub{"sub"};
 
-        Parent(ModuleName name)
-            : Module(name)
+        DSPSIM_CTOR(Parent)
         {
             sub.clk.bind(clk);
             sub.in.bind(in);
             sub.out.bind(out);
-            DSPSIM_METHOD(&Parent::eval_)->always(clk.pos());
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval_()
+        void eval()
         {
             context()->logger->debug("Parent eval() called, time: {}", context()->time());
         }

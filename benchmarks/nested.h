@@ -7,7 +7,7 @@ namespace benchmarks
 {
 
     template <typename M, typename T, int DEPTH>
-    class NestedComb : public dspsim::Module
+    DSPSIM_MODULE(NestedComb)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
@@ -18,7 +18,7 @@ namespace benchmarks
         M some_model{"some_model"};
         NestedComb<M, T, DEPTH - 1> _nested{"nested"};
 
-        NestedComb(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(NestedComb)
         {
             some_model.clk.bind(clk);
             some_model.in.bind(in);
@@ -31,7 +31,7 @@ namespace benchmarks
     };
 
     template <typename M, typename T>
-    class NestedComb<M, T, 0> : public dspsim::Module
+    DSPSIM_MODULE(NestedComb<M, T, 0>)
     {
     public:
         dspsim::Input<uint8_t> clk{"clk"};
@@ -40,7 +40,7 @@ namespace benchmarks
 
         M some_model{"some_model"};
 
-        NestedComb(dspsim::ModuleName name) : dspsim::Module(name)
+        DSPSIM_CTOR(NestedComb)
         {
             some_model.clk.bind(clk);
             some_model.in.bind(in);

@@ -34,14 +34,4 @@ namespace dspsim
           time_update(time_update)
     {
     }
-
-    bool TimeEvent::operator<(const TimeEvent &other) const
-    {
-        return time_update < other.time_update;
-    }
-
-    bool TimeEvent::operator>(const TimeEvent &other) const
-    {
-        return time_update > other.time_update;
-    }
 }

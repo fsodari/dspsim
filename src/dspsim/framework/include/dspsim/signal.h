@@ -1,5 +1,5 @@
 #pragma once
-// #include <dspsim/forward.h>
+#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
@@ -35,7 +35,6 @@ namespace dspsim
         SignalBase(const std::string &name = "");
 
         virtual void update() = 0;
-        using Model::id;
 
         // Access the sensitivity events for this signal.
         SensitivityEvent *_change() { return &_change_event; }
@@ -85,6 +84,7 @@ namespace dspsim
         virtual const std::string repr() const override { return ""; }
 
         void write(const T &value);
+
         const T &read() const { return _q; }
         // Used for python d property
         const T &_read_d() const { return _d; }
@@ -105,3 +105,53 @@ namespace dspsim
     using Signal64 = Signal<uint64_t>;
 
 } // namespace dspsim
+
+namespace dspsim
+{
+    template <typename T>
+    void Signal<T>::write(const T &value)
+    {
+        _d = value;
+
+        if (_d != _q)
+        {
+            // Schedule for update
+            context()->_signal_update_stack.push_back(this);
+        }
+        else [[unlikely]]
+        {
+            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
+            // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
+            // will write the same signal multiple times within the same update cycle.
+            auto it = context()->_signal_update_stack.find(this);
+
+            if (it != context()->_signal_update_stack.end())
+            {
+                context()->_signal_update_stack.erase(it);
+            }
+        }
+    }
+
+    template <typename T>
+    void Signal<T>::update()
+    {
+        _changed_flag = true;
+        context()->_signal_event = true;
+
+        if (_d && !_q)
+        {
+            _posedge_flag = true;
+
+            context()->_sensitivity_event_stack.push_back(pos());
+        }
+        else if (!_d && _q)
+        {
+            _negedge_flag = true;
+
+            context()->_sensitivity_event_stack.push_back(neg());
+        }
+        context()->_sensitivity_event_stack.push_back(_change());
+
+        this->_q = this->_d;
+    }
+}
