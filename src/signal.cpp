@@ -81,14 +81,17 @@ namespace dspsim
         // Notify modules sensitized directly to this signal (no intermediate Port).
         if (event == EventType::Posedge)
         {
-            pos()->notify();
+            // pos()->notify();
+            context()->_sensitivity_event_stack.push_back(pos());
         }
         else if (event == EventType::Negedge)
         {
-            neg()->notify();
+            // neg()->notify();
+            context()->_sensitivity_event_stack.push_back(neg());
         }
 
-        _change()->notify();
+        // _change()->notify();
+        context()->_sensitivity_event_stack.push_back(_change());
     }
 
     template class Signal<uint8_t>;

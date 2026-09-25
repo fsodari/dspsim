@@ -14,6 +14,7 @@ namespace dspsim
     public:
         Clock(const std::string &name, int period);
         int period() const;
+        void update() override;
 
     private:
         void tick();

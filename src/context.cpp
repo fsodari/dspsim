@@ -45,6 +45,11 @@ namespace dspsim
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
+
+        // Reserve space in eval/update/event stacks.
+        _process_eval_stack.stack().reserve(1000);
+        _signal_update_stack.stack().reserve(1000);
+        _sensitivity_event_stack.reserve(1000);
     }
 
     Context::~Context()
@@ -104,7 +109,7 @@ namespace dspsim
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
-            // run update cycle on all models that were evaluated.
+            // run eval cycle on all models that were scheduled to be evaluated.
             while (!_process_eval_stack.empty())
             {
                 Process *process = _process_eval_stack.back();
@@ -113,12 +118,22 @@ namespace dspsim
                 process->eval();
             }
 
+            // run update cycle on all signals that were scheduled to be updated.
             while (!_signal_update_stack.empty())
             {
                 SignalBase *signal = _signal_update_stack.back();
                 _signal_update_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
                 signal->update();
+            }
+
+            // run notify cycle on all sensitivity events that were scheduled to be notified.
+            while (!_sensitivity_event_stack.empty())
+            {
+                SensitivityEvent *event = _sensitivity_event_stack.back();
+                _sensitivity_event_stack.pop_back();
+                SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
+                event->notify();
             }
         }
 
@@ -333,7 +348,7 @@ namespace dspsim
 
     Module *Context::_active_module() const
     {
-        return _active_module_stack.empty() ? nullptr : _active_module_stack.top();
+        return _active_module_stack.empty() ? nullptr : _active_module_stack.back();
     }
 
     const std::string Context::_current_hierarchy() const

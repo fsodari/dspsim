@@ -4,6 +4,19 @@
 #include <dspsim/module.h>
 namespace dspsim
 {
+    // Event::Event(Context *context)
+    //     : _context(context)
+    // {
+    // }
+
+    // void Event::notify()
+    // {
+    //     for (const auto &p : _processes.stack())
+    //     {
+    //         _context->_process_eval_stack.push_back(p);
+    //     }
+    // }
+
     TimeEvent::TimeEvent(Process *process, uint64_t time_update)
         : process(process), time_update(time_update)
     {

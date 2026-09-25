@@ -70,9 +70,11 @@ namespace dspsim
     public:
         // All processes that need to run in the current delta cycle. Can hold every
         // process in the design, so it's given a larger initial capacity than the default.
-        FlaggedStack<Process *> _process_eval_stack{1000};
+        FlaggedStack<Process *> _process_eval_stack;
         // All signals that need to be updated in the current delta cycle. Same reasoning.
-        FlaggedStack<SignalBase *> _signal_update_stack{1000};
+        FlaggedStack<SignalBase *> _signal_update_stack;
+        // Scheduled sensitivity events.
+        std::vector<SensitivityEvent *> _sensitivity_event_stack;
         // Scheduled time events.
         PriorityQueue<TimeEvent> _time_event_stack;
 
@@ -84,9 +86,9 @@ namespace dspsim
         std::shared_ptr<spdlog::logger> logger;
 
         // Keep track of the currently active module to build a hierarchy.
-        Stack<Module *> _active_module_stack;
+        std::vector<Module *> _active_module_stack;
         // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
-        Stack<ModuleName *> _active_module_name_stack;
+        std::vector<ModuleName *> _active_module_name_stack;
 
     private:
         // Can't create context directly. Must use obtain() to get global context, or create() to make a new global context.

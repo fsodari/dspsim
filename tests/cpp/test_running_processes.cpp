@@ -9,7 +9,7 @@ using namespace dspsim;
 TEST_CASE("Test Running Processes", "[process]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->logger->set_level(spdlog::level::trace);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> d_top{"d_top"};

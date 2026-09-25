@@ -86,6 +86,8 @@ namespace dspsim
         auto begin() const { return _stack.begin(); }
         auto end() const { return _stack.end(); }
 
+        std::vector<T> &stack() { return _stack; }
+
     private:
         std::vector<T> _stack;
     };
