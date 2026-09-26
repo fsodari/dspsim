@@ -1,7 +1,7 @@
 import importlib.metadata
 from pathlib import Path
 
-__version__ = importlib.metadata.version(str(__package__))
+__version__ = importlib.metadata.version("dspsim")
 __version__ = "0.4.0"
 
 
