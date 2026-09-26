@@ -23,7 +23,7 @@ NB_MODULE(_{{model.name}}, m)
     m.def("hello", &hello);
 
     // Import dspsim._framework into the current module. Needed for proper type-stubs.
-    auto _framework = m.import_("dspsim.framework._framework");
+    auto _framework = m.import_("dspsim._framework");
 
     m.def("set_global_context_factory", &dspsim::set_global_context_factory, nb::arg("context_factory"));
     m.def("get_global_context_factory", &dspsim::get_global_context_factory);

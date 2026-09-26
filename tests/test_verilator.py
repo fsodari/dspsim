@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from dspsim.framework import verilator
+from dspsim import verilator
 
 
 def test_verilator_root():

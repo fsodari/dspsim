@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-import dspsim
-
 from .module_info import ModuleInfo, Parameter
 from .verilator import parse_module_json, verilate_json
 
@@ -23,7 +21,7 @@ def load_model_info(
     if parameters is None:
         parameters = {}
 
-    param_values = {k: p.value for k, p in parameters.items()}
+    param_values = {k: p.value for k, p in parameters.items() if p.value is not None}
     model_data, metadata = verilate_json(
         [source],
         include_dirs=include_dirs,

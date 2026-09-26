@@ -3,7 +3,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dspsim.framework.project import ProjectConfig
+from dspsim.project import ProjectConfig
 
 hdl_dir = Path(__file__).parent / "test_modules"
 

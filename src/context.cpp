@@ -213,7 +213,7 @@ namespace dspsim
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
                 _process_eval_stack.push_back(event.process);
             }
-            // Evaluate up until the next time step. So we should skip an eval with time_inc == 0.
+            // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
             // Models with the time update will still be queued for the next delta cycle.
             if (time_inc != 0)
             {

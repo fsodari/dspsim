@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dspsim.framework.module_info import ModuleInfo, Parameter, ParamValueT, Port
+from dspsim.module_info import ModuleInfo, Parameter, ParamValueT, Port
 
 try:
     # Check if verilator package was installed. VERILATOR_ROOT is set when this is imported.

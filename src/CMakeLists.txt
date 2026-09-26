@@ -46,3 +46,30 @@ target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog
 target_include_directories(dspsim-core PUBLIC
     $<BUILD_INTERFACE:${DSPSIM_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>)
+
+# Public headers
+target_sources(dspsim-core
+    PUBLIC 
+    FILE_SET HEADERS
+    BASE_DIRS ${DSPSIM_INCLUDE_DIR}
+    FILES 
+        ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/dspsim.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/event.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/model.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/module_name.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/module.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/port.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/signal.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_rx.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/flagged_stack.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/priority_queue.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/unique_stack.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/utils.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/bindings.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vmodule.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vport.h)

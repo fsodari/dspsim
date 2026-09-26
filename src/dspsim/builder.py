@@ -26,9 +26,9 @@ from dspsim.framework import (
     _Module,
     get_global_context_factory,
 )
-from dspsim.framework.module_info import ModuleInfo, Parameter, Port
-from dspsim.framework.project import load_model_info
 from dspsim.generate import render_template
+from dspsim.module_info import ModuleInfo, Parameter, Port
+from dspsim.project import load_model_info
 
 # Projects can use a .env file to specify cache dir and other build parameters.
 dotenv.load_dotenv()
@@ -214,7 +214,8 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
             "-B",
             build_dir / "build",
             "-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_PREFIX_PATH={site_packages_path}/dspsim/framework;{site_packages_path}",
+            site_packages_path,
+            # f"-DCMAKE_PREFIX_PATH={site_packages_path}/dspsim/framework;{site_packages_path}",
         ]
         out = subprocess.run(cmake_cfg_cmd, check=True, capture_output=True)
         if verbose:

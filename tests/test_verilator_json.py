@@ -1,7 +1,7 @@
 import time
 from pathlib import Path
 
-from dspsim.framework.verilator import parse_module_json, verilate_json
+from dspsim.verilator import parse_module_json, verilate_json
 
 
 def test_verilate_json():
