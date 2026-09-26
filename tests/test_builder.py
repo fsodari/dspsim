@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from dspsim.builder import VModule, build_vmodule, vbuilder
@@ -19,12 +20,16 @@ from dspsim.framework import (
 
 HDL_DIR = Path(__file__).parent.parent / "hdl"
 
+if sys.platform == "win32":
+    TRACE_SUFFIX = ".vcd"
+else:
+    TRACE_SUFFIX = ".fst"
 
 def test_vbuilder():
     print()
     source = HDL_DIR / "Skid.sv"
 
-    @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform")
+    @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform", verbose=True)
     class Skid1(VModule):
         # Parameters
         DW: int = 14
@@ -43,7 +48,8 @@ def test_vbuilder():
         source=source,
         include_dirs=[HDL_DIR],
         parameters={"DW": 13},
-        # trace="platform",
+        trace="platform",
+        verbose=True,
     )
 
     with Context("test_vbuilder") as context:
@@ -64,7 +70,9 @@ def test_vbuilder():
         out_tready = Signal8("out_tready")
 
         skid1 = Skid1("skid1")
-        skid1.open_trace(Path("traces/skid1.fst"))
+        
+
+        skid1.open_trace(Path("traces/skid1").with_suffix(TRACE_SUFFIX))
         skid1.clk.bind(clk)
         skid1.rst.bind(rst)
         skid1.s_axis_tdata.bind(in_tdata)
@@ -75,7 +83,7 @@ def test_vbuilder():
         skid1.m_axis_tready.bind(skid1_tready)
 
         skid2 = Skid2("skid2")
-        skid2.open_trace(Path("traces/skid2.fst"))
+        skid2.open_trace(Path("traces/skid2").with_suffix(TRACE_SUFFIX))
         skid2.clk.bind(clk)
         skid2.rst.bind(rst)
         skid2.s_axis_tdata.bind(skid1_tdata)

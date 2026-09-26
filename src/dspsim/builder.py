@@ -263,8 +263,13 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
 
 def _find_built_module(name: str, module_info: ModuleInfo) -> Path:
     """Find the built module's shared library file."""
+    if sys.platform == "win32":
+        suffix = ".pyd"
+    else:
+        suffix = ".so"
+
     return Path(
-        glob.glob(str(_get_build_dir(name, module_info) / "build" / f"_{name}*.so"))[0]
+        glob.glob(str(_get_build_dir(name, module_info) / "build" / f"**/_{name}*{suffix}"))[0]
     )
 
 

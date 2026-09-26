@@ -84,6 +84,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # dspsim paths.
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/include)
+set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/hdl)
 
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})

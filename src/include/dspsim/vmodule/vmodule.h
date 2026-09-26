@@ -23,7 +23,7 @@ namespace dspsim
         // This class must be subclassed.
         VModule(ModuleName &name) : Module(name) {}
         VModule() : Module() {}
-
+    public:
         void eval()
         {
             // Update the inputs to the verilated model.
