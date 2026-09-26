@@ -268,9 +268,10 @@ def _find_built_module(name: str, module_info: ModuleInfo) -> Path:
     else:
         suffix = ".so"
 
-    return Path(
-        glob.glob(str(_get_build_dir(name, module_info) / "build" / f"**/_{name}*{suffix}"))[0]
-    )
+    # Might be in build or in build/Release depending on the platform/generator.
+    build_path = _get_build_dir(name, module_info) / "build"
+    return build_path.glob(f"**/*{suffix}").__iter__().__next__()
+    
 
 
 def _import_built_module(name: str, module_info: ModuleInfo):
