@@ -1,9 +1,5 @@
 #pragma once
-// #include <dspsim/forward.h>
-#include <dspsim/model.h>
-// #include <dspsim/module.h>
 #include <dspsim/utils/unique_stack.h>
-#include <vector>
 #include <cstdint>
 
 namespace dspsim
@@ -15,28 +11,53 @@ namespace dspsim
         Posedge,
         Negedge
     };
+    class Context;
+    class Process;
 
-    class TimeEvent
-    {
-    public:
-        Model *subscriber;
-        uint64_t time_update;
-
-    public:
-        TimeEvent(Model *subscriber, uint64_t time_update);
-        bool operator<(const TimeEvent &other) const;
-        bool operator>(const TimeEvent &other) const;
-    };
-
+    /*
+        Holds a static list of processes that are sensitive to this event.
+        When notify() is called, all registered processes will be queued for evaluation.
+    */
     class SensitivityEvent
     {
     private:
-        // std::vector<Module *> _subscribers;
-        UniqueStack<Model *> _subscribers;
+        Context *_context;
+        UniqueStack<Process *> _processes;
 
     public:
-        UniqueStack<Model *> &subscribers();
-        void add_subscriber(Model *module);
+        /*
+            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+        */
+        SensitivityEvent(Context *context);
+
+        // Add a process to this event's list of sensitive processes.
+        void add_process(Process *process);
+
+        // Schedule all of this module's processes for evalutation.
+        void notify();
+
+        UniqueStack<Process *> &processes();
     };
-    // using SensitivityEvent = std::vector<Module *>;
+
+    /*
+        Represents a time-based event that will trigger a process at a specified future time.
+    */
+    class TimeEvent
+    {
+        Context *_context;
+
+    public:
+        Process *process;
+        uint64_t time_update;
+
+    public:
+        /*
+            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+        */
+        TimeEvent(Context *context, Process *process, uint64_t time_update);
+
+        // Need to expose comparison operators so this can be used with a priority queue or other sorted structure.
+        bool operator<(const TimeEvent &other) const { return time_update < other.time_update; }
+        bool operator>(const TimeEvent &other) const { return time_update > other.time_update; }
+    };
 } // namespace dspsim

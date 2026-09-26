@@ -4,7 +4,7 @@
 #include <format>
 namespace dspsim
 {
-    void _own_model_helper(Context *context, ModelPtr model)
+    void _own_model_helper(Context *context, std::shared_ptr<Model> model)
     {
         context->_own_model(model);
     }
@@ -18,32 +18,17 @@ namespace dspsim
         // Register this model with the context.
         _parent = _context->_active_module();
         _context->_add_model(this);
+
+        if (_name.empty())
+        {
+            _name = _kind + std::to_string(_id);
+        }
     }
 
     void Model::finalize()
     {
     }
 
-    void Model::eval()
-    {
-    }
-
-    // void Model::update()
-    // {
-    // }
-
-    Context *Model::context() const
-    {
-        return _context;
-    }
-    uint32_t Model::id() const
-    {
-        return _id;
-    }
-    const std::string &Model::name() const
-    {
-        return _name;
-    }
     const std::string &Model::kind() const
     {
         return _kind;

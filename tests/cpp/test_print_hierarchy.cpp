@@ -22,10 +22,12 @@ namespace
         {
             child.i.bind(i);
             child.o.bind(internal);
-            always << i << internal;
+
+            DSPSIM_METHOD(eval)
+                ->always(i, internal);
         }
 
-        void eval() override
+        void eval()
         {
             o.write(internal.read());
         }
@@ -40,10 +42,11 @@ namespace
 
         Nested(ModuleName name) : Module(name)
         {
-            always << i;
+            DSPSIM_METHOD(eval)
+                ->always(i);
         }
 
-        void eval() override
+        void eval()
         {
             o.write(i.read() + 1);
         }
@@ -54,7 +57,7 @@ namespace
 TEST_CASE("print_hierarchy doesn't segfault on nested modules", "[print_hierarchy]")
 {
     auto ctx = Context::create();
-    ctx->set_log_level("info");
+    ctx->set_log_level("warn");
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};
@@ -82,9 +85,9 @@ TEST_CASE("print_hierarchy doesn't segfault on nested modules", "[print_hierarch
     REQUIRE_NOTHROW(ctx->print_hierarchy());
 
     // Sanity check that the ports/signals actually wired up correctly through all 4 levels.
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 1);
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 6);
 }

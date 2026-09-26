@@ -1,8 +1,8 @@
-# import importlib.metadata
+import importlib.metadata
 from pathlib import Path
 
-# __version__ = importlib.metadata.version(str(__package__))
-# __version__ = "0.4.0"
+__version__ = importlib.metadata.version(str(__package__))
+__version__ = "0.4.0"
 
 
 def include_dir() -> Path:
@@ -26,6 +26,7 @@ import functools
 import threading
 from contextlib import contextmanager
 
+# from dspsim.framework._framework import Module as _Module
 from dspsim.framework._framework import (
     Clock,
     Dff8,
@@ -36,21 +37,24 @@ from dspsim.framework._framework import (
     Input16,
     Input32,
     Input64,
+    InputFloat,
+    Model,
     ModuleName,
     Output8,
     Output16,
     Output32,
     Output64,
+    OutputFloat,
     Signal8,
     Signal16,
     Signal32,
     Signal64,
+    SignalFloat,
     get_global_context_factory,
     reset_global_context_factory,
     # set_global_context_factory,
 )
 from dspsim.framework._framework import Context as _Context
-from dspsim.framework._framework import Model as _Model
 from dspsim.framework._framework import Module as _Module
 
 # Prevent nb leak warnings.
@@ -113,23 +117,6 @@ class Context(_Context):
             self.release()
 
 
-class Model(_Model):
-    """
-    Use Python models in a simulation. Subclasses of this class MUST call super().__init__() in their constructor.
-    """
-
-    def __init__(self, name: str, kind: str = "model"):
-        super().__init__(name, kind)
-        # Register the model with its context.
-        self.context.own_model(self)
-
-    def __repr__(self):
-        return f"<{self.__class__.__name__} id={self.id} context_id={self.context.id}>"
-
-    def __str__(self):
-        return self.__repr__()
-
-
 class Module(_Module):
     """
     Python wrapper for the C++ Module class.
@@ -144,8 +131,7 @@ class Module(_Module):
     This is done so the subclass doesn't deal with ModuleName directly.
     """
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls):
         original_init = cls.__init__
 
         @functools.wraps(original_init)
@@ -159,11 +145,12 @@ class Module(_Module):
             # Deleting _name is important to change the context's active module.
             del _name
 
+        # Subclasses's init will now handle ModuleName properly.
         cls.__init__ = __new_init__
 
     def __init__(self, name: str):
-        # Have the context own the module.
-        self.context.own_module(self)
+        """Subclass must call super().__init__ so context.own_model(self) gets called."""
+        self.context.own_model(self)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
@@ -190,16 +177,20 @@ __all__ = [
     "Input16",
     "Input32",
     "Input64",
+    "InputFloat",
     "Model",
+    "Module",
     "ModuleName",
     "Output8",
     "Output16",
     "Output32",
     "Output64",
+    "OutputFloat",
     "Signal8",
     "Signal16",
     "Signal32",
     "Signal64",
+    "SignalFloat",
     "get_global_context_factory",
     # "set_global_context_factory",
     "signal",

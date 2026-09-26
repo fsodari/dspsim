@@ -1,30 +1,37 @@
 #include <dspsim/event.h>
+#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
-
 namespace dspsim
 {
-    TimeEvent::TimeEvent(Model *subscriber, uint64_t time_update)
-        : subscriber(subscriber), time_update(time_update)
+
+    SensitivityEvent::SensitivityEvent(Context *context)
+        : _context(context)
     {
     }
 
-    bool TimeEvent::operator<(const TimeEvent &other) const
+    UniqueStack<Process *> &SensitivityEvent::processes()
     {
-        return time_update < other.time_update;
+        return _processes;
     }
 
-    bool TimeEvent::operator>(const TimeEvent &other) const
+    void SensitivityEvent::add_process(Process *process)
     {
-        return time_update > other.time_update;
+        _processes.push_back(process);
     }
 
-    UniqueStack<Model *> &SensitivityEvent::subscribers()
+    void SensitivityEvent::notify()
     {
-        return _subscribers;
+        for (const auto &p : _processes.stack())
+        {
+            _context->_process_eval_stack.push_back(p);
+        }
     }
-    void SensitivityEvent::add_subscriber(Model *module)
+
+    TimeEvent::TimeEvent(Context *context, Process *process, uint64_t time_update)
+        : _context(context),
+          process(process),
+          time_update(time_update)
     {
-        _subscribers.push_back(module);
     }
 }

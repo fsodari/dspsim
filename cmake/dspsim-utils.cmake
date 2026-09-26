@@ -40,13 +40,7 @@ function(dspsim_add_stub name output_dir)
         set(marker_file ${stubs_dir}/py.typed)
     endif()
 
-    # # Generate stub with nanobind. Do this at install time so that it can find the dspsim._framework module and get the types from it.
-    # if (WIN32)
-    #     # set(PYTHON_PATH "${CMAKE_INSTALL_PREFIX}/${SKBUILD_PROJECT_NAME}")
-    #     set(PYTHON_PATH "$<TARGET_FILE_DIR:${name}>")
-    # else()
-    #     set(PYTHON_PATH "$<TARGET_FILE_DIR:${name}>")
-    # endif()
+    # Generate stub with nanobind. Do this at install time so that it can find the dspsim._framework module and get the types from it.
     set(PYTHON_PATH "$<TARGET_FILE_DIR:${name}>")
     nanobind_add_stub(${name}_stub
         MODULE ${name}
@@ -57,7 +51,7 @@ function(dspsim_add_stub name output_dir)
     )
 endfunction()
 
-# Generate a dspsim module with nanobind bindings and Verilated models.
+# Generate a dspsim library module with nanobind bindings and Verilated models.
 function(dspsim_add_module name pyproject_path output_dir)
     set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/${name}.dir)
     # Install dspsim_generate module

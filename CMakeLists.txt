@@ -1,84 +1,75 @@
 cmake_minimum_required(VERSION 4.0)
-# Read project version from version.txt file
-file(READ "${CMAKE_SOURCE_DIR}/version.txt" PROJECT_VERSION)
-string(STRIP "${PROJECT_VERSION}" PROJECT_VERSION)
-set(SKBUILD_PROJECT_VERSION "${PROJECT_VERSION}" CACHE STRING "Project version")
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX)
 
+# Set C++ standard to 23. 20?
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Force release build.
-if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+# Dependencies installation directory
+option(USE_LOCAL_DEPS "Add the deps/install folder to the module search path" ON)
+option(INSTALL_DEV_DEPS "Install developer dependencies" OFF)
+
+# Install local dependencies if requested.
+if(USE_LOCAL_DEPS)
+    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/deps/install")
+    list(APPEND CMAKE_PREFIX_PATH "${DEPS_INSTALL_DIR}")
+
+    # If it doesn't exist. Run the install script.
+    if (NOT IS_DIRECTORY "${DEPS_INSTALL_DIR}")
+        message(STATUS "Local dependencies directory not found: ${DEPS_INSTALL_DIR}")
+        message(STATUS "Running install_deps.sh to set up local dependencies.")
+
+        # If installing dev dependencies, run the corresponding script. Otherwise, run the standard install script.
+        if (${INSTALL_DEV_DEPS})
+            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_dev_deps.sh)
+        else()
+            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_deps.sh)
+        endif()
+    endif()
 endif()
 
-# Project configuration and setup
+# Python required for nanobind/skbuild
+find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule OPTIONAL)
+message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
 
-# Build the _framework Python module
-option(BUILD_FRAMEWORK "Build the _framework Python module" ON)
-# Enable compile-time trace logging for spdlog if requested
-option(LOG_TRACE "Set the log level for spdlog" OFF)
+# nanobind. Required to build _framework module. Optional for C++ projects.
+find_package(nanobind REQUIRED)
+message(STATUS "Found nanobind: ${nanobind_DIR}")
 
-# Enable CPP Tetss
-option(BUILD_CPP_TESTS "Build the C++ tests" OFF)
+# spdlog. Use fetch content if not available
+find_package(spdlog REQUIRED)
+message(STATUS "spdlog: ${spdlog_DIR}")
 
-# Simplest way of exporting symbols for windows.
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# SystemC. Optional. Used for benchmarks.
+find_package(SystemCLanguage OPTIONAL)
+message(STATUS "SystemC: ${SystemCLanguage_DIR}")
+
+# Catch2. Used for testing.
+find_package(Catch2 3 OPTIONAL)
+message(STATUS "Catch2: ${Catch2_DIR}")
+
+# Verilator. Used by this project for testing, but it can be a runtime dependency for applications that use dspsim.
+find_package(verilator OPTIONAL QUIET)
+message(STATUS "Verilator: ${verilator_DIR}")
 
 # Force all code to be position independent
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-include(FetchContent)
-
-# spdlog. Use fetch content if not available
-if (NOT MSVC)
-    find_package(spdlog QUIET)
-endif()
-if (NOT spdlog_FOUND)
-    set(SPDLOG_BUILD_SHARED OFF CACHE BOOL "Build spdlog as shared library")
-    set(SPDLOG_BUILD_PIC ON CACHE BOOL "Build spdlog with position independent code")
-    FetchContent_Declare(
-        spdlog
-        GIT_REPOSITORY https://github.com/gabime/spdlog.git
-        GIT_TAG v1.17.0
-    )
-    FetchContent_MakeAvailable(spdlog)
-endif()
-
-# Windows requires the Python SABIModule component.
-find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
-message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
-
-# Find nanobind package.
-find_package(nanobind REQUIRED)
-message(STATUS "Found nanobind: ${nanobind_DIR}")
 
 # dspsim paths.
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/framework/include)
-set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME}/framework)
-
-# Install paths
-include(GNUInstallDirs)
-set(INSTALL_CMAKEDIR ${DSPSIM_INSTALL_DIR}/cmake)
-set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
-set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
-set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
-
-# # Set warning level
-# if (MSVC)
-#     # warning level 4
-#     add_compile_options(/W2)
-# else()
-#     # additional warnings
-#     add_compile_options(-Wall -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-maybe-uninitialized)
-# endif()
 
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})
 
-
+### Installation configuration.
+# Install paths
+include(GNUInstallDirs)
+set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME}/framework)
+set(INSTALL_CMAKEDIR ${DSPSIM_INSTALL_DIR}/cmake)
+set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
+set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
+set(INSTALL_INCLUDEDIR ${DSPSIM_INSTALL_DIR}/${CMAKE_INSTALL_INCLUDEDIR})
 
 # Install core library and export targets.
 install(TARGETS dspsim-core
@@ -115,9 +106,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 
 # Build _framework module
 dspsim_add_nanobind_module(_framework ${DSPSIM_SRC_DIR}/_framework.cpp)
-if (NOT BUILD_FRAMEWORK)
-    set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
-endif()
+set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # Install extension
 install(TARGETS _framework
@@ -126,8 +115,11 @@ install(TARGETS _framework
 # Install stubs. Call last so that all targets are installed when this is run.
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
-#
-if (BUILD_CPP_TESTS)
-    enable_testing()
-    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp )
-endif()
+# Build benchmarks
+add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+
+# Testing.
+set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
+enable_testing()
+add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_SOURCE_DIR}/tests/sc_parity EXCLUDE_FROM_ALL)

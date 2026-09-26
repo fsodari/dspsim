@@ -1,10 +1,7 @@
-// Begin Template
-// Template only needs to insert the name of the module.
 #include "Skid.h"
 using VModType = Skid;
-// End Template
 
-// Common
+// Set during the verilation step.
 #if VM_TRACE_VCD
 #include <verilated_vcd_c.h>
 using TraceType = VerilatedVcdC;
@@ -51,6 +48,7 @@ void VModType::_close_trace()
 #endif
 }
 
+// Verilator on windows won't build unless this is defined.
 double sc_time_stamp()
 {
     return 0;

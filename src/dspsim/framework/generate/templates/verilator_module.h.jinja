@@ -1,34 +1,31 @@
 #include <dspsim/vmodule/vmodule.h>
 #include <V{{model.name}}.h>
 
-DSPSIM_VMOD({{model.name}}, V{{model.name}})
+DSPSIM_VMOD({{model.name}}, V{model.name})
 {
 public:
     // Parameters
     {%-for param in model.parameters.values()%}
+    // inline static const {{param.ctype}} {{param.name}} = {{param.cpp_val}};
     inline static const {{param.ctype}} {{param.name}} = {{param.cpp_val}};
     {%-endfor%}
 
     // Ports
     {%-for port in model.ports.values()%}
-    DSPSIM_V{{port.direction.capitalize()}}({{port.name}});
+    DSPSIM_V{{port.direction.capitalize()}}({{port.name}}, {{port.width}});
     {%-endfor%}
 
-    // Bind module ports to ports. TODO:
-    void bind_ports()
+    // {{model.name}} Constructor
+    DSPSIM_CTOR({{model.name}})
     {
+        // Standard eval func for verilated modules.
+        DSPSIM_METHOD(eval) 
+            ->always("*");  // Default is sensitive to all inputs. Can be changed by generator.
     }
-
-    // Bind module ports to signals. TODO:
-    void bind_signals()
-    {
-    }
-
-    // {{model.name}} module constructor
-    DSPSIM_VCTOR({{model.name}}, V{{model.name}}) {}
 
     // Tracing functions. Will raise a warning if tracing is not enabled, but will just do a no-op.
     void _dump_trace();
     void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
     void _close_trace();
 };
+    

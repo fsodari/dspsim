@@ -8,24 +8,25 @@ using namespace dspsim;
 namespace
 {
 
-    class Child : public Module
+    DSPSIM_MODULE(Child)
     {
     public:
         Input<int> i{"i"};
         Output<int> o{"o"};
 
-        Child(ModuleName name) : Module(name)
+        DSPSIM_CTOR(Child)
         {
-            always << i;
+            DSPSIM_METHOD(eval)
+                ->always(i);
         }
 
-        void eval() override
+        void eval()
         {
             o.write(i.read() + 1);
         }
     };
 
-    class Parent : public Module
+    DSPSIM_MODULE(Parent)
     {
     public:
         // Order in class shouldn't matter.
@@ -34,7 +35,7 @@ namespace
         Input<int> i{"i"};
         Output<int> o{"o"};
 
-        Parent(ModuleName name) : Module(name)
+        DSPSIM_CTOR(Parent)
         {
             // Bind in the constructor.
             child.i.bind(i);
@@ -59,14 +60,15 @@ namespace
 
         Top(ModuleName name) : Module(name)
         {
-            always << i << p1_internal << p2_internal;
+            DSPSIM_METHOD(eval)
+                ->always(i, p1_internal, p2_internal);
 
             parent1.i.bind(i);
             parent1.o.bind(p1_internal);
             parent2.i.bind(i);
             parent2.o.bind(p2_internal);
         }
-        void eval() override
+        void eval()
         {
             o.write(p1_internal.read() + p2_internal.read());
         }
@@ -77,7 +79,7 @@ namespace
 TEST_CASE("Better binding test", "[better_binding]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};
@@ -91,9 +93,9 @@ TEST_CASE("Better binding test", "[better_binding]")
     // Elaboration will finalize the construction.
     ctx->elaborate();
 
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 2);
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == 12);
 }

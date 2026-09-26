@@ -1,7 +1,6 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
-#include <dspsim/sensitivity_list.h>
 #include <memory>
 #include <vector>
 
@@ -9,8 +8,10 @@ namespace dspsim
 {
     class PortBase : public Model
     {
+        int _width;
+
     public:
-        PortBase(const std::string &name, const std::string &kind);
+        PortBase(const std::string &name, int width, const std::string &kind);
         virtual void finalize() override = 0;
         // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
         virtual void _sync() {}
@@ -25,16 +26,16 @@ namespace dspsim
         SensitivityEvent _negedge_event;
 
     public:
-        InputBase(const std::string &name);
+        InputBase(const std::string &name, int width);
         virtual void finalize() override = 0;
 
-        // Modules can be sensitive to port changes.
-        SensitivityEvent &pos();
-        SensitivityEvent &neg();
-        SensitivityEvent &_change();
+        // Processes can be sensitive to port changes.
+        SensitivityEvent *_change() { return &_change_event; }
+        SensitivityEvent *pos() { return &_posedge_event; }
+        SensitivityEvent *neg() { return &_negedge_event; }
 
         // Cast this class as _change() event when using in a sensitivity list.
-        operator SensitivityEvent &();
+        operator SensitivityEvent *() { return _change(); }
     };
 
     template <typename T>
@@ -44,16 +45,16 @@ namespace dspsim
         std::vector<Input<T> *> _bound_ports;
 
     public:
-        Input(const std::string &name);
-        Input(const std::string &name, Signal<T> &signal);
+        Input(const std::string &name, int width = default_bitwidth<T>::value);
         void finalize() override;
 
     protected:
+        // Update the bound signal's subscribers with the ports subscribers
+        void update_bound_signal_subscribers();
         // Resolve a chain of port-to-port bindings down to the underlying signal.
         void resolve();
 
     public:
-        operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Input<T> &port);
 
@@ -61,18 +62,19 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Input<T> &port);
 
-        const T &read() const;
+        // Read the value of the port (bound signal).
+        const T &read() const { return _bound_signal->read(); }
 
-        // Set in the update cycle after a signal event. Derived from bound signal.
-        bool posedge() const;
-        bool negedge() const;
-        bool changed() const;
+        // Set in the update cycle after a signal event. Derived from the bound signal.
+        bool changed() const { return _bound_signal->changed(); }
+        bool posedge() const { return _bound_signal->posedge(); }
+        bool negedge() const { return _bound_signal->negedge(); }
     };
 
     class OutputBase : public PortBase
     {
     public:
-        OutputBase(const std::string &name) : PortBase(name, "output") {}
+        OutputBase(const std::string &name, int width);
         virtual void finalize() override = 0;
     };
 
@@ -84,8 +86,7 @@ namespace dspsim
         std::vector<Output<T> *> _bound_ports;
 
     public:
-        Output(const std::string &name);
-        Output(const std::string &name, Signal<T> &signal);
+        Output(const std::string &name, int width = default_bitwidth<T>::value);
         void finalize() override;
 
     protected:
@@ -93,7 +94,6 @@ namespace dspsim
         void resolve();
 
     public:
-        operator Signal<T> &();
         void bind(Signal<T> &signal);
         void bind(Output<T> &port);
 
@@ -101,10 +101,14 @@ namespace dspsim
         void _bind_signal(Signal<T> &signal);
         void _bind_port(Output<T> &port);
 
-        void write(const T &value);
+        // Read the value of the bound signal.
+        const T &read() const { return _bound_signal->read(); }
 
-        const T &_read_d() const;
-        const T &read() const;
+        // Write to the bound signal.
+        void write(const T &value) { _bound_signal->write(value); }
+
+        // Read the pending value. Shouldn't be used, but is available.
+        const T &_read_d() const { return _bound_signal->_read_d(); }
     };
 
 }

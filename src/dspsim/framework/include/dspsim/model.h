@@ -5,9 +5,9 @@
 namespace dspsim
 {
     class Context;
-    using ModelPtr = std::shared_ptr<class Model>;
+    class Model;
 
-    void _own_model_helper(Context *context, ModelPtr model);
+    void _own_model_helper(Context *context, std::shared_ptr<Model> model);
 
     class Model
     {
@@ -30,18 +30,17 @@ namespace dspsim
         // Called during elaboration.
         virtual void finalize();
 
-        // Simulation methods.
-        virtual void eval();
-        // virtual void update();
         // Trace.
         virtual void dump_trace() {}
 
         /*
             Properties
         */
-        Context *context() const;
-        uint32_t id() const;
-        const std::string &name() const;
+        // Defined inline: called on every signal/process bookkeeping operation in the
+        // delta-cycle hot path, so it must be inlinable without relying on LTO.
+        Context *context() const { return _context; }
+        uint32_t id() const { return _id; }
+        const std::string &name() const { return _name; }
         const std::string &kind() const;
         const std::string hier_name() const;
         Model *parent() const;

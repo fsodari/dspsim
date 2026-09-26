@@ -1,15 +1,15 @@
 #include <dspsim/dspsim.h>
-#include <dspsim/dff.h>
+#include <dspsim/modules/dff.h>
 #include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
 
-TEST_CASE("test_dff")
+TEST_CASE("test_dff", "[dff]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> d_top{"d_top"};
@@ -28,7 +28,10 @@ TEST_CASE("test_dff")
 
     ctx->elaborate();
 
-    ctx->run(20);
+    ctx->run(15);
+    REQUIRE(q_top.read() == 0);
+    REQUIRE(q_top2.read() == 0);
+    REQUIRE(d_top.read() == 0);
     for (int i = 1; i < 3; i++)
     {
         d_top.write(i);

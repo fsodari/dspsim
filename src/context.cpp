@@ -12,6 +12,7 @@
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace dspsim
 {
     static inline auto parse_level(const std::string &level)
@@ -35,6 +36,8 @@ namespace dspsim
         : _name(name),
           _id(id),
           _next_model_id(0),
+          _next_process_id(0),
+          //   _active_process(nullptr),
           _time(0),
           _time_unit("1ns"),
           _signal_event(false)
@@ -42,22 +45,30 @@ namespace dspsim
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
+
+        // Reserve space in eval/update/event stacks.
+        _process_eval_stack.stack().reserve(1000);
+        _signal_update_stack.stack().reserve(1000);
+        _sensitivity_event_stack.reserve(1000);
     }
 
     Context::~Context()
     {
-        spdlog::drop(_name);
+        // Do not touch spdlog's global registry here: Context can be destroyed by the
+        // static destruction of _global_context_factory, and spdlog's registry (a
+        // function-local static) may already have been torn down by that point,
+        // making spdlog::drop() dereference freed memory.
         clear();
     }
 
     void Context::clear()
     {
+        // Clearing this will cause a segfault if signals go out of scope first.
+        // _process_eval_stack.clear();
+        // _signal_update_stack.clear();
         _registered_models.clear();
         _owned_models.clear();
         _children.clear();
-        _eval_stack.clear();
-        _signal_update_stack.clear();
-        // _time_event_stack.clear();
         _time_event_stack = PriorityQueue<TimeEvent>();
     }
 
@@ -68,31 +79,17 @@ namespace dspsim
             model->finalize();
         }
 
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto model : _registered_models)
-        {
-            if (auto *module = dynamic_cast<Module *>(model))
-            {
-                if (module->initialize())
-                {
-                    _push_eval_stack(model);
-                }
-            }
-        }
-        // Force an initial update of all signals.
-        for (auto signal : _signals)
-        {
-            _signal_update_stack.push_back(signal);
-        }
+        // if (!_initialized) [[unlikely]]
+        // {
+        //     _do_initialize();
+        // }
     }
 
     int Context::eval()
     {
         int n_iter = 0;
-
+        bool any_model_updated = false;
         // Any model that was updated this cycle should be traced.
-        UniqueStack<Model *> _trace_stack;
 
         // Reset signal event flag at the beginning of each delta cycle.
         if (_signal_event)
@@ -104,67 +101,126 @@ namespace dspsim
                 signal->_clear_event_flag();
             }
         }
+
         // Run eval cycle.
-        while (!_eval_stack.empty() || !_signal_update_stack.empty())
+        while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
+            any_model_updated = true;
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
-            while (!_eval_stack.empty())
+            // run eval cycle on all models that were scheduled to be evaluated.
+            for (const auto &process : _process_eval_stack)
             {
-                // auto model = _eval_stack.pop();
-                Model *model = _eval_stack.back();
-                _eval_stack.pop_back();
-                SPDLOG_LOGGER_TRACE(logger, "Evaluating model: {}", model->name());
-                model->eval();
-
-                // Add the model to the update stack after evaluation.
-                _trace_stack.push_back(model);
+                SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
+                process->eval();
             }
+            _process_eval_stack.clear();
 
-            // run update cycle on all models that were evaluated.
-            while (!_signal_update_stack.empty())
+            // run update cycle on all signals that were scheduled to be updated.
+            for (const auto &signal : _signal_update_stack)
             {
-                SignalBase *signal = _signal_update_stack.back();
-                _signal_update_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
                 signal->update();
             }
+            _signal_update_stack.clear();
+
+            // run notify cycle on all sensitivity events that were scheduled to be notified.
+            for (const auto &event : _sensitivity_event_stack)
+            {
+                SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
+                event->notify();
+            }
+            _sensitivity_event_stack.clear();
         }
 
-        // Trace.
-        for (auto m : _trace_stack)
+        // Trace modules that requested tracing.
+        if (any_model_updated)
         {
-            m->dump_trace();
+            [[unlikely]] for (auto m : _trace_stack)
+            {
+                m->dump_trace();
+            }
         }
         return n_iter;
     }
 
+    void Context::_do_initialize()
+    {
+        if (_initialized) [[likely]]
+            return;
+        _initialized = true;
+        // Update all signals
+        while (!_signal_update_stack.empty())
+        {
+            SignalBase *signal = _signal_update_stack.back();
+            _signal_update_stack.pop_back();
+            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            signal->update();
+        }
+
+        // Force an initial settle: schedule every module for evaluation once so that
+        // combinational logic propagates from initial signal values before the first eval().
+        for (auto process : _processes)
+        {
+            // // Modules can opt out of initializing.
+            // if (process->source() == nullptr)
+            //     continue;
+            // if (auto *module = dynamic_cast<Module *>(process->source()))
+            // {
+            //     if (module->initialize())
+            //     {
+            //         _process_eval_stack.push_back(process.get());
+            //     }
+            //     else
+            //     {
+            //         _process_eval_stack.erase(process.get());
+            //     }
+            // }
+            if (process->initialize())
+            {
+                _process_eval_stack.push_back(process.get());
+            }
+        }
+    }
     void Context::run(uint64_t time_inc)
     {
+        if (!_initialized) [[unlikely]]
+        {
+            _do_initialize();
+        }
         // Compute delta cycle.
         eval();
 
         // Evaluate all time steps.
-        while (!_time_event_stack.empty() and time_inc > 0)
+        while (!_time_event_stack.empty() && time_inc > 0)
         {
             // Advance to the next time step.
             uint64_t next_time_step = _time_event_stack.top().time_update - _time;
+            // What if time update is less than the current time? If we missed a step? Bad model.
+
+            // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
+            if (next_time_step > time_inc)
+            {
+                next_time_step = time_inc;
+            }
             // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
+            if (time_inc == 0)
+            {
+                break;
+            }
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
-            do
+            while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time)
             {
-                // auto event = _time_event_stack.pop();
                 auto event = _time_event_stack.top();
                 _time_event_stack.pop();
-                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.subscriber->name());
-                // push_eval_stack(event.subscriber);
-                _eval_stack.push_back(event.subscriber);
-            } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
+                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
+                _process_eval_stack.push_back(event.process);
+            }
             // Perform a delta cycle at this time step.
             eval();
         }
@@ -192,10 +248,15 @@ namespace dspsim
         return _registered_models;
     }
 
-    // const std::vector<Module *> &Context::modules() const
-    // {
-    //     return _modules;
-    // }
+    const std::vector<Module *> &Context::modules() const
+    {
+        return _modules;
+    }
+
+    const std::vector<SignalBase *> &Context::signals() const
+    {
+        return _signals;
+    }
 
     const std::vector<Model *> &Context::children(Model *parent) const
     {
@@ -248,11 +309,13 @@ namespace dspsim
         _registered_models.push_back(model);
         _children[model->parent()].push_back(model);
 
-        // // If this is a module, add it to the list of modules.
-        // if (auto *module = dynamic_cast<Module *>(model))
-        // {
-        //     _modules.push_back(module);
-        // }
+        // Reset the active process of the context.
+        // Processes must be registered after all other submodules have been added to a parent module.
+        // _active_process = nullptr;
+    }
+    void Context::_add_module(Module *module)
+    {
+        _modules.push_back(module);
     }
 
     void Context::_add_signal(SignalBase *signal)
@@ -260,24 +323,23 @@ namespace dspsim
         _signals.push_back(signal);
     }
 
-    void Context::_own_model(ModelPtr model)
+    void Context::_own_model(std::shared_ptr<Model> model)
     {
         _owned_models.push_back(model);
     }
 
-    void Context::_own_module(ModulePtr module)
-    {
-        _owned_modules.push_back(module);
-    }
+    // void Context::_own_module(std::shared_ptr<Module> module)
+    // {
+    //     _owned_modules.push_back(module);
+    // }
 
-    void Context::_push_eval_stack(Model *model)
+    Process *Context::register_process_func(const std::function<void()> &eval, Model *source, const std::string &name)
     {
-        _eval_stack.push_back(model);
-    }
-
-    void Context::_push_time_event_stack(TimeEvent event)
-    {
-        _time_event_stack.push(event);
+        auto process = std::make_shared<Process>(_next_process_id++, eval, source, name);
+        _processes.push_back(process);
+        logger->info("Registering process: {}, id: {}", name, _next_process_id - 1);
+        // Set the active process of the context.
+        return process.get();
     }
 
     Module *Context::_active_module() const
@@ -297,7 +359,7 @@ namespace dspsim
         return hierarchy;
     }
 
-    ContextPtr Context::obtain()
+    std::shared_ptr<Context> Context::obtain()
     {
         return get_global_context_factory()->obtain();
     }
@@ -306,7 +368,7 @@ namespace dspsim
     {
         get_global_context_factory()->reset();
     }
-    ContextPtr Context::create(const std::string &name)
+    std::shared_ptr<Context> Context::create(const std::string &name)
     {
         return get_global_context_factory()->create(name);
     }
@@ -318,7 +380,7 @@ namespace dspsim
     {
     }
 
-    ContextPtr ContextFactory::obtain()
+    std::shared_ptr<Context> ContextFactory::obtain()
     {
         if (_active_context == nullptr)
         {
@@ -334,7 +396,7 @@ namespace dspsim
         _active_context = nullptr;
     }
 
-    ContextPtr ContextFactory::create(const std::string &name)
+    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
         _active_context = nullptr;
         std::string _context_name = name;
@@ -346,9 +408,9 @@ namespace dspsim
         return _active_context;
     }
 
-    static ContextFactoryPtr _global_context_factory = nullptr;
+    static std::shared_ptr<ContextFactory> _global_context_factory = nullptr;
 
-    ContextFactoryPtr get_global_context_factory()
+    std::shared_ptr<ContextFactory> get_global_context_factory()
     {
         if (!_global_context_factory)
         {
@@ -357,7 +419,7 @@ namespace dspsim
         return _global_context_factory;
     }
 
-    void set_global_context_factory(ContextFactoryPtr factory)
+    void set_global_context_factory(std::shared_ptr<ContextFactory> factory)
     {
         _global_context_factory = factory;
     }

@@ -1,5 +1,5 @@
 #include <dspsim/dspsim.h>
-#include <dspsim/dff.h>
+#include <dspsim/modules/dff.h>
 #include <dspsim/modules/axis_tx.h>
 #include <dspsim/modules/axis_rx.h>
 #include <spdlog/spdlog.h>
@@ -71,7 +71,7 @@ namespace
 TEST_CASE("test_vmodel", "[vmodel]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> rst{"rst"};

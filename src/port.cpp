@@ -5,42 +5,41 @@
 
 namespace dspsim
 {
-    PortBase::PortBase(const std::string &name, const std::string &kind)
-        : Model(name, kind)
+    PortBase::PortBase(const std::string &name, int width, const std::string &kind)
+        : Model(name, kind), _width(width)
     {
+        if (context()->_active_module())
+        {
+            context()->_active_module()->ports().push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register port {}", name);
+        }
     }
 
-    InputBase::InputBase(const std::string &name) : PortBase(name, "input")
+    InputBase::InputBase(const std::string &name, int width)
+        : PortBase(name, width, "input"),
+          _change_event(context()),
+          _posedge_event(context()),
+          _negedge_event(context())
     {
-    }
-
-    SensitivityEvent &InputBase::pos()
-    {
-        return _posedge_event;
-    }
-    SensitivityEvent &InputBase::neg()
-    {
-        return _negedge_event;
-    }
-    SensitivityEvent &InputBase::_change()
-    {
-        return _change_event;
-    }
-    InputBase::operator SensitivityEvent &()
-    {
-        return _change();
+        // Register an input port with the parent module.
+        if (context()->_active_module())
+        {
+            context()->_active_module()->inputs().push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register input port {}", name);
+        }
     }
 
     template <typename T>
-    Input<T>::Input(const std::string &name) : InputBase(name)
+    Input<T>::Input(const std::string &name, int width) : InputBase(name, width)
     {
     }
 
-    template <typename T>
-    Input<T>::Input(const std::string &name, Signal<T> &signal) : InputBase(name)
-    {
-        bind(signal);
-    }
     template <typename T>
     void Input<T>::finalize()
     {
@@ -48,14 +47,19 @@ namespace dspsim
     }
 
     template <typename T>
+    void Input<T>::update_bound_signal_subscribers()
+    {
+        _bound_signal->pos()->processes().push_range(_posedge_event.processes());
+        _bound_signal->neg()->processes().push_range(_negedge_event.processes());
+        _bound_signal->_change()->processes().push_range(_change_event.processes());
+    }
+
+    template <typename T>
     void Input<T>::resolve()
     {
         if (_bound_signal)
         {
-            // Add the ports events to the bound signal's events.
-            _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
-            _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
-            _bound_signal->_change().subscribers().push_range(_change_event.subscribers());
+            update_bound_signal_subscribers();
             // What if downstream ports need to be bound? Can this happen in an input?
 
             return;
@@ -67,9 +71,7 @@ namespace dspsim
             {
                 _bound_signal = port->_bound_signal;
                 // Add the ports events to the bound signal's events.
-                _bound_signal->pos().subscribers().push_range(_posedge_event.subscribers());
-                _bound_signal->neg().subscribers().push_range(_negedge_event.subscribers());
-                _bound_signal->_change().subscribers().push_range(_change_event.subscribers());
+                update_bound_signal_subscribers();
                 break;
             }
         }
@@ -77,12 +79,6 @@ namespace dspsim
         {
             context()->logger->error("Input port {} could not be resolved to a signal", hier_name());
         }
-    }
-
-    template <typename T>
-    Input<T>::operator Signal<T> &()
-    {
-        return *_bound_signal;
     }
 
     template <typename T>
@@ -111,44 +107,25 @@ namespace dspsim
         bind(port);
     }
 
-    template <typename T>
-    const T &Input<T>::read() const
-    {
-        return _bound_signal->read();
-    }
-
-    // Set in the update cycle after a signal event. Derived from bound signal.
-    template <typename T>
-    bool Input<T>::posedge() const
-    {
-        return _bound_signal->posedge();
-    }
-
-    template <typename T>
-    bool Input<T>::negedge() const
-    {
-        return _bound_signal->negedge();
-    }
-
-    template <typename T>
-    bool Input<T>::changed() const
-    {
-        return _bound_signal->changed();
-    }
-
     //
     // OUTPUT<T>
     //
 
-    template <typename T>
-    Output<T>::Output(const std::string &name) : OutputBase(name)
+    OutputBase::OutputBase(const std::string &name, int width) : PortBase(name, width, "output")
     {
+        if (context()->_active_module())
+        {
+            context()->_active_module()->outputs().push_back(this);
+        }
+        else
+        {
+            context()->logger->error("No active module to register output port {}", name);
+        }
     }
 
     template <typename T>
-    Output<T>::Output(const std::string &name, Signal<T> &signal) : Output<T>(name)
+    Output<T>::Output(const std::string &name, int width) : OutputBase(name, width)
     {
-        bind(signal);
     }
 
     template <typename T>
@@ -181,12 +158,6 @@ namespace dspsim
     }
 
     template <typename T>
-    Output<T>::operator Signal<T> &()
-    {
-        return *_bound_signal;
-    }
-
-    template <typename T>
     void Output<T>::bind(Signal<T> &signal)
     {
         if (_bound_signal)
@@ -214,37 +185,19 @@ namespace dspsim
         bind(port);
     }
 
-    template <typename T>
-    void Output<T>::write(const T &value)
-    {
-        _bound_signal->write(value);
-        for (auto &port : _bound_ports)
-        {
-            port->write(value);
-        }
-    }
-
-    template <typename T>
-    const T &Output<T>::_read_d() const
-    {
-        return _bound_signal->_read_d();
-    }
-
-    template <typename T>
-    const T &Output<T>::read() const
-    {
-        return _bound_signal->read();
-    }
-
     template class Input<uint8_t>;
     template class Input<uint16_t>;
     template class Input<uint32_t>;
     template class Input<uint64_t>;
     template class Input<int>;
+    template class Input<float>;
+    template class Input<double>;
 
     template class Output<uint8_t>;
     template class Output<uint16_t>;
     template class Output<uint32_t>;
     template class Output<uint64_t>;
     template class Output<int>;
+    template class Output<float>;
+    template class Output<double>;
 }

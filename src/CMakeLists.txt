@@ -2,23 +2,21 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/model.cpp
     ${DSPSIM_SRC_DIR}/signal.cpp
-    ${DSPSIM_SRC_DIR}/dff.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
     ${DSPSIM_SRC_DIR}/module.cpp
     ${DSPSIM_SRC_DIR}/module_name.cpp
     ${DSPSIM_SRC_DIR}/port.cpp
-    ${DSPSIM_SRC_DIR}/sensitivity_list.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
-    ${DSPSIM_SRC_DIR}/vmodule_base.cpp
-    ${DSPSIM_SRC_DIR}/vport.cpp
     ${DSPSIM_SRC_DIR}/process.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
-set_target_properties(dspsim-core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(dspsim-core PROPERTIES 
+    POSITION_INDEPENDENT_CODE ON
+    INTERPROCEDURAL_OPTIMIZATION ON)
 
-if(${LOG_TRACE})
-    target_compile_definitions(dspsim-core PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
-endif()
+# Trace logging in debug mode only.
+target_compile_definitions(dspsim-core PUBLIC
+    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>")
 
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.

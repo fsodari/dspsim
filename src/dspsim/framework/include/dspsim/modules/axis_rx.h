@@ -7,8 +7,10 @@ namespace dspsim
 {
     //
     template <typename T>
-    class AxisRx : public Module
+    DSPSIM_MODULE(AxisRx)
     {
+        using QueueType = std::deque<T>;
+
     public:
         Input<uint8_t> clk{"clk"};
         Input<uint8_t> rst{"rst"};
@@ -16,15 +18,16 @@ namespace dspsim
         Input<uint8_t> s_axis_tvalid{"s_axis_tvalid"};
         Output<uint8_t> s_axis_tready{"s_axis_tready"};
 
-        std::deque<T> fifo;
+        QueueType fifo;
         uint8_t _ready = 0;
 
-        AxisRx(ModuleName name) : Module(name)
+        DSPSIM_CTOR(AxisRx)
         {
-            always << clk.pos();
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval() override
+        void eval()
         {
             if (clk.posedge())
             {
@@ -45,6 +48,10 @@ namespace dspsim
         uint8_t ready() const
         {
             return _ready;
+        }
+        void clear()
+        {
+            fifo.clear();
         }
     };
 }

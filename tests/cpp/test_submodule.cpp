@@ -8,50 +8,46 @@ using namespace dspsim;
 
 namespace
 {
-    class Sub : public Module
+    DSPSIM_MODULE(Sub)
     {
     public:
-        Input<uint8_t> clk;
-        Input<uint8_t> in;
-        Output<uint8_t> out;
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> in{"in"};
+        Output<uint8_t> out{"out"};
 
-        Sub(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-            : Module(name),
-              clk("clk", clk_),
-              in("in", in_),
-              out("out", out_)
+        DSPSIM_CTOR(Sub)
         {
-            always << clk.pos();
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval() override
+        void eval()
         {
             context()->logger->debug("Sub eval() called, time: {}", context()->time());
             out.write(in.read());
         }
     };
 
-    class Parent : public Module
+    DSPSIM_MODULE(Parent)
     {
     public:
-        Input<uint8_t> clk;
-        Input<uint8_t> in;
-        Output<uint8_t> out;
+        Input<uint8_t> clk{"clk"};
+        Input<uint8_t> in{"in"};
+        Output<uint8_t> out{"out"};
 
         // Submodules must be initialized last.
-        Sub sub;
+        Sub sub{"sub"};
 
-        Parent(ModuleName name, Signal<uint8_t> &clk_, Signal<uint8_t> &in_, Signal<uint8_t> &out_)
-            : Module(name),
-              clk("clk", clk_),
-              in("in", in_),
-              out("out", out_),
-              sub("sub", clk, in, out) // Submodule must be initialized last. Init with ports or signals.
+        DSPSIM_CTOR(Parent)
         {
-            always << clk.pos();
+            sub.clk.bind(clk);
+            sub.in.bind(in);
+            sub.out.bind(out);
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos());
         }
 
-        void eval() override
+        void eval()
         {
             context()->logger->debug("Parent eval() called, time: {}", context()->time());
         }
@@ -67,7 +63,10 @@ TEST_CASE("test_submodule")
     Signal<uint8_t> in_signal{"in_signal"};
     Signal<uint8_t> out_signal{"out_signal"};
 
-    Parent parent{"parent", clk, in_signal, out_signal};
+    Parent parent{"parent"};
+    parent.clk.bind(clk);
+    parent.in.bind(in_signal);
+    parent.out.bind(out_signal);
 
     ctx->elaborate();
 

@@ -1,5 +1,5 @@
 #pragma once
-// #include <dspsim/forward.h>
+#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
@@ -21,41 +21,43 @@ namespace dspsim
     class SignalBase : public Model
     {
     protected:
-        // std::vector<PortBase *> _drivers;
-        // std::vector<PortBase *> _subscribers;
         SensitivityEvent _change_event;
         SensitivityEvent _posedge_event;
         SensitivityEvent _negedge_event;
+        bool _changed_flag;
         bool _posedge_flag;
         bool _negedge_flag;
-        bool _changed_flag;
+
+        // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
+        bool _scheduled;
 
     public:
         SignalBase(const std::string &name = "");
 
-        // void _add_driver(PortBase *driver);
-        // void _add_subscriber(PortBase *subscriber);
         virtual void update() = 0;
-        using Model::id;
 
-        // Allow a module to be sensitized directly to this signal (e.g. `always << some_signal;`),
-        // without needing an intermediate Port.
-        SensitivityEvent &pos();
-        SensitivityEvent &neg();
-        SensitivityEvent &_change();
-        operator SensitivityEvent &();
+        // Access the sensitivity events for this signal.
+        SensitivityEvent *_change() { return &_change_event; }
+        SensitivityEvent *pos() { return &_posedge_event; }
+        SensitivityEvent *neg() { return &_negedge_event; }
 
+        operator SensitivityEvent *() { return _change(); }
+
+        // Set if there was a change event in the previous update cycle.
+        bool changed() const { return _changed_flag; }
         // Set if there was a posedge event in the previous update cycle.
-        bool posedge() const;
+        bool posedge() const { return _posedge_flag; }
         // Set if there was a negedge event in the previous update cycle.
-        bool negedge() const;
+        bool negedge() const { return _negedge_flag; }
 
-        bool changed() const;
-        void _clear_event_flag();
+        void _clear_event_flag()
+        {
+            _changed_flag = false;
+            _posedge_flag = false;
+            _negedge_flag = false;
+        }
+        bool &_scheduled_flag() { return _scheduled; }
     };
-
-    // template <typename T>
-    // using SignalPtr = std::shared_ptr<class Signal<T>>;
 
     template <typename T>
     class Signal : public SignalBase
@@ -69,21 +71,23 @@ namespace dspsim
         T _d, _q;
 
     public:
-        Signal(const std::string &name, int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
-
+        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        virtual ~Signal() = default;
         Signal<T> &init(const T &value);
+
         /*
             Properties
         */
-        int width() const;
-        bool is_signed() const;
+        int width() const { return _width; }
+        bool is_signed() const { return _is_signed; }
 
-        virtual const std::string repr() const override;
+        virtual const std::string repr() const override { return ""; }
 
         void write(const T &value);
-        const T &read() const;
+
+        const T &read() const { return _q; }
         // Used for python d property
-        const T &_read_d() const;
+        const T &_read_d() const { return _d; }
 
         virtual void update() override;
         /*
@@ -101,3 +105,53 @@ namespace dspsim
     using Signal64 = Signal<uint64_t>;
 
 } // namespace dspsim
+
+namespace dspsim
+{
+    template <typename T>
+    void Signal<T>::write(const T &value)
+    {
+        _d = value;
+
+        if (_d != _q)
+        {
+            // Schedule for update
+            context()->_signal_update_stack.push_back(this);
+        }
+        else [[unlikely]]
+        {
+            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
+            // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
+            // will write the same signal multiple times within the same update cycle.
+            auto it = context()->_signal_update_stack.find(this);
+
+            if (it != context()->_signal_update_stack.end())
+            {
+                context()->_signal_update_stack.erase(it);
+            }
+        }
+    }
+
+    template <typename T>
+    void Signal<T>::update()
+    {
+        _changed_flag = true;
+        context()->_signal_event = true;
+
+        if (_d && !_q)
+        {
+            _posedge_flag = true;
+
+            context()->_sensitivity_event_stack.push_back(pos());
+        }
+        else if (!_d && _q)
+        {
+            _negedge_flag = true;
+
+            context()->_sensitivity_event_stack.push_back(neg());
+        }
+        context()->_sensitivity_event_stack.push_back(_change());
+
+        this->_q = this->_d;
+    }
+}

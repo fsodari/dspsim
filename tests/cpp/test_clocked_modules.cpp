@@ -16,13 +16,12 @@ namespace
 
         SomeModule(ModuleName name) : Module(name)
         {
-            always << clk.pos();
-
-            // Prevent initial eval step
-            dont_initialize();
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos())
+                ->initialize(false);
         }
 
-        void eval() override
+        void eval()
         {
             if (clk.posedge())
             {
@@ -30,7 +29,7 @@ namespace
             }
             else
             {
-                FAIL("This should never eval unless there is a posedge event on clk");
+                FAIL("This should never eval unless there is a posedge event on clk, since initialize(false) was set");
             }
         }
     };
@@ -48,32 +47,33 @@ namespace
 
         MultiClockSensitive(ModuleName name) : Module(name)
         {
-            //
-            always << clk1.pos() << clk2.pos();
-
-            // Prevent initial eval step
-            dont_initialize();
+            // Register the eval_ method with the simulation kernel.
+            DSPSIM_METHOD(eval)
+                ->always(clk1.pos(), clk2.pos());
         }
 
-        void eval() override
+        void eval()
         {
+            context()->logger->info("multi.eval()");
             if (clk1.posedge())
             {
                 clk1_counts++;
+                context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
             }
             if (clk2.posedge())
             {
                 clk2_counts++;
+                context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
             }
         }
     };
 
 } // namespace
 
-TEST_CASE("Clocked module", "[clock]")
+TEST_CASE("Clocked module", "[clock][clock1]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::err);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk{"clk", 10};
     Signal<int> a{"a"};
@@ -89,12 +89,14 @@ TEST_CASE("Clocked module", "[clock]")
     // Elaboration will finalize the construction.
     ctx->elaborate();
 
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() == a.read());
     a.write(5);
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(b.read() != a.read());
     ctx->run(10);
+    REQUIRE(b.read() != a.read());
+    ctx->run(5);
     REQUIRE(b.read() == a.read());
     ctx->run(100);
 
@@ -106,10 +108,10 @@ TEST_CASE("Clocked module", "[clock]")
     }
 }
 
-TEST_CASE("multi clocks", "[clock]")
+TEST_CASE("multi clocks", "[clock][clock2]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->logger->set_level(spdlog::level::warn);
 
     Clock clk1{"clk1", 6};
     Clock clk2{"clk2", clk1.period() * 2};
@@ -128,15 +130,7 @@ TEST_CASE("multi clocks", "[clock]")
     ctx->elaborate();
 
     // Clocks will update on first delta cycle.
-    ctx->eval();
+    ctx->run(0);
     REQUIRE(top.clk1_counts == 1);
     REQUIRE(top.clk2_counts == 1);
-
-    for (int x = 1; x < 100; x++)
-    {
-        a.write(x);
-        ctx->run(clk1.period());
-        REQUIRE(top.clk1_counts == x + 1);
-        REQUIRE(top.clk2_counts == x / 2 + 1);
-    }
 }

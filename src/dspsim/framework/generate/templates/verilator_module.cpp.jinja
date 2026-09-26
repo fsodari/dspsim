@@ -1,7 +1,7 @@
-// Generated wrapper for {{model.name}}
 #include "{{model.name}}.h"
+using VModType = {{model.name}};
 
-// Common
+// Set during the verilation step.
 #if VM_TRACE_VCD
 #include <verilated_vcd_c.h>
 using TraceType = VerilatedVcdC;
@@ -10,7 +10,7 @@ using TraceType = VerilatedVcdC;
 using TraceType = VerilatedFstC;
 #endif
 
-void {{model.name}}::_dump_trace()
+void VModType::_dump_trace()
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (tracep)
@@ -19,7 +19,7 @@ void {{model.name}}::_dump_trace()
     }
 #endif
 }
-void {{model.name}}::_open_trace(const std::filesystem::path &trace_path, int levels, int options)
+void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, int options)
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (!tracep)
@@ -38,7 +38,7 @@ void {{model.name}}::_open_trace(const std::filesystem::path &trace_path, int le
 #endif
 }
 
-void {{model.name}}::_close_trace()
+void VModType::_close_trace()
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (tracep)
@@ -46,4 +46,10 @@ void {{model.name}}::_close_trace()
         static_cast<TraceType *>(tracep.get())->close();
     }
 #endif
+}
+
+// Verilator on windows won't build unless this is defined.
+double sc_time_stamp()
+{
+    return 0;
 }
