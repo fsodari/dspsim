@@ -43,9 +43,6 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Install Dependencies
-        run: ./scripts/install_deps.sh
-
       - name: Build Linux wheels
         run: uvx cibuildwheel --output-dir ./dist
 
@@ -68,9 +65,6 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Install Dependencies
-        run: ./scripts/install_deps.ps1
-          
       - name: Build Windows wheels
         run: uvx cibuildwheel --output-dir ./dist
 
