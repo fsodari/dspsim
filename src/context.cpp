@@ -175,28 +175,34 @@ namespace dspsim
         {
             _do_initialize();
         }
-        // Compute delta cycle.
+        // Compute delta cycle. Signals may have been written to before the last run() call.
+        // This will also eval any pending time updates from the last run() cycle.
         eval();
 
         // Evaluate all time steps.
-        while (!_time_event_stack.empty() && time_inc > 0)
+        uint64_t next_time_step = 0;
+        while (time_inc > 0)
         {
             // Advance to the next time step.
-            uint64_t next_time_step = _time_event_stack.top().time_update - _time;
-            // What if time update is less than the current time? If we missed a step? Bad model.
-
-            // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
-            if (next_time_step > time_inc)
+            if (!_time_event_stack.empty())
+            {
+                next_time_step = _time_event_stack.top().time_update - _time;
+                // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
+                if (next_time_step > time_inc)
+                {
+                    next_time_step = time_inc;
+                }
+            }
+            else
             {
                 next_time_step = time_inc;
             }
+            // What if time update is less than the current time? If we missed a step? Bad model.
+
             // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
-            // if (time_inc == 0)
-            // {
-            //     break;
-            // }
+
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
@@ -207,12 +213,13 @@ namespace dspsim
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
                 _process_eval_stack.push_back(event.process);
             }
-            if (time_inc == 0)
+            // Evaluate up until the next time step. So we should skip an eval with time_inc == 0.
+            // Models with the time update will still be queued for the next delta cycle.
+            if (time_inc != 0)
             {
-                break;
+                // Perform a delta cycle at this time step.
+                eval();
             }
-            // Perform a delta cycle at this time step.
-            eval();
         }
     }
 
