@@ -39,8 +39,7 @@ verilator = [
 # library = ["dspsim-library>="]
 
 [project.scripts]
-dspsim = "dspsim.framework.cli:main"
-dspsim_generate_single_vmodel = "dspsim.generate.single_vmodel:main"
+dspsim = "dspsim.cli:main"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

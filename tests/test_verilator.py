@@ -3,6 +3,8 @@ from pathlib import Path
 
 from dspsim import verilator
 
+HDL_DIR = Path(__file__).parent.parent / "hdl"
+
 
 def test_verilator_root():
     root = verilator.verilator_root()
@@ -23,10 +25,10 @@ def test_verilator_version():
 
 
 def test_verilator_json():
-    hdl_dir = Path(__file__).parent / "test_modules"
-    src_file = hdl_dir / "SimpleModel.sv"
+
+    src_file = HDL_DIR / "SimpleModel.sv"
     model_data, metadata = verilator.verilate_json(
-        sources=[src_file], include_dirs=[hdl_dir]
+        sources=[src_file], include_dirs=[HDL_DIR]
     )
 
     # Check that the top-level module name is correct.

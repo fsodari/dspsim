@@ -17,16 +17,17 @@ from dspsim.framework import (
     Signal16,
 )
 
+HDL_DIR = Path(__file__).parent.parent / "hdl"
+
 
 def test_vbuilder():
     print()
-    hdl_dir = Path.cwd() / "tests" / "test_modules"
-    source = hdl_dir / "Skid.sv"
+    source = HDL_DIR / "Skid.sv"
 
-    @vbuilder(source=source, include_dirs=[hdl_dir], trace="platform")
+    @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform")
     class Skid1(VModule):
         # Parameters
-        DW: int = 12
+        DW: int = 14
         # Ports
         clk: Input8
         rst: Input8
@@ -41,7 +42,7 @@ def test_vbuilder():
     Skid2 = build_vmodule(
         "Skid2",
         source=source,
-        include_dirs=[hdl_dir],
+        include_dirs=[HDL_DIR],
         parameters={"DW": 13},
         trace="platform",
     )
@@ -88,8 +89,8 @@ def test_vbuilder():
         assert skid1.context.name == "test_vbuilder"
         assert skid1.__class__.__name__ == "Skid1"
         assert skid1.name == "skid1"
-        assert skid1.DW == 12
-        assert skid1.s_axis_tdata.width == 12
+        assert skid1.DW == 14
+        assert skid1.s_axis_tdata.width == skid1.DW
 
         assert skid2.context.name == "test_vbuilder"
         assert skid2.__class__.__name__ == "Skid2"

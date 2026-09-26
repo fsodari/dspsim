@@ -2,6 +2,7 @@ import annotationlib
 import atexit
 import functools
 import glob
+import hashlib
 import importlib.util
 import os
 import subprocess
@@ -170,32 +171,52 @@ def _get_build_dir(name: str, module_info: ModuleInfo) -> Path:
     return build_dir
 
 
+def _compute_hash(generated_content: list[tuple[Path, str]]) -> str:
+    """Compute a hash for the generated content."""
+
+    hasher = hashlib.sha256()
+    for output_file, content in generated_content:
+        hasher.update(str(output_file.absolute()).encode())
+        hasher.update(content.encode())
+    return hasher.hexdigest()
+
+
 def generate_project_files(name: str, module_info: ModuleInfo) -> None:
     """Generate the project files for the module in the build directory."""
     build_dir = _get_build_dir(name, module_info)
     Path.mkdir(build_dir, parents=True, exist_ok=True)
 
-    # Render the project files.
-    # Module header
-    module_h = render_template("verilator_module.h.jinja", model=module_info)
-    with open(build_dir / f"{name}.h", "w") as f:
-        f.write(module_h)
-    # Module source
-    module_cpp = render_template("verilator_module.cpp.jinja", model=module_info)
-    with open(build_dir / f"{name}.cpp", "w") as f:
-        f.write(module_cpp)
-    # Module bindings
-    module_bind = render_template("verilator_module_bind.h.jinja", model=module_info)
-    with open(build_dir / f"{name}_bind.h", "w") as f:
-        f.write(module_bind)
-    # nanobind module
-    module_nb = render_template("verilator_module_module.cpp.jinja", model=module_info)
-    with open(build_dir / f"{name}_module.cpp", "w") as f:
-        f.write(module_nb)
-    # CMakeLists.txt
-    cmake = render_template("verilator_module_cmake.cmake.jinja", model=module_info)
-    with open(build_dir / "CMakeLists.txt", "w") as f:
-        f.write(cmake)
+    # template, output_file
+    gen_files = [
+        (build_dir / f"{name}.h", "verilator_module.h.jinja"),
+        (build_dir / f"{name}.cpp", "verilator_module.cpp.jinja"),
+        (build_dir / f"{name}_bind.h", "verilator_module_bind.h.jinja"),
+        (build_dir / f"{name}_module.cpp", "verilator_module_module.cpp.jinja"),
+        (build_dir / "CMakeLists.txt", "verilator_module_cmake.cmake.jinja"),
+    ]
+    # Render the templates.
+    rendered_content = [
+        (output_file, render_template(template, model=module_info))
+        for output_file, template in gen_files
+    ]
+
+    # Compute a hash and save it to the build_dir. If files haven't changed, skip generating.
+    content_hash = _compute_hash(rendered_content)
+    hash_file = build_dir / "content_hash.txt"
+    if hash_file.exists():
+        with open(hash_file, "r") as f:
+            existing_hash = f.read().strip()
+        if existing_hash == content_hash:
+            return
+
+    # Write the hash to a file in the build dir
+    with open(hash_file, "w") as f:
+        f.write(content_hash)
+
+    # Write the generated files to the build dir.
+    for output_file, content in rendered_content:
+        with open(output_file, "w") as f:
+            f.write(content)
 
 
 def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
@@ -205,25 +226,23 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
     site_packages_path = sysconfig.get_paths()["purelib"]
     # Search if dspsim is an editable install?
 
-    # If CMakeCache.txt doesn't exist yet, run the CMake configure command.
-    if not (build_dir / "build" / "CMakeCache.txt").exists():
-        cmake_cfg_cmd = [
-            "cmake",
-            "-S",
-            build_dir,
-            "-B",
-            build_dir / "build",
-            "-DCMAKE_BUILD_TYPE=Release",
-            site_packages_path,
-            # f"-DCMAKE_PREFIX_PATH={site_packages_path}/dspsim/framework;{site_packages_path}",
-        ]
-        out = subprocess.run(cmake_cfg_cmd, check=True, capture_output=True)
-        if verbose:
-            print(out.stdout.decode())
-        if out.returncode != 0:
-            print(f"Error occurred while running cmake: return code {out.returncode}")
-            print(f"stderr: {out.stderr.decode()}")
-            raise RuntimeError("CMake configuration failed")
+    # Run the CMake configure command. Can be skipped if already configured, but it's not slow anyways.
+    cmake_cfg_cmd = [
+        "cmake",
+        "-S",
+        build_dir,
+        "-B",
+        build_dir / "build",
+        "-DCMAKE_BUILD_TYPE=Release",
+        f"-DCMAKE_PREFIX_PATH={site_packages_path}",
+    ]
+    out = subprocess.run(cmake_cfg_cmd, check=True, capture_output=True)
+    if verbose:
+        print(out.stdout.decode())
+    if out.returncode != 0:
+        print(f"Error occurred while running cmake: return code {out.returncode}")
+        print(f"stderr: {out.stderr.decode()}")
+        raise RuntimeError("CMake configuration failed")
 
     # Run the build command.
     cmake_build_cmd = [
@@ -311,6 +330,7 @@ def build_vmodule(
         else:
             trace = "fst"
     module_info.trace = trace
+
     # Generate project files
     generate_project_files(module_info.name, module_info)
 
