@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Dependencies installation directory
 option(USE_LOCAL_DEPS "Add the deps/install folder to the module search path" ON)
 option(INSTALL_DEV_DEPS "Install developer dependencies" OFF)
+option(BUILD_BENCHMARKS "Build benchmark targets" ON)
+option(BUILD_TESTS "Build test targets" ON)
 
 # Install local dependencies if requested.
 if(USE_LOCAL_DEPS)
@@ -116,10 +118,14 @@ install(TARGETS _framework
 dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
 
 # Build benchmarks
-add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+if(BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+endif()
 
 # Testing.
-set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
-enable_testing()
-add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_SOURCE_DIR}/tests/sc_parity EXCLUDE_FROM_ALL)
+if(BUILD_TESTS)
+    set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
+    enable_testing()
+    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/cpp EXCLUDE_FROM_ALL)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/tests/sc_parity EXCLUDE_FROM_ALL)
+endif()
