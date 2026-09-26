@@ -193,10 +193,10 @@ namespace dspsim
             // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
-            if (time_inc == 0)
-            {
-                break;
-            }
+            // if (time_inc == 0)
+            // {
+            //     break;
+            // }
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
@@ -206,6 +206,10 @@ namespace dspsim
                 _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
                 _process_eval_stack.push_back(event.process);
+            }
+            if (time_inc == 0)
+            {
+                break;
             }
             // Perform a delta cycle at this time step.
             eval();

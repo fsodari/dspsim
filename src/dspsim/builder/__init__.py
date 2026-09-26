@@ -341,6 +341,12 @@ def build_vmodule(
     return wrapper  # type: ignore
 
 
+class VModule(_Module):
+    def __init__(self, name: str): ...
+    def open_trace(self, trace_path: Path, levels: int = 99, options: int = 0): ...
+    def close_trace(self): ...
+
+
 def vbuilder(
     source: Path,
     include_dirs: list[Path] | None = None,
@@ -353,7 +359,7 @@ def vbuilder(
     they must match the model exactly.
     """
 
-    def class_decorator[V: type[_Module]](cls: V) -> V:
+    def class_decorator[V: type[VModule]](cls: V) -> V:
         # Load the verilated model's default parameters.
         default_model_info = load_model_info(
             source, include_dirs=include_dirs, parameters={}
@@ -380,51 +386,5 @@ def vbuilder(
         )  # type: ignore
         wrapper: V
         return wrapper
-        # parameter_overrides = _get_parameter_overrides(
-        #     parameter_annotations, default_model_info.parameters
-        # )
-        # # Re-generate the model with the parameter annotations applied. Port sizes may change.
-        # module_info = load_model_info(
-        #     source, include_dirs=include_dirs, parameters=parameter_overrides
-        # )
-
-        # # At this point, the annotations check out.
-        # # Build the class.
-        # module_info.name = cls.__name__
-        # nonlocal trace
-        # if trace == "platform":
-        #     if sys.platform == "win32":
-        #         trace = "vcd"
-        #     else:
-        #         trace = "fst"
-        # # Generate project files
-        # generate_project_files(module_info.name, module_info)
-
-        # # Build the module!
-        # build_module(module_info.name, module_info, verbose=verbose)
-
-        # # Import the built module.
-        # module = _import_built_module(module_info.name, module_info)
-
-        # # Link the module's context factory to the main dspsim context factory.
-        # module.set_global_context_factory(get_global_context_factory())
-        # atexit.register(module.reset_global_context_factory)
-
-        # # Get the Module class from the imported module.
-        # module_cls = getattr(module, f"{module_info.name}")
-
-        # # Wrapper to get an instance of the class
-        # @functools.wraps(module_cls)
-        # def wrapper(name: str) -> V:
-        #     # Create a module name object before instantiating the module class.
-        #     _name = ModuleName(name)
-        #     # Replace the class.
-        #     instance = module_cls(_name)
-        #     # Delete the ModuleName to trigger the _end_construction method in the module class.
-        #     del _name
-        #     return instance
-
-        # # This works for a type hint, but I still get a type hint error if I don't ignore.
-        # return wrapper  # type: ignore
 
     return class_decorator

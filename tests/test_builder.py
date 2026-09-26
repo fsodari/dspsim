@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dspsim.builder import build_vmodule, vbuilder
+from dspsim.builder import VModule, build_vmodule, vbuilder
 from dspsim.framework import (
     Clock,
     Context,
@@ -8,7 +8,7 @@ from dspsim.framework import (
     Input16,
     # Input32,
     # Input64,
-    Module,
+    # Module,
     Output8,
     Output16,
     # Output32,
@@ -24,7 +24,7 @@ def test_vbuilder():
     source = hdl_dir / "Skid.sv"
 
     @vbuilder(source=source, include_dirs=[hdl_dir], trace="platform")
-    class Skid1(Module):
+    class Skid1(VModule):
         # Parameters
         DW: int = 12
         # Ports
@@ -64,7 +64,7 @@ def test_vbuilder():
         out_tready = Signal8("out_tready")
 
         skid1 = Skid1("skid1")
-        skid1.open_trace("traces/skid1.fst")
+        skid1.open_trace(Path("traces/skid1.fst"))
         skid1.clk.bind(clk)
         skid1.rst.bind(rst)
         skid1.s_axis_tdata.bind(in_tdata)
@@ -75,7 +75,7 @@ def test_vbuilder():
         skid1.m_axis_tready.bind(skid1_tready)
 
         skid2 = Skid2("skid2")
-        skid2.open_trace("traces/skid2.fst")
+        skid2.open_trace(Path("traces/skid2.fst"))
         skid2.clk.bind(clk)
         skid2.rst.bind(rst)
         skid2.s_axis_tdata.bind(skid1_tdata)
