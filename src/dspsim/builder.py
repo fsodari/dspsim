@@ -270,7 +270,7 @@ def _find_built_module(name: str, module_info: ModuleInfo) -> Path:
 
     # Might be in build or in build/Release depending on the platform/generator.
     build_path = _get_build_dir(name, module_info) / "build"
-    return build_path.glob(f"**/*{suffix}").__iter__().__next__()
+    return build_path.glob(f"**/*_{name}*{suffix}").__iter__().__next__()
     
 
 
