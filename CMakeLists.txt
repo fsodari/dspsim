@@ -19,20 +19,37 @@ if(USE_LOCAL_DEPS)
     # If it doesn't exist. Run the install script.
     if (NOT IS_DIRECTORY "${DEPS_INSTALL_DIR}")
         message(STATUS "Local dependencies directory not found: ${DEPS_INSTALL_DIR}")
-        message(STATUS "Running install_deps.sh to set up local dependencies.")
-
+        
         if (MSVC)
             set(SCRIPT_SUFFIX ".ps1")
         else()
             set(SCRIPT_SUFFIX ".sh")
         endif()
 
-        # If installing dev dependencies, run the corresponding script. Otherwise, run the standard install script.
         if (${INSTALL_DEV_DEPS})
-            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_dev_deps${SCRIPT_SUFFIX})
+            set(SCRIPT ${CMAKE_SOURCE_DIR}/scripts/install_dev_deps${SCRIPT_SUFFIX})
         else()
-            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_deps${SCRIPT_SUFFIX}
-            )
+            set(SCRIPT ${CMAKE_SOURCE_DIR}/scripts/install_deps${SCRIPT_SUFFIX})
+        endif()
+
+        message(STATUS "Running ${SCRIPT} to set up local dependencies.")
+
+        if (MSVC)
+            execute_process(
+                COMMAND powershell -ExecutionPolicy Bypass -File "${SCRIPT}"
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                RESULT_VARIABLE   install_script_error
+                OUTPUT_VARIABLE   install_script_output)
+        else()
+            execute_process(
+                COMMAND bash "${SCRIPT}"
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                RESULT_VARIABLE   install_script_error
+                OUTPUT_VARIABLE   install_script_output)
+        endif()
+
+        if(NOT install_script_error EQUAL 0)
+            message(FATAL_ERROR "Install dependencies script failed: ${install_script_output}")
         endif()
     endif()
 endif()
