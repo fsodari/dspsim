@@ -34,7 +34,7 @@ void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, 
         static_cast<TraceType *>(tracep.get())->open(trace_path.string().c_str());
     }
 #else
-    {# this->context()->log("warn", "Tracing is not enabled for module: " + this->hier_name()); #}
+    this->context()->log("warn", "Tracing is not enabled for module: " + this->hier_name());
 #endif
 }
 

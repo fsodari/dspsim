@@ -38,18 +38,17 @@ def test_vbuilder():
         m_axis_tvalid: Output8
         m_axis_tready: Input8
 
-    print("Skid defined.")
     Skid2 = build_vmodule(
         "Skid2",
         source=source,
         include_dirs=[HDL_DIR],
         parameters={"DW": 13},
-        trace="platform",
+        # trace="platform",
     )
 
     with Context("test_vbuilder") as context:
         print(context.name)
-        context.log_level = "debug"
+        # context.log_level = "debug"
 
         clk = Clock("clk", 10)
         rst = Signal8("rst")

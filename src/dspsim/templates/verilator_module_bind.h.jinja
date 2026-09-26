@@ -19,10 +19,9 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         {%-for port in model.ports.values()%}
         .def_ro("{{port.name}}", &{{model.name}}::{{port.name}})
         {%-endfor%}
-        {%-if model.trace == "vcd" or model.trace == "fst" %}
         .def("open_trace", &{{model.name}}::open_trace,
             nanobind::arg("trace_path"),
             nanobind::arg("levels") = 99,
             nanobind::arg("options") = 0)
-        .def("close_trace", &{{model.name}}::close_trace){% endif %};
+        .def("close_trace", &{{model.name}}::close_trace);
 }
