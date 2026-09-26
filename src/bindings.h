@@ -2,6 +2,7 @@
 
 #include <dspsim/dspsim.h>
 #include <dspsim/modules/dff.h>
+#include <dspsim/vmodule/vport.h>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -9,7 +10,6 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/function.h>
-#include <nanobind/trampoline.h>
 
 // bindings is only included by _framework.cpp so this shouldn't pollute the namespace.
 namespace nb = nanobind;
@@ -39,6 +39,7 @@ namespace dspsim
             .def_prop_ro("name", &Context::name)
             .def_prop_ro("id", &Context::id)
             .def_prop_ro("models", &Context::models)
+            .def_prop_ro("owned_models", &Context::owned_models)
             .def_prop_ro("modules", &Context::modules)
             .def_prop_ro("signals", &Context::signals)
 
@@ -176,9 +177,15 @@ namespace dspsim
             .def_prop_ro("q", &Signal<T>::read);
     }
 
+    static inline auto bind_port_base(nb::module_ &m, const char *name)
+    {
+        return nb::class_<PortBase, Model>(m, name)
+            .def_prop_ro("width", &PortBase::width);
+    }
+
     static inline auto bind_input_base(nb::module_ &m, const char *name)
     {
-        return nb::class_<InputBase, Model>(m, name)
+        return nb::class_<InputBase, PortBase>(m, name)
             .def("pos", &InputBase::pos, nb::rv_policy::reference_internal)
             .def("neg", &InputBase::neg, nb::rv_policy::reference_internal);
     }
@@ -202,10 +209,15 @@ namespace dspsim
             .def("changed", &Input<T>::changed);
     }
 
+    static inline auto bind_output_base(nb::module_ &m, const char *name)
+    {
+        return nb::class_<OutputBase, PortBase>(m, name);
+    }
+
     template <typename T>
     static inline auto bind_output(nb::module_ &m, const char *name)
     {
-        return nb::class_<Output<T>, Model>(m, name)
+        return nb::class_<Output<T>, OutputBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &>(), nb::arg("name"))
             // Methods
@@ -219,10 +231,22 @@ namespace dspsim
             .def_prop_ro("q", &Output<T>::read);
     }
 
+    template <typename T>
+    static inline auto bind_vinput(nb::module_ &m, const char *name)
+    {
+        return nb::class_<VInput<T>, Input<T>>(m, name);
+    }
+    template <typename T>
+    static inline auto bind_voutput(nb::module_ &m, const char *name)
+    {
+        return nb::class_<VOutput<T>, Output<T>>(m, name);
+    }
+
     static inline auto bind_module_name(nb::module_ &m, const char *name)
     {
         return nb::class_<ModuleName>(m, name)
             .def(nb::init<const std::string &>(), nb::arg("name"))
+            .def(nb::init_implicit<const std::string &>())
             .def_prop_ro("name", &ModuleName::name);
     }
 

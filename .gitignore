@@ -30,3 +30,6 @@ obj_dir/
 .proj_archive
 
 Testing/
+
+.dspsim-cache
+.dspsim_cache

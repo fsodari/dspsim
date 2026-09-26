@@ -42,6 +42,10 @@ namespace dspsim
           _time_unit("1ns"),
           _signal_event(false)
     {
+        if (_name.empty())
+        {
+            _name = "context_" + std::to_string(_id);
+        }
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
@@ -78,11 +82,31 @@ namespace dspsim
         {
             model->finalize();
         }
+    }
 
-        // if (!_initialized) [[unlikely]]
-        // {
-        //     _do_initialize();
-        // }
+    void Context::_do_initialize()
+    {
+        if (_initialized) [[likely]]
+            return;
+        _initialized = true;
+        // Update all signals
+        while (!_signal_update_stack.empty())
+        {
+            SignalBase *signal = _signal_update_stack.back();
+            _signal_update_stack.pop_back();
+            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            signal->update();
+        }
+
+        // Force an initial settle: schedule every module for evaluation once so that
+        // combinational logic propagates from initial signal values before the first eval().
+        for (auto process : _processes)
+        {
+            if (process->initialize())
+            {
+                _process_eval_stack.push_back(process.get());
+            }
+        }
     }
 
     int Context::eval()
@@ -145,44 +169,6 @@ namespace dspsim
         return n_iter;
     }
 
-    void Context::_do_initialize()
-    {
-        if (_initialized) [[likely]]
-            return;
-        _initialized = true;
-        // Update all signals
-        while (!_signal_update_stack.empty())
-        {
-            SignalBase *signal = _signal_update_stack.back();
-            _signal_update_stack.pop_back();
-            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
-            signal->update();
-        }
-
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto process : _processes)
-        {
-            // // Modules can opt out of initializing.
-            // if (process->source() == nullptr)
-            //     continue;
-            // if (auto *module = dynamic_cast<Module *>(process->source()))
-            // {
-            //     if (module->initialize())
-            //     {
-            //         _process_eval_stack.push_back(process.get());
-            //     }
-            //     else
-            //     {
-            //         _process_eval_stack.erase(process.get());
-            //     }
-            // }
-            if (process->initialize())
-            {
-                _process_eval_stack.push_back(process.get());
-            }
-        }
-    }
     void Context::run(uint64_t time_inc)
     {
         if (!_initialized) [[unlikely]]
@@ -384,8 +370,7 @@ namespace dspsim
     {
         if (_active_context == nullptr)
         {
-            // If there is no active context, create a new one with the next available context ID.
-            // Give an empty name.
+            // If there is no active context, create one with default name.
             _active_context = std::shared_ptr<Context>(new Context("", _next_context_id++));
         }
         return _active_context;
@@ -399,12 +384,7 @@ namespace dspsim
     std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
         _active_context = nullptr;
-        std::string _context_name = name;
-        if (name.empty())
-        {
-            _context_name = "context_" + std::to_string(_next_context_id);
-        }
-        _active_context = std::shared_ptr<Context>(new Context(_context_name, _next_context_id++));
+        _active_context = std::shared_ptr<Context>(new Context(name, _next_context_id++));
         return _active_context;
     }
 

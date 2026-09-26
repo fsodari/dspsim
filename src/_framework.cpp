@@ -36,17 +36,35 @@ NB_MODULE(_framework, m)
     bind_signal_class<double>(m, "SignalFloat");
 
     // Bind Ports
+    bind_port_base(m, "PortBase");
+
     bind_input_base(m, "InputBase");
+
     bind_input<uint8_t>(m, "Input8");
     bind_input<uint16_t>(m, "Input16");
     bind_input<uint32_t>(m, "Input32");
     bind_input<uint64_t>(m, "Input64");
     bind_input<double>(m, "InputFloat");
+
+    bind_output_base(m, "OutputBase");
+
     bind_output<uint8_t>(m, "Output8");
     bind_output<uint16_t>(m, "Output16");
     bind_output<uint32_t>(m, "Output32");
     bind_output<uint64_t>(m, "Output64");
     bind_output<double>(m, "OutputFloat");
+
+    // Bind VPorts
+    bind_vinput<uint8_t>(m, "VInput8");
+    bind_vinput<uint16_t>(m, "VInput16");
+    bind_vinput<uint32_t>(m, "VInput32");
+    bind_vinput<uint64_t>(m, "VInput64");
+    bind_vinput<double>(m, "VInputFloat");
+    bind_voutput<uint8_t>(m, "VOutput8");
+    bind_voutput<uint16_t>(m, "VOutput16");
+    bind_voutput<uint32_t>(m, "VOutput32");
+    bind_voutput<uint64_t>(m, "VOutput64");
+    bind_voutput<double>(m, "VOutputFloat");
 
     // Module
     bind_module_name(m, "ModuleName");

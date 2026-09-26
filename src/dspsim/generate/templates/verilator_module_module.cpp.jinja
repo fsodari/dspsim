@@ -1,0 +1,40 @@
+// dspsim includes
+#include <dspsim/dspsim.h>
+
+// nanobind includes
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/filesystem.h>
+
+// Module bindings
+#include "{{model.name}}_bind.h"
+
+namespace nb = nanobind;
+
+std::string hello() {
+    return "Hello from {{model.name}} module";
+}
+
+NB_MODULE(_{{model.name}}, m)
+{
+    m.doc() = "{{model.name}} module";
+    m.def("hello", &hello);
+
+    // Import dspsim._framework into the current module. Needed for proper type-stubs.
+    auto _framework = m.import_("dspsim.framework._framework");
+
+    m.def("set_global_context_factory", &dspsim::set_global_context_factory, nb::arg("context_factory"));
+    m.def("get_global_context_factory", &dspsim::get_global_context_factory);
+    m.def("reset_global_context_factory", &dspsim::reset_global_context_factory);
+
+    // Bind generated module.
+    bind_{{model.name}}(m);
+}
+
+{# // SystemC time stamp function. Needed for windows builds to compile without link errors.
+double sc_time_stamp(void)
+{
+    return 0.0;
+} #}

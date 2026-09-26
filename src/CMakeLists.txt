@@ -16,7 +16,8 @@ set_target_properties(dspsim-core PROPERTIES
 
 # Trace logging in debug mode only.
 target_compile_definitions(dspsim-core PUBLIC
-    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>")
+    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>"
+    "$<$<CONFIG:Release>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>")
 
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.
@@ -37,7 +38,9 @@ target_compile_options(dspsim-core PRIVATE
         /W2;>
 )
 
-target_link_libraries(dspsim-core PUBLIC $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
+# target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
+# target_link_libraries(dspsim-core PUBLIC spdlog::spdlog)
+target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog_header_only>)
 
 # Include dirs
 target_include_directories(dspsim-core PUBLIC

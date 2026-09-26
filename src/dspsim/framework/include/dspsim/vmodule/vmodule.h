@@ -90,3 +90,6 @@ namespace dspsim
 // TODO: pass the underlying model's name, regardless of the prefix. This must be read from the json file so this can only be used in generated code.
 #define DSPSIM_VPARAM(_name, _vtype, _param) \
     static constexpr auto _param = _vtype##___024root::_name##__DOT__##_param;
+
+// Constructor macro for a module subclass. Uses ModuleName as the constructor argument. A string can be passed as an argument.
+#define DSPSIM_CTOR_REF(module_name) module_name(::dspsim::ModuleName &)

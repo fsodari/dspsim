@@ -57,7 +57,6 @@ namespace dspsim
         // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
         // More likely to be used in Python
         std::vector<std::shared_ptr<Model>> _owned_models;
-        // std::vector<std::shared_ptr<Module>> _owned_modules;
 
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
         std::unordered_map<Model *, std::vector<Model *>> _children;
@@ -132,6 +131,7 @@ namespace dspsim
 
         // List of all registered models in the context.
         const std::vector<Model *> &models() const;
+        const std::vector<std::shared_ptr<Model>> &owned_models() const { return _owned_models; }
 
         // List of all registered modules in the context.
         const std::vector<Module *> &modules() const;

@@ -15,6 +15,7 @@ namespace dspsim
         virtual void finalize() override = 0;
         // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
         virtual void _sync() {}
+        int width() const { return _width; }
     };
 
     class InputBase : public PortBase
