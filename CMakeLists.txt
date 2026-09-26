@@ -13,21 +13,7 @@ option(BUILD_TESTS "Build test targets" ON)
 
 # Install local dependencies if requested.
 if(USE_LOCAL_DEPS)
-    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/deps/install")
-    list(APPEND CMAKE_PREFIX_PATH "${DEPS_INSTALL_DIR}")
-
-    # If it doesn't exist. Run the install script.
-    if (NOT IS_DIRECTORY "${DEPS_INSTALL_DIR}")
-        message(STATUS "Local dependencies directory not found: ${DEPS_INSTALL_DIR}")
-        message(STATUS "Running install_deps.sh to set up local dependencies.")
-
-        # If installing dev dependencies, run the corresponding script. Otherwise, run the standard install script.
-        if (${INSTALL_DEV_DEPS})
-            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_dev_deps.sh)
-        else()
-            execute_process(COMMAND ${CMAKE_SOURCE_DIR}/scripts/install_deps.sh)
-        endif()
-    endif()
+    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/deps/install)
 endif()
 
 # Python required for nanobind/skbuild
