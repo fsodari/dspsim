@@ -13,7 +13,7 @@ option(BUILD_TESTS "Build test targets" ON)
 
 # Install local dependencies if requested.
 if(USE_LOCAL_DEPS)
-    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/deps/install")
+    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/.deps/install")
     list(APPEND CMAKE_PREFIX_PATH "${DEPS_INSTALL_DIR}")
 
     # If it doesn't exist. Run the install script.
@@ -83,7 +83,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # dspsim paths.
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
+set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/include)
 
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})

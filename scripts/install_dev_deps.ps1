@@ -18,29 +18,30 @@ New-Item -ItemType Directory -Force -Path ./deps | Out-Null
 # Install base dependencies.
 & ./scripts/install_deps.ps1
 
+$DEPS_DIR = './.deps'
 # SystemC
-$SYSTEMC_DIR = './deps/systemc'
-$CATCH2_DIR = './deps/Catch2'
+$SYSTEMC_DIR = "${DEPS_DIR}/systemc"
+$CATCH2_DIR = "${DEPS_DIR}/Catch2"
 
 if (-not (Test-Path -Path $SYSTEMC_DIR -PathType Container)) {
     Invoke-CheckedCommand git @(
         'clone',
         'https://github.com/accellera-official/systemc.git',
-        './deps/systemc',
+        "${DEPS_DIR}/systemc",
         '--branch', '3.0.2',
         '--depth', '1'
     )
     Invoke-CheckedCommand cmake @(
-        '-S', './deps/systemc',
-        '-B', './deps/systemc/build',
+        '-S', "${DEPS_DIR}/systemc",
+        '-B', "${DEPS_DIR}/systemc/build",
         '-DCMAKE_CXX_STANDARD=23',
         '-DCMAKE_CXX_STANDARD_REQUIRED=ON',
         '-DCMAKE_BUILD_TYPE=Release',
         '-DDISABLE_COPYRIGHT_MESSAGE=ON',
         '-DBUILD_SHARED_LIBS=OFF'
     )
-    Invoke-CheckedCommand cmake @('--build', './deps/systemc/build', '--config', 'Release')
-    Invoke-CheckedCommand cmake @('--install', './deps/systemc/build', '--prefix', './deps/install')
+    Invoke-CheckedCommand cmake @('--build', "${DEPS_DIR}/systemc/build", '--config', 'Release')
+    Invoke-CheckedCommand cmake @('--install', "${DEPS_DIR}/systemc/build", '--prefix', "${DEPS_DIR}/install")
 }
 else {
     Write-Output "SystemC already exists at $SYSTEMC_DIR"
@@ -51,19 +52,19 @@ if (-not (Test-Path -Path $CATCH2_DIR -PathType Container)) {
     Invoke-CheckedCommand git @(
         'clone',
         'https://github.com/catchorg/Catch2.git',
-        './deps/Catch2',
+        "${DEPS_DIR}/Catch2",
         '--branch', 'v3.16.0',
         '--depth', '1'
     )
     Invoke-CheckedCommand cmake @(
-        '-S', './deps/Catch2',
-        '-B', './deps/Catch2/build',
+        '-S', "${DEPS_DIR}/Catch2",
+        '-B', "${DEPS_DIR}/Catch2/build",
         '-DCMAKE_CXX_STANDARD=23',
         '-DCMAKE_CXX_STANDARD_REQUIRED=ON',
         '-DCMAKE_BUILD_TYPE=Release'
     )
-    Invoke-CheckedCommand cmake @('--build', './deps/Catch2/build', '--config', 'Release')
-    Invoke-CheckedCommand cmake @('--install', './deps/Catch2/build', '--prefix', './deps/install')
+    Invoke-CheckedCommand cmake @('--build', "${DEPS_DIR}/Catch2/build", '--config', 'Release')
+    Invoke-CheckedCommand cmake @('--install', "${DEPS_DIR}/Catch2/build", '--prefix', "${DEPS_DIR}/install")
 }
 else {
     Write-Output "Catch2 already exists at $CATCH2_DIR"

@@ -17,6 +17,7 @@ CMakeUserPresets.json
 *.code-workspace
 
 deps/
+.deps/
 
 local
 install
