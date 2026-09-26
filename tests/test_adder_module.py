@@ -115,7 +115,7 @@ class TwoAdder(Module):
 
 def test_two_adder():
     with Context() as ctx:
-        ctx.log_level = "trace"
+        # ctx.log_level = "debug"
         with ctx.construct():
             a = Signal32("a")
             b = Signal32("b")

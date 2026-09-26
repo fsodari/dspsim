@@ -27,6 +27,7 @@ import functools
 import threading
 from contextlib import contextmanager
 
+# from dspsim.framework._framework import Module as _Module
 from dspsim.framework._framework import (
     Clock,
     Dff8,
@@ -131,8 +132,7 @@ class Module(_Module):
     This is done so the subclass doesn't deal with ModuleName directly.
     """
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls):
         original_init = cls.__init__
 
         @functools.wraps(original_init)
@@ -146,14 +146,12 @@ class Module(_Module):
             # Deleting _name is important to change the context's active module.
             del _name
 
+        # Subclasses's init will now handle ModuleName properly.
         cls.__init__ = __new_init__
 
     def __init__(self, name: str):
-        # Have the context own the module.
-        self.context.own_module(self)
-
-    def process(self, method: Callable[[], None], name: str = ""):
-        return self.context.register_process(method, self, name)
+        """Subclass must call super().__init__ so context.own_model(self) gets called."""
+        self.context.own_model(self)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
@@ -182,6 +180,7 @@ __all__ = [
     "Input64",
     "InputFloat",
     "Model",
+    "Module",
     "ModuleName",
     "Output8",
     "Output16",

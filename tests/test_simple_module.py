@@ -18,7 +18,6 @@ class SomeModel(Module):
 
 
 def test_model_initialization():
-
     with Context() as context:
         with context.construct():
             some_model = SomeModel("some_model")

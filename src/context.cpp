@@ -328,10 +328,10 @@ namespace dspsim
         _owned_models.push_back(model);
     }
 
-    void Context::_own_module(std::shared_ptr<Module> module)
-    {
-        _owned_modules.push_back(module);
-    }
+    // void Context::_own_module(std::shared_ptr<Module> module)
+    // {
+    //     _owned_modules.push_back(module);
+    // }
 
     Process *Context::register_process_func(const std::function<void()> &eval, Model *source, const std::string &name)
     {

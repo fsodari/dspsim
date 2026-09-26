@@ -51,7 +51,7 @@ namespace dspsim
 
             // Python module base class will need to explicitly call this.
             .def("own_model", &Context::_own_model)
-            .def("own_module", &Context::_own_module, nb::arg("module"))
+            // .def("own_module", &Context::_own_module, nb::arg("module"))
 
             // Register a process.
             .def("register_process", &Context::register_process_func,
@@ -226,23 +226,21 @@ namespace dspsim
             .def_prop_ro("name", &ModuleName::name);
     }
 
+    static inline Process *_module_process_helper(Module *module, std::function<void()> func, const std::string &name = "")
+    {
+        return module->context()->register_process_func(func, module, name);
+    }
+
     static inline auto bind_module(nb::module_ &m, const char *name)
     {
         return nb::class_<Module, Model>(m, name)
-            // Use lambda to initialize
             .def(nb::init<ModuleName &>(), nb::arg("name"))
             // Methods.
             .def("finalize", &Module::finalize)
+            .def("process", &_module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference_internal)
             .def("ports", &Module::ports)
             .def("inputs", &Module::inputs)
             .def("outputs", &Module::outputs)
-            // Properties
-            .def_prop_ro("context", &Module::context)
-            .def_prop_ro("name", &Module::name)
-            .def_prop_ro("id", &Module::id)
-            .def_prop_ro("kind", &Module::kind)
-            .def_prop_ro("hier_name", &Module::hier_name)
-            .def_prop_ro("parent", &Module::parent)
             .def("repr", &Module::repr)
             .def("__repr__", &Module::repr)
             .def("__str__", &Module::repr);
@@ -263,7 +261,7 @@ namespace dspsim
     {
         return nb::class_<Dff<T>, Module>(m, name)
             .def(nb::new_([](const std::string &name)
-                          { return Module::create<Dff<T>>(name); }),
+                          { return Model::create<Dff<T>>(name); }),
                  nb::arg("name"))
             .def_ro("d", &Dff<T>::d)
             .def_ro("q", &Dff<T>::q);
