@@ -1,9 +1,8 @@
-# import importlib.metadata
-from collections.abc import Callable
+import importlib.metadata
 from pathlib import Path
 
-# __version__ = importlib.metadata.version(str(__package__))
-# __version__ = "0.4.0"
+__version__ = importlib.metadata.version(str(__package__))
+__version__ = "0.4.0"
 
 
 def include_dir() -> Path:

@@ -44,7 +44,6 @@ dspsim = "dspsim.framework.cli:main"
 minimum-version = "build-system.requires"
 wheel.packages = ["src/dspsim"]
 build.targets =["_framework"]
-cmake.build-type = "Debug"
 
 [tool.uv]
 cache-keys = [
