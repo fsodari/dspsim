@@ -44,12 +44,7 @@ void VModType::_close_trace()
     if (tracep)
     {
         static_cast<TraceType *>(tracep.get())->close();
+        tracep.reset();
     }
 #endif
-}
-
-// Verilator on windows won't build unless this is defined.
-double sc_time_stamp()
-{
-    return 0;
 }

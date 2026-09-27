@@ -1,32 +1,10 @@
-import importlib.metadata
-from pathlib import Path
-
-__version__ = importlib.metadata.version("dspsim")
-
-
-def include_dir() -> Path:
-    """Return the path to the include directory."""
-    return Path(__file__).parent / "include"
-
-
-def cmake_dir() -> Path:
-    """Return the path to the CMake directory."""
-    return Path(__file__).parent / "cmake"
-
-
-def version() -> str:
-    import importlib.metadata
-
-    return importlib.metadata.version(str(__package__))
-
-
 import atexit
 import functools
 import threading
 from contextlib import contextmanager
 
 # from dspsim.framework._framework import Module as _Module
-from dspsim.framework._framework import (
+from dspsim._framework import (
     Clock,
     Dff8,
     Dff16,
@@ -53,8 +31,8 @@ from dspsim.framework._framework import (
     reset_global_context_factory,
     # set_global_context_factory,
 )
-from dspsim.framework._framework import Context as _Context
-from dspsim.framework._framework import Module as _Module
+from dspsim._framework import Context as _Context
+from dspsim._framework import Module as _Module
 
 # Prevent nb leak warnings.
 atexit.register(reset_global_context_factory)
@@ -150,6 +128,7 @@ class Module(_Module):
     def __init__(self, name: str):
         """Subclass must call super().__init__ so context.own_model(self) gets called."""
         self.context.own_model(self)
+        print("Did this get called?")
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):

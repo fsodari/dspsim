@@ -13,7 +13,7 @@ class Parameter:
     keyword: str
     signed: bool
     width: int
-    value: ParamValueT
+    value: ParamValueT | None
 
     @property
     def ctype(self) -> str:
@@ -24,6 +24,17 @@ class Parameter:
         elif self.keyword in ["string"]:
             # return "const char*"
             return "std::string"
+        else:
+            raise ValueError(f"Unsupported keyword: {self.keyword}")
+
+    @property
+    def pytype(self) -> type:
+        if self.keyword in ["bit", "int", "logic"]:
+            return int
+        elif self.keyword in ["real"]:
+            return float
+        elif self.keyword in ["string"]:
+            return str
         else:
             raise ValueError(f"Unsupported keyword: {self.keyword}")
 

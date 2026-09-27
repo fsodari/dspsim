@@ -1,6 +1,4 @@
 #
-set(TEST_HDL_MODULES_DIR ${CMAKE_SOURCE_DIR}/tests/test_modules)
-
 add_executable(tests
     test_dff.cpp
     test_hierarchy.cpp
@@ -46,13 +44,13 @@ target_link_libraries(tests PRIVATE Skid2)
 if(${verilator_FOUND})
     # Verilate test modules
     verilate(Skid
-        SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
-        INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
+        SOURCES ${DSPSIM_HDL_DIR}/Skid.sv
+        INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE} 
         VERILATOR_ARGS --quiet)
     verilate(Skid2
-        SOURCES ${TEST_HDL_MODULES_DIR}/Skid.sv
-        INCLUDE_DIRS ${TEST_HDL_MODULES_DIR}
+        SOURCES ${DSPSIM_HDL_DIR}/Skid.sv
+        INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE}
         PREFIX VSkid2
         VERILATOR_ARGS --quiet)   

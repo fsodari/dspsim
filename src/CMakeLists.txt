@@ -16,7 +16,8 @@ set_target_properties(dspsim-core PROPERTIES
 
 # Trace logging in debug mode only.
 target_compile_definitions(dspsim-core PUBLIC
-    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>")
+    "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>"
+    "$<$<CONFIG:Release>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>")
 
 # Specific warnings as errors
 # -Werror=reorder, /C5038. Modules must be initialized in same order as declaration.
@@ -37,9 +38,38 @@ target_compile_options(dspsim-core PRIVATE
         /W2;>
 )
 
-target_link_libraries(dspsim-core PUBLIC $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
+# target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
+# target_link_libraries(dspsim-core PUBLIC spdlog::spdlog)
+target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog_header_only>)
 
 # Include dirs
 target_include_directories(dspsim-core PUBLIC
     $<BUILD_INTERFACE:${DSPSIM_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>)
+
+# Public headers
+target_sources(dspsim-core
+    PUBLIC 
+    FILE_SET HEADERS
+    BASE_DIRS ${DSPSIM_INCLUDE_DIR}
+    FILES 
+        ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/dspsim.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/event.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/model.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/module_name.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/module.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/port.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/signal.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_rx.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/flagged_stack.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/priority_queue.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/unique_stack.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/utils/utils.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/bindings.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vmodule.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vport.h)

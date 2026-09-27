@@ -42,6 +42,10 @@ namespace dspsim
           _time_unit("1ns"),
           _signal_event(false)
     {
+        if (_name.empty())
+        {
+            _name = "context_" + std::to_string(_id);
+        }
         this->logger = spdlog::stdout_color_mt(_name);
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
@@ -78,11 +82,31 @@ namespace dspsim
         {
             model->finalize();
         }
+    }
 
-        // if (!_initialized) [[unlikely]]
-        // {
-        //     _do_initialize();
-        // }
+    void Context::_do_initialize()
+    {
+        if (_initialized) [[likely]]
+            return;
+        _initialized = true;
+        // Update all signals
+        while (!_signal_update_stack.empty())
+        {
+            SignalBase *signal = _signal_update_stack.back();
+            _signal_update_stack.pop_back();
+            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            signal->update();
+        }
+
+        // Force an initial settle: schedule every module for evaluation once so that
+        // combinational logic propagates from initial signal values before the first eval().
+        for (auto process : _processes)
+        {
+            if (process->initialize())
+            {
+                _process_eval_stack.push_back(process.get());
+            }
+        }
     }
 
     int Context::eval()
@@ -145,72 +169,40 @@ namespace dspsim
         return n_iter;
     }
 
-    void Context::_do_initialize()
-    {
-        if (_initialized) [[likely]]
-            return;
-        _initialized = true;
-        // Update all signals
-        while (!_signal_update_stack.empty())
-        {
-            SignalBase *signal = _signal_update_stack.back();
-            _signal_update_stack.pop_back();
-            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
-            signal->update();
-        }
-
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto process : _processes)
-        {
-            // // Modules can opt out of initializing.
-            // if (process->source() == nullptr)
-            //     continue;
-            // if (auto *module = dynamic_cast<Module *>(process->source()))
-            // {
-            //     if (module->initialize())
-            //     {
-            //         _process_eval_stack.push_back(process.get());
-            //     }
-            //     else
-            //     {
-            //         _process_eval_stack.erase(process.get());
-            //     }
-            // }
-            if (process->initialize())
-            {
-                _process_eval_stack.push_back(process.get());
-            }
-        }
-    }
     void Context::run(uint64_t time_inc)
     {
         if (!_initialized) [[unlikely]]
         {
             _do_initialize();
         }
-        // Compute delta cycle.
+        // Compute delta cycle. Signals may have been written to before the last run() call.
+        // This will also eval any pending time updates from the last run() cycle.
         eval();
 
         // Evaluate all time steps.
-        while (!_time_event_stack.empty() && time_inc > 0)
+        uint64_t next_time_step = 0;
+        while (time_inc > 0)
         {
             // Advance to the next time step.
-            uint64_t next_time_step = _time_event_stack.top().time_update - _time;
-            // What if time update is less than the current time? If we missed a step? Bad model.
-
-            // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
-            if (next_time_step > time_inc)
+            if (!_time_event_stack.empty())
+            {
+                next_time_step = _time_event_stack.top().time_update - _time;
+                // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
+                if (next_time_step > time_inc)
+                {
+                    next_time_step = time_inc;
+                }
+            }
+            else
             {
                 next_time_step = time_inc;
             }
+            // What if time update is less than the current time? If we missed a step? Bad model.
+
             // Advance the simulation time to the next time step.
             _time += next_time_step;
             time_inc -= next_time_step;
-            if (time_inc == 0)
-            {
-                break;
-            }
+
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
@@ -221,8 +213,13 @@ namespace dspsim
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
                 _process_eval_stack.push_back(event.process);
             }
-            // Perform a delta cycle at this time step.
-            eval();
+            // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
+            // Models with the time update will still be queued for the next delta cycle.
+            if (time_inc != 0)
+            {
+                // Perform a delta cycle at this time step.
+                eval();
+            }
         }
     }
 
@@ -384,8 +381,7 @@ namespace dspsim
     {
         if (_active_context == nullptr)
         {
-            // If there is no active context, create a new one with the next available context ID.
-            // Give an empty name.
+            // If there is no active context, create one with default name.
             _active_context = std::shared_ptr<Context>(new Context("", _next_context_id++));
         }
         return _active_context;
@@ -399,12 +395,7 @@ namespace dspsim
     std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
         _active_context = nullptr;
-        std::string _context_name = name;
-        if (name.empty())
-        {
-            _context_name = "context_" + std::to_string(_next_context_id);
-        }
-        _active_context = std::shared_ptr<Context>(new Context(_context_name, _next_context_id++));
+        _active_context = std::shared_ptr<Context>(new Context(name, _next_context_id++));
         return _active_context;
     }
 

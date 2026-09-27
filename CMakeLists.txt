@@ -13,7 +13,7 @@ option(BUILD_TESTS "Build test targets" ON)
 
 # Install local dependencies if requested.
 if(USE_LOCAL_DEPS)
-    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/deps/install")
+    set(DEPS_INSTALL_DIR "${CMAKE_SOURCE_DIR}/.deps/install")
     list(APPEND CMAKE_PREFIX_PATH "${DEPS_INSTALL_DIR}")
 
     # If it doesn't exist. Run the install script.
@@ -83,7 +83,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # dspsim paths.
 set(DSPSIM_SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/dspsim/framework/include)
+set(DSPSIM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/src/include)
+set(DSPSIM_HDL_DIR ${CMAKE_SOURCE_DIR}/hdl)
 
 # Build core library
 add_subdirectory(${DSPSIM_SRC_DIR})
@@ -91,7 +92,7 @@ add_subdirectory(${DSPSIM_SRC_DIR})
 ### Installation configuration.
 # Install paths
 include(GNUInstallDirs)
-set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME}/framework)
+set(DSPSIM_INSTALL_DIR ${SKBUILD_PROJECT_NAME})
 set(INSTALL_CMAKEDIR ${DSPSIM_INSTALL_DIR}/cmake)
 set(INSTALL_LIBDIR ${DSPSIM_INSTALL_DIR})
 set(INSTALL_BINDIR ${DSPSIM_INSTALL_DIR}/bin)
@@ -103,7 +104,8 @@ install(TARGETS dspsim-core
     ARCHIVE DESTINATION ${INSTALL_LIBDIR}
     LIBRARY DESTINATION ${INSTALL_LIBDIR}
     RUNTIME DESTINATION ${INSTALL_BINDIR}
-    INCLUDES DESTINATION ${INSTALL_INCLUDEDIR})
+    INCLUDES DESTINATION ${INSTALL_INCLUDEDIR}
+    FILE_SET HEADERS DESTINATION ${INSTALL_INCLUDEDIR})
 
 install(EXPORT dspsim-core-targets
     FILE dspsim-core-targets.cmake

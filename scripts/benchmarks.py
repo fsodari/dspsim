@@ -61,6 +61,7 @@ def main():
         "-DSKBUILD_PROJECT_NAME=dspsim",
         "-DSKBUILD_PROJECT_VERSION=0.0.0",
         f"-DCMAKE_PREFIX_PATH={sysconfig.get_path('purelib')}",
+        "-DBUILD_BENCHMARKS=On",
     ]
     build_cmd = [
         "cmake",

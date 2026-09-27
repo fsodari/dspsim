@@ -3,18 +3,18 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dspsim.framework.project import ProjectConfig
+from dspsim.project import ProjectConfig
 
-hdl_dir = Path(__file__).parent / "test_modules"
+HDL_DIR = Path(__file__).parent.parent / "hdl"
 
 example_pyproject = f"""
 # tool configuration example.
 [tool.dspsim]
 name = "library"
 # Use all sources in the dspsim/hdl directory.
-sources = ["{hdl_dir.absolute().as_posix()}/*.sv", "{hdl_dir.absolute().as_posix()}/*.v"]
-exclude_sources = ["{hdl_dir.absolute().as_posix()}/HellModel.sv"]
-include_dirs = ["{hdl_dir.absolute().as_posix()}"]
+sources = ["{HDL_DIR.absolute().as_posix()}/*.sv", "{HDL_DIR.absolute().as_posix()}/*.v"]
+exclude_sources = ["{HDL_DIR.absolute().as_posix()}/HellModel.sv"]
+include_dirs = ["{HDL_DIR.absolute().as_posix()}"]
 # Can use fst on linux.
 trace = "vcd"
 # parameters = {{ DW = 24, CFGAW = 32, CFGDW = 32, COEFW = 18, COEFQ = 16 }}

@@ -17,6 +17,7 @@ CMakeUserPresets.json
 *.code-workspace
 
 deps/
+.deps/
 
 local
 install
@@ -30,3 +31,6 @@ obj_dir/
 .proj_archive
 
 Testing/
+
+.dspsim-cache
+.dspsim_cache

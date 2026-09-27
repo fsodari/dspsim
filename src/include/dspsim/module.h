@@ -29,6 +29,12 @@ namespace dspsim
         std::vector<OutputBase *> &outputs() { return _outputs; }
     };
 
+    template <typename M>
+    static inline auto _create_module(ModuleName &name)
+    {
+        return Model::create<M>(name);
+    }
+
 } // namespace dspsim
 
 // Declare a module class that inherits from dspsim::Module.

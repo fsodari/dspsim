@@ -1,20 +1,20 @@
 import time
 from pathlib import Path
 
-from dspsim.framework.verilator import parse_module_json, verilate_json
+from dspsim.verilator import parse_module_json, verilate_json
+
+HDL_DIR = Path(__file__).parent.parent / "hdl"
 
 
 def test_verilate_json():
     print()
-    hdl_dir = Path(__file__).parent / "test_modules"
     # Example test for verilate_json function
-    # hdl_file = Path(__file__).parent / "test_modules" / "HellModel.sv"
-    hdl_file = hdl_dir / "HellModel.sv"
+    source = HDL_DIR / "HellModel.sv"
     odir = Path("build")
     json_output, metadata = verilate_json(
-        [hdl_file],
+        [source],
         output_dir=odir,
-        include_dirs=[hdl_dir],
+        include_dirs=[HDL_DIR],
     )
 
     start_time = time.time()

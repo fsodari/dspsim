@@ -1,0 +1,27 @@
+#pragma once
+#include "{{model.name}}.h"
+
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/filesystem.h>
+#include <nanobind/stl/function.h>
+
+static inline auto bind_{{model.name}}(nanobind::module_ &m)
+{
+    return nanobind::class_<{{model.name}}, ::dspsim::Module>(m, "{{model.name}}")
+        {# .def(nanobind::init<::dspsim::ModuleName>(), nanobind::arg("name")) #}
+        .def(nanobind::new_(&::dspsim::_create_module<{{model.name}}>), nanobind::arg("name"))
+        {%-for param in model.parameters.values()%}
+        .def_ro_static("{{param.name}}", &{{model.name}}::{{param.name}})
+        {%-endfor%}
+        {%-for port in model.ports.values()%}
+        .def_ro("{{port.name}}", &{{model.name}}::{{port.name}})
+        {%-endfor%}
+        .def("open_trace", &{{model.name}}::open_trace,
+            nanobind::arg("trace_path"),
+            nanobind::arg("levels") = 99,
+            nanobind::arg("options") = 0)
+        .def("close_trace", &{{model.name}}::close_trace);
+}

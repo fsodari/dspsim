@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jinja2
 
-from dspsim.framework.project import ProjectConfig
+from dspsim.project import ProjectConfig
 
 
 @dataclass
@@ -80,3 +80,7 @@ def main():
         # _print(f"Generated Verilator args for {model.name}:\n{vargs}")
         # with open(args.output_dir / f"{model.name}_verilator_args.txt", "w") as f:
         #     f.write(vargs)
+
+
+if __name__ == "__main__":
+    main()

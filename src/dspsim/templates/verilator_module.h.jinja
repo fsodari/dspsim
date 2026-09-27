@@ -1,7 +1,7 @@
 #include <dspsim/vmodule/vmodule.h>
 #include <V{{model.name}}.h>
 
-DSPSIM_VMOD({{model.name}}, V{model.name})
+DSPSIM_VMOD({{model.name}}, V{{model.name}})
 {
 public:
     // Parameters
@@ -12,11 +12,11 @@ public:
 
     // Ports
     {%-for port in model.ports.values()%}
-    DSPSIM_V{{port.direction.capitalize()}}({{port.name}}, {{port.width}});
+    DSPSIM_V{{port.direction.upper()}}({{port.name}}, {{port.width}});
     {%-endfor%}
 
     // {{model.name}} Constructor
-    DSPSIM_CTOR({{model.name}})
+    DSPSIM_CTOR_REF({{model.name}})
     {
         // Standard eval func for verilated modules.
         DSPSIM_METHOD(eval) 
@@ -28,4 +28,3 @@ public:
     void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
     void _close_trace();
 };
-    
