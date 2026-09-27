@@ -57,6 +57,7 @@ cache-keys = [
 
 [dependency-groups]
 dev = [
+    "cibuildwheel>=4.2.1",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
     "pytest>=9.1.1",
