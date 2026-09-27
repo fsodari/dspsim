@@ -89,7 +89,7 @@ namespace dspsim
         // Used for python d property
         const T &_read_d() const { return _d; }
 
-        virtual void update() override;
+        void update() override;
         /*
             Static Methods
         */

@@ -7,19 +7,18 @@
 
 namespace dspsim
 {
-
-    Process::Process(uint32_t id, std::function<void()> eval, Model *source, const std::string &name)
-        : _context(Context::obtain().get()), _source(source), _id(id), eval(eval), _name(name)
+    ProcessBase::ProcessBase(const std::string &name)
+        : _context(Context::obtain().get()), _id(_context->next_process_id()), _name(name)
     {
     }
 
-    void Process::link_event(SensitivityEvent *event)
+    void ProcessBase::schedule_static_event(SensitivityEvent *event)
     {
         // Implementation goes here
-        event->add_process(this);
+        event->add_static_process(this);
     }
 
-    void Process::link_event(const std::string &event_name)
+    void ProcessBase::schedule_static_event(const std::string &event_name)
     {
         // Implementation goes here
         // Make the sensitivity list sensitive to all events.
@@ -27,12 +26,17 @@ namespace dspsim
         {
             for (auto &input : _context->_active_module()->inputs())
             {
-                link_event(input->_change());
+                schedule_static_event(input->_change());
             }
         }
         else
         {
             _context->logger->error("Event not found: {}", event_name);
         }
+    }
+
+    Process::Process(std::function<void()> eval, const std::string &name)
+        : ProcessBase(name), _eval(eval)
+    {
     }
 }

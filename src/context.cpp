@@ -102,6 +102,7 @@ namespace dspsim
         // combinational logic propagates from initial signal values before the first eval().
         for (auto process : _processes)
         {
+            logger->debug("Processing initialization for process: {}, init={}", process->name(), process->initialize());
             if (process->initialize())
             {
                 _process_eval_stack.push_back(process.get());
@@ -137,7 +138,8 @@ namespace dspsim
             for (const auto &process : _process_eval_stack)
             {
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
-                process->eval();
+                _current_process = process;
+                process->resume();
             }
             _process_eval_stack.clear();
 
@@ -221,6 +223,23 @@ namespace dspsim
                 eval();
             }
         }
+    }
+
+    void Context::next_trigger(uint64_t time_update, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        _time_event_stack.emplace(this, time_update, process);
+    }
+    void Context::next_trigger(SensitivityEvent *event, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        event->add_dynamic_process(process);
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const
@@ -325,16 +344,11 @@ namespace dspsim
         _owned_models.push_back(model);
     }
 
-    // void Context::_own_module(std::shared_ptr<Module> module)
-    // {
-    //     _owned_modules.push_back(module);
-    // }
-
-    Process *Context::register_process_func(const std::function<void()> &eval, Model *source, const std::string &name)
+    Process *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        auto process = std::make_shared<Process>(_next_process_id++, eval, source, name);
+        auto process = std::make_shared<Process>(eval, name);
         _processes.push_back(process);
-        logger->info("Registering process: {}, id: {}", name, _next_process_id - 1);
+        logger->info("Registering process: {}", name);
         // Set the active process of the context.
         return process.get();
     }

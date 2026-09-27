@@ -19,13 +19,20 @@ namespace
         Adder(ModuleName name)
             : Module(name)
         {
-            DSPSIM_METHOD(eval)
-                ->always("*");
+            // DSPSIM_METHOD(eval)
+            //     ->always("*");
+
+            DSPSIM_METHOD(eval);
         }
 
         void eval()
         {
+            context()->logger->debug("Evaluating adder: {}", hier_name());
             c.write(a.read() + b.read());
+            context()->next_trigger(a.change_event());
+            context()->next_trigger(b.change_event());
+            // context()->next_trigger(a);
+            // context()->next_trigger(b);
         }
     };
 
@@ -189,7 +196,7 @@ namespace
 TEST_CASE("test_adder_tree", "[adder_tree]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->logger->set_level(spdlog::level::debug);
 
     // Clock clk{"clk", 10};
     Signal<int> ai1{"ai1"};

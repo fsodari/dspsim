@@ -22,18 +22,26 @@ namespace dspsim
     {
     protected:
         // During elaboration, these events will be added to the bound signal's events.
-        SensitivityEvent _change_event;
-        SensitivityEvent _posedge_event;
-        SensitivityEvent _negedge_event;
+        SensitivityEvent _static_change_event;
+        SensitivityEvent _static_posedge_event;
+        SensitivityEvent _static_negedge_event;
+        SensitivityEvent *_dynamic_change_event;
+        SensitivityEvent *_dynamic_posedge_event;
+        SensitivityEvent *_dynamic_negedge_event;
 
     public:
         InputBase(const std::string &name, int width);
         virtual void finalize() override = 0;
 
         // Processes can be sensitive to port changes.
-        SensitivityEvent *_change() { return &_change_event; }
-        SensitivityEvent *pos() { return &_posedge_event; }
-        SensitivityEvent *neg() { return &_negedge_event; }
+        SensitivityEvent *_change() { return &_static_change_event; }
+        SensitivityEvent *pos() { return &_static_posedge_event; }
+        SensitivityEvent *neg() { return &_static_negedge_event; }
+
+        // Processes can be sensitive to dynamic change events.
+        SensitivityEvent *change_event() { return _dynamic_change_event; }
+        SensitivityEvent *posedge_event() { return _dynamic_posedge_event; }
+        SensitivityEvent *negedge_event() { return _dynamic_negedge_event; }
 
         // Cast this class as _change() event when using in a sensitivity list.
         operator SensitivityEvent *() { return _change(); }

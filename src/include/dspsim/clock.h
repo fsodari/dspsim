@@ -9,14 +9,11 @@ namespace dspsim
     private:
         int _period;
         int _half_period;
-        Process *_process;
+        // Process *_process;
 
     public:
         Clock(const std::string &name, int period);
         int period() const;
-
-        // Calls Signal<uint8_t>::update() and schedules the next time event.
-        void update() override;
 
     private:
         // Toggles the clock signal and schedules the next time event.
