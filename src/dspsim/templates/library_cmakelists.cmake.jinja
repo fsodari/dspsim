@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 4.0)
+project({{model.name}} LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# dspsim
+find_package(dspsim REQUIRED)
+message(STATUS "Found dspsim: ${dspsim_DIR}")
+
+add_library({{model.name}} {{model.name}}.cpp)
+target_link_libraries({{model.name}} PUBLIC dspsim::dspsim-core)
+
+# Run verilator to create the verilated model and link
+verilate({{model.name}}
+SOURCES {{ model.source.as_posix() }}
+PREFIX V{{ model.name }}
+{%if model.trace == "vcd"-%}
+TRACE_VCD
+{%elif model.trace == "fst"-%}
+TRACE_FST
+{%endif-%}
+VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
+
+# Create the main nanobind module
+dspsim_add_nanobind_module(_{{model.name}} {{model.name}}_module.cpp)
+# Link to the dspsim module
+target_link_libraries(_{{model.name}} PRIVATE {{model.name}})
