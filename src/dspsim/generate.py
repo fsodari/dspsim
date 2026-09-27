@@ -70,16 +70,21 @@ def main():
 
     # Generate the models
     for model in project_config.models.values():
-        model_code = render_template("model.h.jinja", model=model)
-        _print(f"Generated model {model.name}:\n{model_code}")
+        model_h = render_template("verilator_module.h.jinja", model=model)
+        _print(f"Generated model {model.name}:\n{model_h}")
         with open(args.output_dir / f"{model.name}.h", "w") as f:
-            f.write(model_code)
+            f.write(model_h)
 
-        # # verilator args template
-        # vargs = render_template("verilator_args.txt.jinja", model=model)
-        # _print(f"Generated Verilator args for {model.name}:\n{vargs}")
-        # with open(args.output_dir / f"{model.name}_verilator_args.txt", "w") as f:
-        #     f.write(vargs)
+        model_cpp = render_template("verilator_module.cpp.jinja", model=model)
+        _print(f"Generated model {model.name} CPP:\n{model_cpp}")
+        with open(args.output_dir / f"{model.name}.cpp", "w") as f:
+            f.write(model_cpp)
+
+        # Generate the nanobind bindings for the model
+        model_bind = render_template("verilator_module_bind.h.jinja", model=model)
+        _print(f"Generated model {model.name} bindings:\n{model_bind}")
+        with open(args.output_dir / f"{model.name}_bind.h", "w") as f:
+            f.write(model_bind)
 
 
 if __name__ == "__main__":

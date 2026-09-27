@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.framework.generate)
+set(DSPSIM_GENERATE_CMD ${Python_EXECUTABLE} -m dspsim.generate)
 
 # Run the dspsim.generate command.
 function(dspsim_generate pyproject_path outdir)
@@ -20,7 +20,6 @@ endfunction()
 function(dspsim_add_nanobind_module name source_file)
     nanobind_add_module(${name}
         FREE_THREADED
-        NB_DOMAIN dspsim
         BACKEND_MODULE nanobind_backend
         NB_DOMAIN dspsim
         ${source_file})
@@ -60,7 +59,7 @@ function(dspsim_add_module name pyproject_path output_dir)
         ${gen_dir})
 
     nanobind_add_module(${name}
-        NB_DOMAIN dspsim
+        FREE_THREADED
         BACKEND_MODULE nanobind_backend
         NB_DOMAIN dspsim
         ${gen_dir}/${name}.cpp)
@@ -76,7 +75,3 @@ function(dspsim_add_module name pyproject_path output_dir)
     # Generate stubs for the module
     dspsim_add_stub(${name} ${output_dir})
 endfunction()
-
-macro(dspsim_update_rpath)
-    
-endmacro()

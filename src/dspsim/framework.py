@@ -128,7 +128,6 @@ class Module(_Module):
     def __init__(self, name: str):
         """Subclass must call super().__init__ so context.own_model(self) gets called."""
         self.context.own_model(self)
-        print("Did this get called?")
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):

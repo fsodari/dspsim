@@ -14,6 +14,8 @@ set_target_properties(dspsim-core PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     INTERPROCEDURAL_OPTIMIZATION ON)
 
+target_compile_features(dspsim-core PUBLIC cxx_std_23)
+
 # Trace logging in debug mode only.
 target_compile_definitions(dspsim-core PUBLIC
     "$<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE>"
@@ -38,8 +40,7 @@ target_compile_options(dspsim-core PRIVATE
         /W2;>
 )
 
-# target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog>)
-# target_link_libraries(dspsim-core PUBLIC spdlog::spdlog)
+# Link to spdlog
 target_link_libraries(dspsim-core PRIVATE $<BUILD_LOCAL_INTERFACE:spdlog::spdlog_header_only>)
 
 # Include dirs

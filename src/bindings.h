@@ -245,7 +245,7 @@ namespace dspsim
     static inline auto bind_module_name(nb::module_ &m, const char *name)
     {
         return nb::class_<ModuleName>(m, name)
-            .def(nb::init<const std::string &>(), nb::arg("name"))
+            // .def(nb::init<const std::string &>(), nb::arg("name"))
             .def(nb::init_implicit<const std::string &>())
             .def_prop_ro("name", &ModuleName::name);
     }

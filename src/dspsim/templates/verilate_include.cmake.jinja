@@ -1,0 +1,17 @@
+{% for model in config.models.values() %}
+add_library({{model.name}} ${gen_dir}/{{model.name}}.cpp)
+target_link_libraries({{model.name}} PUBLIC dspsim::dspsim-core)
+target_include_directories({{model.name}} PUBLIC ${gen_dir})
+
+verilate({{model.name}}
+SOURCES {{ model.source.as_posix() }}
+PREFIX V{{ model.name }}
+{%if model.trace == "vcd"-%}
+TRACE_VCD
+{%elif model.trace == "fst"-%}
+TRACE_FST
+{%endif-%}
+VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
+
+target_link_libraries({{config.name}} PUBLIC {{model.name}})
+{% endfor %}
