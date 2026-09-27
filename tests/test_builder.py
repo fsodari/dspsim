@@ -25,6 +25,7 @@ if sys.platform == "win32":
 else:
     TRACE_SUFFIX = ".fst"
 
+
 def test_vbuilder():
     print()
     source = HDL_DIR / "Skid.sv"
@@ -57,7 +58,7 @@ def test_vbuilder():
         # context.log_level = "debug"
 
         clk = Clock("clk", 10)
-        rst = Signal8("rst")
+        rst = Signal8("rst", 1)
 
         in_tdata = Signal16("in_tdata")
         in_tvalid = Signal8("in_tvalid")
@@ -70,7 +71,6 @@ def test_vbuilder():
         out_tready = Signal8("out_tready")
 
         skid1 = Skid1("skid1")
-        
 
         skid1.open_trace(Path("traces/skid1").with_suffix(TRACE_SUFFIX))
         skid1.clk.bind(clk)

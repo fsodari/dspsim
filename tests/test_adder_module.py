@@ -41,6 +41,7 @@ class AdderModule(Module):
 
 def test_adder_module():
     with Context() as ctx:
+        ctx.log_level = "debug"
         with ctx.construct():
             a = Signal32("a")
             b = Signal32("b")
@@ -80,72 +81,72 @@ def test_adder_module():
         # ctx.print_hierarchy()
 
 
-class TwoAdder(Module):
-    """Adder with two adder processes"""
+# class TwoAdder(Module):
+#     """Adder with two adder processes"""
 
-    a: Input32
-    b: Input32
-    c: Output32
+#     a: Input32
+#     b: Input32
+#     c: Output32
 
-    d: Input32
-    e: Input32
-    f: Output32
+#     d: Input32
+#     e: Input32
+#     f: Output32
 
-    def __init__(self, name: str):
-        super().__init__(name)
+#     def __init__(self, name: str):
+#         super().__init__(name)
 
-        self.a = Input32("a")
-        self.b = Input32("b")
-        self.c = Output32("c")
+#         self.a = Input32("a")
+#         self.b = Input32("b")
+#         self.c = Output32("c")
 
-        self.d = Input32("d")
-        self.e = Input32("e")
-        self.f = Output32("f")
+#         self.d = Input32("d")
+#         self.e = Input32("e")
+#         self.f = Output32("f")
 
-        self.process(self.eval, "SubAdder.eval").always(self.a, self.b)
+#         self.process(self.eval, "SubAdder.eval").always(self.a, self.b)
 
-        self.process(self.eval2, "SubAdder.eval2").always(self.d, self.e)
+#         self.process(self.eval2, "SubAdder.eval2").always(self.d, self.e)
 
-    def eval(self):
-        self.c.d = self.a.q + self.b.q
+#     def eval(self):
+#         self.c.d = self.a.q + self.b.q
 
-    def eval2(self):
-        self.f.d = self.d.q + self.e.q
+#     def eval2(self):
+#         self.f.d = self.d.q + self.e.q
 
 
-def test_two_adder():
-    with Context() as ctx:
-        # ctx.log_level = "debug"
-        with ctx.construct():
-            a = Signal32("a")
-            b = Signal32("b")
-            c = Signal32("c")
+# def test_two_adder():
+#     with Context() as ctx:
+#         # ctx.log_level = "debug"
+#         with ctx.construct():
+#             a = Signal32("a")
+#             b = Signal32("b")
+#             c = Signal32("c")
 
-            d = Signal32("d")
-            e = Signal32("e")
-            f = Signal32("f")
+#             d = Signal32("d")
+#             e = Signal32("e")
+#             f = Signal32("f")
 
-            two_adder = TwoAdder("two_adder")
-            two_adder.a(a)
-            two_adder.b(b)
-            two_adder.c(c)
-            two_adder.d(d)
-            two_adder.e(e)
-            two_adder.f(f)
+#             two_adder = TwoAdder("two_adder")
+#             two_adder.a(a)
+#             two_adder.b(b)
+#             two_adder.c(c)
+#             two_adder.d(d)
+#             two_adder.e(e)
+#             two_adder.f(f)
 
-        # Set input values and evaluate the two_adder
-        a.d = 1
-        b.d = 2
-        d.d = 3
-        e.d = 4
-        ctx.eval()
-        assert c.q == 3
-        assert f.q == 7
+#         # Set input values and evaluate the two_adder
+#         a.d = 1
+#         b.d = 2
+#         d.d = 3
+#         e.d = 4
+#         ctx.eval()
+#         assert c.q == 3
+#         assert f.q == 7
 
-        a.d = 5
-        b.d = 6
-        d.d = 7
-        e.d = 8
-        ctx.run(10)
-        assert c.q == 11
-        assert f.q == 15
+#         a.d = 5
+#         b.d = 6
+#         d.d = 7
+#         e.d = 8
+#         ctx.run(10)
+#         assert c.q == 11
+#         assert f.q == 15

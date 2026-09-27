@@ -5,22 +5,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Python required for nanobind/skbuild
-find_package(Python COMPONENTS Interpreter Development.Module Development.SABIModule OPTIONAL)
-message(STATUS "Python interpreter: ${Python_EXECUTABLE}")
-
-# nanobind. Required to build _framework module. Optional for C++ projects.
-find_package(nanobind REQUIRED)
-message(STATUS "Found nanobind: ${nanobind_DIR}")
-
 # dspsim
 find_package(dspsim REQUIRED)
 message(STATUS "Found dspsim: ${dspsim_DIR}")
 
-add_library({{model.name}}_core {{model.name}}.cpp)
-target_link_libraries({{model.name}}_core PRIVATE dspsim::dspsim-core)
+add_library({{model.name}} {{model.name}}.cpp)
+target_link_libraries({{model.name}} PUBLIC dspsim::dspsim-core)
 
-verilate({{model.name}}_core
+# Run verilator to create the verilated model and link
+verilate({{model.name}}
 SOURCES {{ model.source.as_posix() }}
 PREFIX V{{ model.name }}
 {%if model.trace == "vcd"-%}
@@ -30,5 +23,7 @@ TRACE_FST
 {%endif-%}
 VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
 
+# Create the main nanobind module
 dspsim_add_nanobind_module(_{{model.name}} {{model.name}}_module.cpp)
-target_link_libraries(_{{model.name}} PRIVATE {{model.name}}_core)
+# Link to the dspsim module
+target_link_libraries(_{{model.name}} PRIVATE {{model.name}})

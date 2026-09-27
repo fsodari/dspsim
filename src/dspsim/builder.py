@@ -1,7 +1,6 @@
 import annotationlib
 import atexit
 import functools
-import glob
 import hashlib
 import importlib.util
 import os
@@ -10,16 +9,16 @@ import sys
 import sysconfig
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import dotenv
 
+import dspsim
 from dspsim.framework import (
     Input8,
     Input16,
     Input32,
     Input64,
-    ModuleName,
     Output8,
     Output16,
     Output32,
@@ -171,38 +170,30 @@ def _get_build_dir(name: str, module_info: ModuleInfo) -> Path:
     return build_dir
 
 
-def _compute_hash(generated_content: list[tuple[Path, str]]) -> str:
+def _compute_hash(generated_content: list[tuple[str, str]]) -> str:
     """Compute a hash for the generated content."""
 
     hasher = hashlib.sha256()
     for output_file, content in generated_content:
-        hasher.update(str(output_file.absolute()).encode())
+        hasher.update(output_file.encode())
         hasher.update(content.encode())
     return hasher.hexdigest()
 
 
-def generate_project_files(name: str, module_info: ModuleInfo) -> None:
-    """Generate the project files for the module in the build directory."""
-    build_dir = _get_build_dir(name, module_info)
-    Path.mkdir(build_dir, parents=True, exist_ok=True)
-
-    # template, output_file
-    gen_files = [
-        (build_dir / f"{name}.h", "verilator_module.h.jinja"),
-        (build_dir / f"{name}.cpp", "verilator_module.cpp.jinja"),
-        (build_dir / f"{name}_bind.h", "verilator_module_bind.h.jinja"),
-        (build_dir / f"{name}_module.cpp", "verilator_module_module.cpp.jinja"),
-        (build_dir / "CMakeLists.txt", "verilator_module_cmake.cmake.jinja"),
-    ]
-    # Render the templates.
+def generate_files(file_pairs: list[tuple[str, str]], output_dir: Path, **kwargs):
+    """
+    Given a tuple of (output_file, template) pairs, generate the files in the build directory.
+    Computes a hash and saves it in the build directory. If the hash matches the existing one, file generation is skipped.
+    All kwargs are passed to all templates.
+    """
+    Path.mkdir(output_dir, parents=True, exist_ok=True)
     rendered_content = [
-        (output_file, render_template(template, model=module_info))
-        for output_file, template in gen_files
+        (output_file, render_template(template, **kwargs))
+        for output_file, template in file_pairs
     ]
-
     # Compute a hash and save it to the build_dir. If files haven't changed, skip generating.
     content_hash = _compute_hash(rendered_content)
-    hash_file = build_dir / "content_hash.txt"
+    hash_file = output_dir / "__content_hash__.txt"
     if hash_file.exists():
         with open(hash_file, "r") as f:
             existing_hash = f.read().strip()
@@ -215,13 +206,28 @@ def generate_project_files(name: str, module_info: ModuleInfo) -> None:
 
     # Write the generated files to the build dir.
     for output_file, content in rendered_content:
-        with open(output_file, "w") as f:
+        with open(output_dir / output_file, "w") as f:
             f.write(content)
 
 
-def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
+def generate_module_project_files(module_info: ModuleInfo, output_dir: Path) -> None:
+    """Generate the project files for the module in the build directory."""
+
+    # template, output_file
+    gen_files = [
+        (f"{module_info.name}.h", "verilator_module.h.jinja"),
+        (f"{module_info.name}.cpp", "verilator_module.cpp.jinja"),
+        (f"{module_info.name}_bind.h", "verilator_module_bind.h.jinja"),
+        (f"{module_info.name}_module.cpp", "verilator_module_module.cpp.jinja"),
+        ("CMakeLists.txt", "verilator_module_cmake.cmake.jinja"),
+    ]
+    generate_files(gen_files, output_dir, model=module_info)
+
+
+def build_module(source_dir: Path, build_dir: Path, verbose: bool = False):
     """Build the module using CMake."""
-    build_dir = _get_build_dir(name, module_info)
+    # build_dir = _get_build_dir(name, module_info)
+    # build_dir
     # Search site-packages for CMake modules. nanobind and dspsim will be findable here.
     site_packages_path = sysconfig.get_paths()["purelib"]
     # Search if dspsim is an editable install?
@@ -230,9 +236,9 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
     cmake_cfg_cmd = [
         "cmake",
         "-S",
-        build_dir,
+        source_dir,
         "-B",
-        build_dir / "build",
+        build_dir,
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_PREFIX_PATH={site_packages_path}",
     ]
@@ -248,7 +254,7 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
     cmake_build_cmd = [
         "cmake",
         "--build",
-        build_dir / "build",
+        build_dir,
         "--config",
         "Release",
     ]
@@ -261,7 +267,7 @@ def build_module(name: str, module_info: ModuleInfo, verbose: bool = False):
         raise RuntimeError("CMake build failed")
 
 
-def _find_built_module(name: str, module_info: ModuleInfo) -> Path:
+def _find_built_module(name: str, build_dir: Path) -> Path:
     """Find the built module's shared library file."""
     if sys.platform == "win32":
         suffix = ".pyd"
@@ -269,14 +275,12 @@ def _find_built_module(name: str, module_info: ModuleInfo) -> Path:
         suffix = ".so"
 
     # Might be in build or in build/Release depending on the platform/generator.
-    build_path = _get_build_dir(name, module_info) / "build"
-    return build_path.glob(f"**/*_{name}*{suffix}").__iter__().__next__()
-    
+    return build_dir.glob(f"**/*_{name}*{suffix}").__iter__().__next__()
 
 
-def _import_built_module(name: str, module_info: ModuleInfo):
+def _import_built_module(name: str, build_dir: Path):
     """Import the built module from its shared library file."""
-    module_path = _find_built_module(name, module_info)
+    module_path = _find_built_module(name, build_dir)
     spec = importlib.util.spec_from_file_location(f"_{name}", module_path)
     if spec is None:
         raise ImportError(f"Could not load module spec for {module_path}")
@@ -314,22 +318,26 @@ def build_vmodule(
             source, include_dirs=include_dirs, parameters={}
         )
 
-    # Validate the overrides and update them.
+    # Validate the parameter annotations, and create a set of parameter overrides.
     parameter_overrides = _get_parameter_overrides(
         parameters or {}, default_model_info.parameters
     )
-    # Re-generate the model with the parameter annotations applied. Port sizes may change.
+    # Re-generate the model with the parameter annotations applied.
+    # Port sizes may change with parameter overrides.
     module_info = load_model_info(
         source, include_dirs=include_dirs, parameters=parameter_overrides
     )
 
-    # Validate ports.
+    # Validate ports if annotations were supplied.
     if ports:
         _validate_ports(ports, module_info.ports)
 
-    # At this point, the annotations check out.
-    # Build the class.
+    # At this point, the annotations are valid.
+
+    # Use the specified name for the module.
     module_info.name = name
+
+    # Configure tracing.
     if trace == "platform":
         if sys.platform == "win32":
             trace = "vcd"
@@ -337,41 +345,40 @@ def build_vmodule(
             trace = "fst"
     module_info.trace = trace
 
+    # Build the class.
+    output_dir = _get_build_dir(module_info.name, module_info)
+    build_dir = output_dir / "build"
+
     # Generate project files
-    generate_project_files(module_info.name, module_info)
+    generate_module_project_files(module_info, output_dir)
 
     # Build the module!
-    build_module(module_info.name, module_info, verbose=verbose)
+    build_module(output_dir, build_dir, verbose=verbose)
 
     # Import the built module.
-    module = _import_built_module(module_info.name, module_info)
+    module = _import_built_module(module_info.name, build_dir)
 
     # Link the module's context factory to the main dspsim context factory.
-    module.set_global_context_factory(get_global_context_factory())
-    atexit.register(module.reset_global_context_factory)
+    dspsim.link_module(module)
 
     # Get the Module class from the imported module.
-    module_cls = getattr(module, f"{module_info.name}")
+    module_cls = getattr(module, module_info.name)
 
-    # Wrapper to get an instance of the class
-    @functools.wraps(module_cls)
-    def wrapper(name: str):
-        # Create a module name object before instantiating the module class.
-        _name = ModuleName(name)
-        # Replace the class.
-        instance = module_cls(_name)
-        # Delete the ModuleName to trigger the _end_construction method in the module class.
-        del _name
-        return instance
-
-    # This works for a type hint, but I still get a type hint error if I don't ignore.
-    return wrapper  # type: ignore
+    # Add the module_info as metadata? wrapper?
+    # Nanobind modules don't support adding arbitrary attributes to the class, so we can't attach module_info directly.
+    # Could subclass the nanobind module and add attributes.
+    return module_cls
 
 
-class VModule(_Module):
-    def __init__(self, name: str): ...
-    def open_trace(self, trace_path: Path, levels: int = 99, options: int = 0): ...
-    def close_trace(self): ...
+# Tell the type checker about VModule classes.
+if TYPE_CHECKING:
+
+    class VModule(_Module):
+        def __init__(self, name: str): ...
+        def open_trace(self, trace_path: Path, levels: int = 99, options: int = 0): ...
+        def close_trace(self): ...
+else:
+    VModule = object
 
 
 def vbuilder(
