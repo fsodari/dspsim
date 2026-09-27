@@ -12,44 +12,31 @@ namespace dspsim
     {
     }
 
-    void SensitivityEvent::add_static_process(ProcessBase *process)
-    {
-        _static_processes.push_back(process);
-    }
-
-    void SensitivityEvent::add_dynamic_process(ProcessBase *process)
-    {
-        _dynamic_processes.push_back(process);
-    }
-
     void SensitivityEvent::notify()
     {
-        for (const auto &p : _static_processes.stack())
+        // Schedule processes with static sensitivity if they are not currently waiting on a dynamic event.
+        for (const auto &process : _static_subscribers)
         {
-            _context->_process_eval_stack.push_back(p);
+            if (!process->static_sensitivity_disabled())
+            {
+                _context->_process_eval_stack.push_back(process);
+            }
         }
-        for (const auto &p : _dynamic_processes.stack())
+        // Schedule dynamic processes.
+        for (const auto &process : _dynamic_subscribers)
         {
-            _context->logger->debug("Notifying dynamic process: {}", p->name());
-            _context->_process_eval_stack.push_back(p);
+            _context->_process_eval_stack.push_back(process);
+            // Clear the static sensitivity disabled flag for the process, as it has now been notified by a dynamic event.
+            process->reset_static_sensitivity();
         }
-        _dynamic_processes.clear();
-    }
-
-    UniqueStack<ProcessBase *> &SensitivityEvent::static_processes()
-    {
-        return _static_processes;
-    }
-
-    UniqueStack<ProcessBase *> &SensitivityEvent::dynamic_processes()
-    {
-        return _dynamic_processes;
+        // Clear the dynamic subscribers after notifying.
+        _dynamic_subscribers.clear();
     }
 
     TimeEvent::TimeEvent(Context *context, uint64_t time_update, ProcessBase *process)
         : _context(context),
-          process(process),
-          time_update(time_update)
+          time_update(time_update),
+          process(process)
     {
     }
 }

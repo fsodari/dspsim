@@ -14,55 +14,6 @@ namespace dspsim
     class Context;
     class ProcessBase;
 
-    // class Event
-    // {
-    // private:
-    //     Context *_context;
-
-    //     // Processes/coros that are sensitive to this event via their static sensitivity.
-    //     // This stack does not get cleared after notifying.
-    //     UniqueStack<ProcessBase *> _static_processes;
-
-    //     // Processes/coros that are dynamically sensitive to this event.
-    //     // This stack gets cleared after notifying.
-    //     UniqueStack<ProcessBase *> _dynamic_processes;
-
-    // public:
-    //     Event(Context *context) : _context(context) {}
-
-    //     virtual ~Event() = default;
-
-    //     // Schedule the
-    //     virtual void schedule_static(ProcessBase *process) { _static_processes.push_back(process); }
-    //     virtual void schedule_dynamic(ProcessBase *process) { _dynamic_processes.push_back(process); }
-    //     /*
-    //     virtual void schedule(void)
-    //     {
-    //         // Sensitivity events are created during construction so they exist before scheduling.
-    //         context()->_sensitivity_event_stack.push_back(this);
-
-    //         // Time events are created dynamically. How can schedule get called?
-    //         // Time event is created inside the awaitable?
-    //         context()->_time_event_stack.push_back(this);
-    //     }
-    //     */
-    //     /*
-    //     virtual void notify()
-    //     {
-    //         for (auto &process : _static_processes)
-    //         {
-    //             context()->_process_eval_stack.push_back(process);
-    //         }
-    //         for (auto &process : _dynamic_processes)
-    //         {
-    //             context()->_process_eval_stack.push_back(process);
-    //         }
-    //         _dynamic_processes.clear();
-    //     }
-    //     */
-    //     virtual void notify() = 0;
-    // };
-
     /*
     Holds lists of processes that are sensitive to this event.
     When notify() is called, all registered processes will be queued for evaluation.
@@ -71,31 +22,25 @@ namespace dspsim
     {
     private:
         Context *_context;
-        // Source. Processes sensitive this event will need to check if the event has happened.
-        // This would need to be resolved during elaboration for coros that are sensitive to a port.
-        // SignalBase *_source;
 
-        // Processes with static sensitivity. This is not cleared when the event is notified.
-        UniqueStack<ProcessBase *> _static_processes;
+        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
+        UniqueStack<ProcessBase *> _static_subscribers;
 
-        // Processes with dynamic sensitivity. This is cleared when the event is notified.
-        UniqueStack<ProcessBase *> _dynamic_processes;
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs and
+        // the process will return to having static sensitivity.
+        UniqueStack<ProcessBase *> _dynamic_subscribers;
 
     public:
         /*
-            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+            Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
         SensitivityEvent(Context *context);
 
-        // Add a process to this event's list of sensitive processes.
-        void add_static_process(ProcessBase *process);
-        void add_dynamic_process(ProcessBase *process);
-
-        // Schedule all of this module's processes for evalutation.
+        // Schedule subscribed processes for evaluation.
         void notify();
 
-        UniqueStack<ProcessBase *> &static_processes();
-        UniqueStack<ProcessBase *> &dynamic_processes();
+        UniqueStack<ProcessBase *> &static_subscribers() { return _static_subscribers; }
+        UniqueStack<ProcessBase *> &dynamic_subscribers() { return _dynamic_subscribers; }
     };
 
     /*
@@ -106,12 +51,12 @@ namespace dspsim
         Context *_context;
 
     public:
-        ProcessBase *process;
         uint64_t time_update;
+        ProcessBase *process;
 
     public:
         /*
-            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+            Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
         TimeEvent(Context *context, uint64_t time_update, ProcessBase *process);
 

@@ -2,6 +2,7 @@
     A process can be registered for evaluation in the simulation context.
 */
 #pragma once
+// #include <dspsim/sensitivity_list.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -10,15 +11,20 @@ namespace dspsim
 {
     class Context;
     class SensitivityEvent;
+    class Module;
 
     class ProcessBase
     {
         Context *_context;
         uint32_t _id;
         std::string _name;
+        Module *_parent_module;
 
         bool _scheduled = false;
         bool _initialize = true;
+
+        // Static sensitivity will be disabled until a dynamic event occurs.
+        bool _static_sensitivity_disabled = false;
 
     public:
         ProcessBase(const std::string &name = "");
@@ -43,27 +49,29 @@ namespace dspsim
         bool &_get_initialize() { return initialize(); }
         ProcessBase *_set_initialize(bool init) { return initialize(init); }
 
-        // Link the process to a sensitivity event. This will ensure the process is triggered when the event occurs.
+        //
+        bool static_sensitivity_disabled() { return _static_sensitivity_disabled; }
+        // Return to being sensitive to static events.
+        void reset_static_sensitivity() { _static_sensitivity_disabled = false; }
+
         void schedule_static_event(SensitivityEvent *event);
-        // "*" can be used to say that its sensitive to changes on all inputs.
         void schedule_static_event(const std::string &event_name);
 
-        // Used by python
-        void _schedule_static_event(SensitivityEvent *event) { schedule_static_event(event); }
-        void _schedule_static_event_str(const std::string &event_name) { schedule_static_event(event_name); }
+        void schedule_dynamic_event(SensitivityEvent *event);
+        void schedule_dynamic_event(const std::string &event_name);
 
         // void always(SensitivityEvent *event, Process *process = nullptr) { _always.link_process(event, process); }
         template <typename... Args>
         ProcessBase *always(Args &&...args)
         {
             // The comma operator executes print_item for each argument in sequence
-            (schedule_static_event(std::forward<Args>(args)), ...);
+            (this->schedule_static_event(std::forward<Args>(args)), ...);
             return this;
         }
 
         ProcessBase *_always_str(const std::string &event_name)
         {
-            schedule_static_event(event_name);
+            this->schedule_static_event(event_name);
             return this;
         }
 

@@ -21,4 +21,27 @@ namespace dspsim
     {
         context()->_active_module_stack.pop_back();
     }
+
+    void Module::next_trigger(uint64_t time_update, ProcessBase *process)
+    {
+        context()->schedule_time_event(time_update, process);
+    }
+
+    void Module::next_trigger(SensitivityEvent *event, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = context()->_current_process;
+        }
+        process->schedule_dynamic_event(event);
+    }
+    void Module::next_trigger(const std::string &event_name, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = context()->_current_process;
+        }
+        process->schedule_dynamic_event(event_name);
+    }
+
 } // namespace dspsim

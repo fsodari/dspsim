@@ -8,14 +8,16 @@
 namespace dspsim
 {
     ProcessBase::ProcessBase(const std::string &name)
-        : _context(Context::obtain().get()), _id(_context->next_process_id()), _name(name)
+        : _context(Context::obtain().get()),
+          _id(_context->next_process_id()),
+          _name(name),
+          _parent_module(_context->_active_module())
     {
     }
 
     void ProcessBase::schedule_static_event(SensitivityEvent *event)
     {
-        // Implementation goes here
-        event->add_static_process(this);
+        event->static_subscribers().push_back(this);
     }
 
     void ProcessBase::schedule_static_event(const std::string &event_name)
@@ -24,9 +26,30 @@ namespace dspsim
         // Make the sensitivity list sensitive to all events.
         if (event_name == "*")
         {
-            for (auto &input : _context->_active_module()->inputs())
+            for (auto &input : _parent_module->inputs())
             {
                 schedule_static_event(input->_change());
+            }
+        }
+        else
+        {
+            _context->logger->error("Event not found: {}", event_name);
+        }
+    }
+
+    void ProcessBase::schedule_dynamic_event(SensitivityEvent *event)
+    {
+        // Implementation goes here
+        event->dynamic_subscribers().push_back(this);
+        this->_static_sensitivity_disabled = true;
+    }
+    void ProcessBase::schedule_dynamic_event(const std::string &event_name)
+    {
+        if (event_name == "*")
+        {
+            for (auto &input : _parent_module->inputs())
+            {
+                schedule_dynamic_event(input->change_event());
             }
         }
         else

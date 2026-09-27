@@ -142,15 +142,18 @@ namespace dspsim
         {
             _posedge_flag = true;
 
-            context()->_sensitivity_event_stack.push_back(pos());
+            // context()->_sensitivity_event_stack.push_back(pos());
+            pos()->notify();
         }
         else if (!_d && _q)
         {
             _negedge_flag = true;
 
-            context()->_sensitivity_event_stack.push_back(neg());
+            // context()->_sensitivity_event_stack.push_back(neg());
+            neg()->notify();
         }
-        context()->_sensitivity_event_stack.push_back(_change());
+        // context()->_sensitivity_event_stack.push_back(_change());
+        _change()->notify();
 
         this->_q = this->_d;
     }

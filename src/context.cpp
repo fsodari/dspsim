@@ -225,21 +225,13 @@ namespace dspsim
         }
     }
 
-    void Context::next_trigger(uint64_t time_update, ProcessBase *process)
+    void Context::schedule_time_event(uint64_t time_update, ProcessBase *process)
     {
         if (process == nullptr)
         {
             process = _current_process;
         }
         _time_event_stack.emplace(this, time_update, process);
-    }
-    void Context::next_trigger(SensitivityEvent *event, ProcessBase *process)
-    {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        event->add_dynamic_process(process);
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const

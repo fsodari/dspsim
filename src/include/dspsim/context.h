@@ -121,12 +121,7 @@ namespace dspsim
         */
         void run(uint64_t time_inc = 0);
 
-        // Schedule a process to be evaluated at the the time event
-        // If this is ever used multithreaded, process must be explicitly provided since active_process may not be reliable.
-        void next_trigger(uint64_t time_update, ProcessBase *process = nullptr);
-
-        // Schedule to be sensitive to an event on the next trigger.
-        void next_trigger(SensitivityEvent *event, ProcessBase *process = nullptr);
+        void schedule_time_event(uint64_t time_update, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;

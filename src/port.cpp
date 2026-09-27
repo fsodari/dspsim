@@ -49,9 +49,9 @@ namespace dspsim
     template <typename T>
     void Input<T>::update_bound_signal_subscribers()
     {
-        _bound_signal->pos()->static_processes().push_range(_static_posedge_event.static_processes());
-        _bound_signal->neg()->static_processes().push_range(_static_negedge_event.static_processes());
-        _bound_signal->_change()->static_processes().push_range(_static_change_event.static_processes());
+        _bound_signal->pos()->static_subscribers().push_range(_static_posedge_event.static_subscribers());
+        _bound_signal->neg()->static_subscribers().push_range(_static_negedge_event.static_subscribers());
+        _bound_signal->_change()->static_subscribers().push_range(_static_change_event.static_subscribers());
 
         // Set dynamic sensitivity to the signal's dynamic events.
         _dynamic_change_event = _bound_signal->_change();

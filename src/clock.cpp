@@ -10,15 +10,17 @@ namespace dspsim
         this->_kind = "clock";
         // TODO: Handle non-integer periods.
         _half_period = _period / 2;
-        context()->register_method(&Clock::tick, this, this->name() + ".tick()");
+        context()->register_method(&Clock::tick, this, this->hier_name() + ".tick()");
     }
 
     void Clock::tick()
     {
+        // Toggle the clock.
         this->write(!this->_q);
-        SPDLOG_LOGGER_TRACE(context()->logger, "Clock tick scheduled for process: {}, time: {}", _process->name(), context()->time() + _half_period);
-        // context()->_time_event_stack.emplace(context(), context()->time() + _half_period);
-        context()->next_trigger(context()->time() + _half_period);
+
+        SPDLOG_LOGGER_TRACE(context()->logger, "{}.tick() scheduled for, time: {}", this->hier_name(), context()->time() + _half_period);
+
+        context()->schedule_time_event(context()->time() + _half_period);
     }
 
     int Clock::period() const

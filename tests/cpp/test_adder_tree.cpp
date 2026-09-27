@@ -19,9 +19,11 @@ namespace
         Adder(ModuleName name)
             : Module(name)
         {
+            // Using static sensitivity.
             // DSPSIM_METHOD(eval)
             //     ->always("*");
 
+            // Using dynamic sensitivity for testing purposes.
             DSPSIM_METHOD(eval);
         }
 
@@ -29,10 +31,8 @@ namespace
         {
             context()->logger->debug("Evaluating adder: {}", hier_name());
             c.write(a.read() + b.read());
-            context()->next_trigger(a.change_event());
-            context()->next_trigger(b.change_event());
-            // context()->next_trigger(a);
-            // context()->next_trigger(b);
+            // Dynamic sensitivity for the next evaluation.
+            next_trigger("*");
         }
     };
 
