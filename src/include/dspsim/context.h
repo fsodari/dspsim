@@ -127,8 +127,8 @@ namespace dspsim
         // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
         void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
-        wait wait_(uint64_t time_delta, ProcessBase *process = nullptr);
-        wait_event wait_(SensitivityEvent *event, ProcessBase *process = nullptr);
+        Wait wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;

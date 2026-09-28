@@ -54,7 +54,7 @@ namespace dspsim
     };
 
     // Awaitable for waiting a specific time delta
-    class wait
+    class Wait
     {
         uint64_t _time_delta;
         Context *_context;
@@ -62,7 +62,7 @@ namespace dspsim
         // Event *_event;
         // Coro
     public:
-        wait(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
+        Wait(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
 
         // Determine if the coroutine needs to suspend or it can continue immediately.
         // relative events will never be ready immediately. Absolute events could. Or passing 0 would do nothing?
@@ -78,14 +78,14 @@ namespace dspsim
         void await_resume() noexcept;
     };
 
-    class wait_event
+    class WaitEvent
     {
         SensitivityEvent *_event;
         Context *_context;
         ProcessBase *_process;
 
     public:
-        wait_event(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+        WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;

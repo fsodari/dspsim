@@ -60,30 +60,30 @@ namespace dspsim
     /*
         Time Event awaitable.
     */
-    wait::wait(uint64_t time_delta, Context *context, ProcessBase *process)
+    Wait::Wait(uint64_t time_delta, Context *context, ProcessBase *process)
         : _time_delta(time_delta), _context(context), _process(process)
     {
     }
 
-    bool wait::await_ready() const noexcept
+    bool Wait::await_ready() const noexcept
     {
         return _time_delta <= 0; // Always false...
     }
 
-    void wait::await_suspend(std::coroutine_handle<> h) noexcept
+    void Wait::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
         _context->schedule_time_delta_event(_time_delta, _process);
     }
 
-    void wait::resume() {}
+    void Wait::resume() {}
 
-    void wait::await_resume() noexcept {}
+    void Wait::await_resume() noexcept {}
 
     /*
         Sensitivity Event awaitable.
     */
-    wait_event::wait_event(SensitivityEvent *event, Context *context, ProcessBase *process)
+    WaitEvent::WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
         : _event(event), _context(context), _process(process)
     {
         if (_process == nullptr)
@@ -92,7 +92,7 @@ namespace dspsim
         }
     }
 
-    bool wait_event::await_ready() const noexcept
+    bool WaitEvent::await_ready() const noexcept
     {
         // return _event->has_happened();
 
@@ -100,13 +100,13 @@ namespace dspsim
         return false;
     }
 
-    void wait_event::await_suspend(std::coroutine_handle<> h) noexcept
+    void WaitEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
         _event->dynamic_subscribers().push_back(_process);
     }
 
-    void wait_event::resume() {}
+    void WaitEvent::resume() {}
 
-    void wait_event::await_resume() noexcept {}
+    void WaitEvent::await_resume() noexcept {}
 } // namespace dspsim

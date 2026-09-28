@@ -11,7 +11,8 @@ namespace dspsim
         // TODO: Handle non-integer periods.
         _half_period = _period / 2;
         // context()->register_method(&Clock::tick, this, this->hier_name() + ".tick()");
-        _process = context()->register_coro_task(tick_task(), this->hier_name() + ".tick()");
+        // _process = context()->register_coro_task(tick_task(), this->hier_name() + ".tick()");
+        _process = DSPSIM_CORO(tick_task);
     }
 
     void Clock::tick()
@@ -29,9 +30,9 @@ namespace dspsim
         while (true)
         {
             this->write(!this->read());
-            co_await wait{_half_period, context(), _process};
+            co_await context()->wait(_half_period, _process);
             this->write(!this->read());
-            co_await wait{_half_period, context(), _process};
+            co_await context()->wait(_half_period, _process);
         }
     }
 

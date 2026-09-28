@@ -34,6 +34,10 @@ namespace dspsim
         // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
         void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
 
+        // Coroutine awaitables
+        Wait wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
+
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }
         std::vector<InputBase *> &inputs() { return _inputs; }

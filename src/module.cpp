@@ -44,4 +44,22 @@ namespace dspsim
         process->schedule_dynamic_event(event_name);
     }
 
+    Wait Module::wait(uint64_t time_delta, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = context()->_current_process;
+        }
+        return Wait{time_delta, context(), process};
+    }
+
+    WaitEvent Module::wait(SensitivityEvent *event, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = context()->_current_process;
+        }
+        return WaitEvent{event, context(), process};
+    }
+
 } // namespace dspsim
