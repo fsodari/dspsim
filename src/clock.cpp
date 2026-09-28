@@ -4,29 +4,29 @@
 
 namespace dspsim
 {
-    Clock::Clock(const std::string &name, int period)
+    Clock::Clock(const std::string &name, uint64_t period)
         : Signal<uint8_t>(name, 1, 0, false), _period(period)
     {
         this->_kind = "clock";
-        // TODO: Handle non-integer periods.
+
         _half_period = _period / 2;
-        _process = context()->register_method(&Clock::tick, this, this->name() + ".tick()");
+        // If half_period wasn't an even number.
+        _remainder = _period - _half_period;
+        _process = DSPSIM_CORO(tick);
     }
 
-    void Clock::tick()
+    Task Clock::tick()
     {
-        this->write(!this->_q);
-        SPDLOG_LOGGER_TRACE(context()->logger, "Clock tick scheduled for process: {}, time: {}", _process->name(), context()->time() + _half_period);
+        while (true)
+        {
+            this->write(!this->read());
+            co_await context()->wait(_half_period, _process);
+            this->write(!this->read());
+            co_await context()->wait(_remainder, _process);
+        }
     }
 
-    void Clock::update()
-    {
-        SPDLOG_LOGGER_TRACE(context()->logger, "Clock update for process: {}, time: {}", _process->name(), context()->time() + _half_period);
-        Signal<uint8_t>::update();
-        context()->_time_event_stack.emplace(context(), _process, context()->time() + _half_period);
-    }
-
-    int Clock::period() const
+    uint64_t Clock::period() const
     {
         return _period;
     }

@@ -89,7 +89,7 @@ namespace dspsim
         // Used for python d property
         const T &_read_d() const { return _d; }
 
-        virtual void update() override;
+        void update() override;
         /*
             Static Methods
         */
@@ -143,14 +143,18 @@ namespace dspsim
             _posedge_flag = true;
 
             context()->_sensitivity_event_stack.push_back(pos());
+            pos()->set_event_flag(&_posedge_flag);
+            // pos()->notify(&_posedge_flag);
         }
         else if (!_d && _q)
         {
             _negedge_flag = true;
 
             context()->_sensitivity_event_stack.push_back(neg());
+            neg()->set_event_flag(&_negedge_flag);
         }
         context()->_sensitivity_event_stack.push_back(_change());
+        _change()->set_event_flag(&_changed_flag);
 
         this->_q = this->_d;
     }

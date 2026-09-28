@@ -7,23 +7,21 @@ namespace dspsim
     class Clock final : public Signal<uint8_t>
     {
     private:
-        int _period;
-        int _half_period;
-        Process *_process;
+        uint64_t _period;
+        uint64_t _half_period;
+        uint64_t _remainder;
+        ProcessBase *_process;
 
     public:
-        Clock(const std::string &name, int period);
-        int period() const;
-
-        // Calls Signal<uint8_t>::update() and schedules the next time event.
-        void update() override;
+        Clock(const std::string &name, uint64_t period);
+        uint64_t period() const;
 
     private:
         // Toggles the clock signal and schedules the next time event.
-        void tick();
+        Task tick();
 
     public:
-        static auto create(const std::string &name, int period)
+        static auto create(const std::string &name, uint64_t period)
         {
             return Model::create<Clock>(name, period);
         }

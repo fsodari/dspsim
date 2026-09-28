@@ -19,13 +19,20 @@ namespace
         Adder(ModuleName name)
             : Module(name)
         {
-            DSPSIM_METHOD(eval)
-                ->always("*");
+            // Using static sensitivity.
+            // DSPSIM_METHOD(eval)
+            //     ->always("*");
+
+            // Using dynamic sensitivity for testing purposes.
+            DSPSIM_METHOD(eval);
         }
 
         void eval()
         {
+            context()->logger->debug("Evaluating adder: {}", hier_name());
             c.write(a.read() + b.read());
+            // Dynamic sensitivity for the next evaluation.
+            next_trigger("*");
         }
     };
 
@@ -189,7 +196,7 @@ namespace
 TEST_CASE("test_adder_tree", "[adder_tree]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    // ctx->logger->set_level(spdlog::level::debug);
 
     // Clock clk{"clk", 10};
     Signal<int> ai1{"ai1"};

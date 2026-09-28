@@ -20,9 +20,9 @@ namespace dspsim
 
     InputBase::InputBase(const std::string &name, int width)
         : PortBase(name, width, "input"),
-          _change_event(context()),
-          _posedge_event(context()),
-          _negedge_event(context())
+          _static_change_event(context()),
+          _static_posedge_event(context()),
+          _static_negedge_event(context())
     {
         // Register an input port with the parent module.
         if (context()->_active_module())
@@ -49,9 +49,14 @@ namespace dspsim
     template <typename T>
     void Input<T>::update_bound_signal_subscribers()
     {
-        _bound_signal->pos()->processes().push_range(_posedge_event.processes());
-        _bound_signal->neg()->processes().push_range(_negedge_event.processes());
-        _bound_signal->_change()->processes().push_range(_change_event.processes());
+        _bound_signal->pos()->static_subscribers().push_range(_static_posedge_event.static_subscribers());
+        _bound_signal->neg()->static_subscribers().push_range(_static_negedge_event.static_subscribers());
+        _bound_signal->_change()->static_subscribers().push_range(_static_change_event.static_subscribers());
+
+        // Set dynamic sensitivity to the signal's dynamic events.
+        _dynamic_change_event = _bound_signal->_change();
+        _dynamic_posedge_event = _bound_signal->pos();
+        _dynamic_negedge_event = _bound_signal->neg();
     }
 
     template <typename T>

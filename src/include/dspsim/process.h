@@ -2,7 +2,8 @@
     A process can be registered for evaluation in the simulation context.
 */
 #pragma once
-#include <dspsim/model.h>
+// #include <dspsim/sensitivity_list.h>
+#include <dspsim/coro/coro.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -11,28 +12,26 @@ namespace dspsim
 {
     class Context;
     class SensitivityEvent;
-    class Process
+    class Module;
+
+    class ProcessBase
     {
         Context *_context;
-        Model *_source;
         uint32_t _id;
+        std::string _name;
+        Module *_parent_module;
 
-        // Set while this process sits in Context::_process_eval_stack; used by FlaggedStack.
         bool _scheduled = false;
-
-        // Initialize this process on startup.
         bool _initialize = true;
 
-    public:
-        std::function<void()> eval;
-
-    private:
-        std::string _name;
+        // Static sensitivity will be disabled until a dynamic event occurs.
+        bool _static_sensitivity_disabled = false;
 
     public:
-        Process(uint32_t id, std::function<void()> eval, Model *source, const std::string &name = "");
+        ProcessBase(const std::string &name = "");
+        virtual ~ProcessBase() = default;
 
-        Model *source() const { return _source; }
+        Context *context() const { return _context; }
         uint32_t id() const { return _id; }
         const std::string &name() const { return _name; }
         bool &_scheduled_flag() { return _scheduled; }
@@ -42,7 +41,7 @@ namespace dspsim
         // Accessor for the initialization flag.
         bool &initialize() { return _initialize; }
         // Set the initialization flag. Can be chained with always() calls.
-        Process *initialize(bool init)
+        ProcessBase *initialize(bool init)
         {
             _initialize = init;
             return this;
@@ -50,31 +49,46 @@ namespace dspsim
 
         // Python/nanobind will need getter/setters with different names.
         bool &_get_initialize() { return initialize(); }
-        Process *_set_initialize(bool init) { return initialize(init); }
+        ProcessBase *_set_initialize(bool init) { return initialize(init); }
 
         //
-        // Link the process to a sensitivity event. This will ensure the process is triggered when the event occurs.
-        void link_event(SensitivityEvent *event);
-        // "*" can be used to say that its sensitive to changes on all inputs.
-        void link_event(const std::string &event_name);
-        // Used by python
-        void _link_event(SensitivityEvent *event) { link_event(event); }
-        void _link_event_str(const std::string &event_name) { link_event(event_name); }
+        bool static_sensitivity_disabled() { return _static_sensitivity_disabled; }
+        // Return to being sensitive to static events.
+        void reset_static_sensitivity();
+
+        void schedule_static_event(SensitivityEvent *event);
+        void schedule_static_event(const std::string &event_name);
+
+        void schedule_dynamic_event(SensitivityEvent *event);
+        void schedule_dynamic_event(const std::string &event_name);
 
         // void always(SensitivityEvent *event, Process *process = nullptr) { _always.link_process(event, process); }
         template <typename... Args>
-        Process *always(Args &&...args)
+        ProcessBase *always(Args &&...args)
         {
             // The comma operator executes print_item for each argument in sequence
-            (link_event(std::forward<Args>(args)), ...);
+            (this->schedule_static_event(std::forward<Args>(args)), ...);
             return this;
         }
 
-        Process *_always_str(const std::string &event_name)
+        ProcessBase *_always_str(const std::string &event_name)
         {
-            link_event(event_name);
+            this->schedule_static_event(event_name);
             return this;
         }
+
+        // Processes will call their bound eval() func. Coroutines will be resumed with their handle.
+        virtual void resume() = 0;
+    };
+
+    class Process : public ProcessBase
+    {
+        std::function<void()> _eval;
+
+    public:
+        Process(std::function<void()> eval, const std::string &name = "");
+
+        void resume() override { _eval(); }
     };
 
     // Custom utility function. Wraps a method and this ptr in a lambda.
@@ -87,10 +101,30 @@ namespace dspsim
             return (instance->*mem_ptr)();
         };
     }
+
+    /*
+        Coroutine-based process class.
+    */
+    class CoroProcess : public ProcessBase
+    {
+        Task _task;
+        // std::coroutine_handle<> _handle;
+
+    public:
+        // CoroProcess(std::coroutine_handle<> handle, const std::string &name = "");
+        CoroProcess(Task task, const std::string &name = "");
+
+        void resume() override;
+    };
 }
 
 // Convenience macro for registering a method as a process
 #define DSPSIM_METHOD(method) \
-    context()->register_method(&std::remove_reference<decltype(*this)>::type::method, this, std::string(#method))
+    context()->register_method(&std::remove_reference<decltype(*this)>::type::method, this, this->hier_name() + "." + std::string(#method))
 
+// Convenience macro for registering a coroutine task as a process
+#define DSPSIM_CORO(task) \
+    context()->register_coro_task(task(), this->hier_name() + "." + std::string(#task))
+//     context()->_processes.emplace_back(std::make_unique<CoroProcess>(some_task(), "some_task"));
+//     context()->register_coro_task(&std::remove_reference<decltype(*this)>::type::task, this, this->hier_name() + "." + std::string(#task))
 //

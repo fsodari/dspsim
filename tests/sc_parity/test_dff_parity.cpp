@@ -1,6 +1,6 @@
 #include <systemc>
 #include <dspsim/dspsim.h>
-#include <dspsim/dff.h>
+#include <dspsim/modules/dff.h>
 #include <spdlog/spdlog.h>
 #include <cassert>
 #include <iostream>

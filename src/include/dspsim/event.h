@@ -12,31 +12,43 @@ namespace dspsim
         Negedge
     };
     class Context;
-    class Process;
+    class ProcessBase;
 
     /*
-        Holds a static list of processes that are sensitive to this event.
-        When notify() is called, all registered processes will be queued for evaluation.
+    Holds lists of processes that are sensitive to this event.
+    When notify() is called, all registered processes will be queued for evaluation.
     */
     class SensitivityEvent
     {
     private:
         Context *_context;
-        UniqueStack<Process *> _processes;
+        uint32_t _id;
+        bool *_event_flag = nullptr;
+
+        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
+        UniqueStack<ProcessBase *> _static_subscribers;
+
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs and
+        // the process will return to having static sensitivity.
+        UniqueStack<ProcessBase *> _dynamic_subscribers;
 
     public:
         /*
-            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+            Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
         SensitivityEvent(Context *context);
 
-        // Add a process to this event's list of sensitive processes.
-        void add_process(Process *process);
+        uint32_t id() const { return _id; }
 
-        // Schedule all of this module's processes for evalutation.
+        // Schedule subscribed processes for evaluation.
+        // void notify(bool &event_flag);
         void notify();
+        void set_event_flag(bool *event_flag) { _event_flag = event_flag; }
 
-        UniqueStack<Process *> &processes();
+        bool has_happened() const { return _event_flag ? *_event_flag : false; }
+
+        UniqueStack<ProcessBase *> &static_subscribers() { return _static_subscribers; }
+        UniqueStack<ProcessBase *> &dynamic_subscribers() { return _dynamic_subscribers; }
     };
 
     /*
@@ -47,14 +59,14 @@ namespace dspsim
         Context *_context;
 
     public:
-        Process *process;
         uint64_t time_update;
+        ProcessBase *process;
 
     public:
         /*
-            Events must be linked to a context. If dynamic events (TBD) are introduced, then will not be able to automatically obtain the context.
+            Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
-        TimeEvent(Context *context, Process *process, uint64_t time_update);
+        TimeEvent(Context *context, uint64_t time_update, ProcessBase *process);
 
         // Need to expose comparison operators so this can be used with a priority queue or other sorted structure.
         bool operator<(const TimeEvent &other) const { return time_update < other.time_update; }

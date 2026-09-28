@@ -1,13 +1,15 @@
 add_library(dspsim-core STATIC
-    ${DSPSIM_SRC_DIR}/context.cpp
-    ${DSPSIM_SRC_DIR}/model.cpp
-    ${DSPSIM_SRC_DIR}/signal.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
-    ${DSPSIM_SRC_DIR}/module.cpp
-    ${DSPSIM_SRC_DIR}/module_name.cpp
-    ${DSPSIM_SRC_DIR}/port.cpp
+    ${DSPSIM_SRC_DIR}/context.cpp
+    ${DSPSIM_SRC_DIR}/coro.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
-    ${DSPSIM_SRC_DIR}/process.cpp)
+    ${DSPSIM_SRC_DIR}/model.cpp
+    ${DSPSIM_SRC_DIR}/module_name.cpp
+    ${DSPSIM_SRC_DIR}/module.cpp
+    ${DSPSIM_SRC_DIR}/port.cpp
+    ${DSPSIM_SRC_DIR}/process.cpp
+    # ${DSPSIM_SRC_DIR}/sensitivity_list.cpp
+    ${DSPSIM_SRC_DIR}/signal.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 set_target_properties(dspsim-core PROPERTIES 
@@ -63,7 +65,9 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/module.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/port.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
+        # ${DSPSIM_INCLUDE_DIR}/dspsim/sensitivity_list.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/signal.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/coro/coro.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_rx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h

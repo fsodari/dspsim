@@ -6,6 +6,7 @@
 
 namespace dspsim
 {
+    class ProcessBase;
     class Module : public Model
     {
         // Information about the module's ports.
@@ -23,6 +24,22 @@ namespace dspsim
         // Removes the module from the active module stack in the context.
         void _end_construction();
 
+        // Schedule a process to be evaluated after the given time delta relative to the current simulation time.
+        // If this is ever used multithreaded, process must be explicitly provided since active_process may not be reliable.
+        void next_trigger(uint64_t time_delta, ProcessBase *process = nullptr);
+
+        // Schedule to be sensitive to an event on the next trigger.
+        void next_trigger(SensitivityEvent *event, ProcessBase *process = nullptr);
+
+        // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
+        void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
+
+        // Coroutine awaitables
+        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
+
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }
         std::vector<InputBase *> &inputs() { return _inputs; }
@@ -38,7 +55,8 @@ namespace dspsim
 } // namespace dspsim
 
 // Declare a module class that inherits from dspsim::Module.
-#define DSPSIM_MODULE(...) struct __VA_ARGS__ : public ::dspsim::Module
+#define DSPSIM_MODULE(...) \
+    struct __VA_ARGS__ : public ::dspsim::Module
 
 // Constructor macro for a module subclass. Uses ModuleName as the constructor argument. A string can be passed as an argument.
 #define DSPSIM_CTOR(module_name) module_name(::dspsim::ModuleName)

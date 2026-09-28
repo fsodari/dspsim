@@ -8,6 +8,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/function.h>
 
@@ -57,7 +58,6 @@ namespace dspsim
             // Register a process.
             .def("register_process", &Context::register_process_func,
                  nb::arg("func"),
-                 nb::arg("source"),
                  nb::arg("name") = "",
                  nb::rv_policy::reference)
 
@@ -125,15 +125,20 @@ namespace dspsim
         return self;
     }
 
+    static inline auto bind_process_base(nb::module_ &m, const char *name)
+    {
+        return nb::class_<ProcessBase>(m, name)
+            .def_prop_ro("context", &ProcessBase::context, nb::rv_policy::reference_internal)
+            .def_prop_ro("id", &ProcessBase::id)
+            .def_prop_ro("name", &ProcessBase::name)
+            .def("initialize", &ProcessBase::_set_initialize, nb::arg("init"), nb::rv_policy::reference_internal)
+            .def("always", &ProcessBase::_always_str, nb::arg("event_name"), nb::rv_policy::reference_internal)
+            .def("always", &_process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> ProcessBase"));
+    }
+
     static inline auto bind_process(nb::module_ &m, const char *name)
     {
-        return nb::class_<Process>(m, name)
-            .def_prop_ro("name", &Process::name)
-            .def_prop_ro("id", &Process::id)
-            .def_prop_ro("source", &Process::source)
-            .def("initialize", &Process::_set_initialize, nb::arg("init"), nb::rv_policy::reference_internal)
-            .def("always", &Process::_always_str, nb::arg("event_name"), nb::rv_policy::reference_internal)
-            .def("always", &_process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> Process"));
+        return nb::class_<Process, ProcessBase>(m, name);
     }
 
     static inline auto bind_time_event(nb::module_ &m, const char *name)
@@ -250,9 +255,9 @@ namespace dspsim
             .def_prop_ro("name", &ModuleName::name);
     }
 
-    static inline Process *_module_process_helper(Module *module, std::function<void()> func, const std::string &name = "")
+    static inline auto _module_process_helper(Module *module, std::function<void()> func, const std::string &name = "")
     {
-        return module->context()->register_process_func(func, module, name);
+        return module->context()->register_process_func(func, name);
     }
 
     static inline auto bind_module(nb::module_ &m, const char *name)
@@ -261,7 +266,7 @@ namespace dspsim
             .def(nb::init<ModuleName &>(), nb::arg("name"))
             // Methods.
             .def("finalize", &Module::finalize)
-            .def("process", &_module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference_internal)
+            .def("process", &_module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
             .def("ports", &Module::ports)
             .def("inputs", &Module::inputs)
             .def("outputs", &Module::outputs)
