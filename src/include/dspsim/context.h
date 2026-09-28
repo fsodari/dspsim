@@ -130,15 +130,15 @@ namespace dspsim
         void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // Wait on a time event.
-        Wait wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // wait on all events in the static sensitivity list.
-        WaitEvent wait(ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(ProcessBase *process = nullptr);
 
         // wait on a dynamic event.
-        WaitEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
         // wait on multiple dynamic events.
-        WaitEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;

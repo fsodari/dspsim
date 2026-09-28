@@ -56,15 +56,14 @@ namespace dspsim
     };
 
     // Awaitable for waiting a specific time delta
-    class Wait
+    class WaitTimeEvent
     {
         uint64_t _time_delta;
         Context *_context;
         ProcessBase *_process;
-        // Event *_event;
-        // Coro
+
     public:
-        Wait(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
+        WaitTimeEvent(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
 
         // Determine if the coroutine needs to suspend or it can continue immediately.
         // relative events will never be ready immediately. Absolute events could. Or passing 0 would do nothing?
@@ -80,7 +79,7 @@ namespace dspsim
         void await_resume() noexcept;
     };
 
-    class WaitEvent
+    class WaitSensitivityEvent
     {
         // SensitivityEvent *_event;
         UniqueStack<SensitivityEvent *> _events;
@@ -89,13 +88,13 @@ namespace dspsim
 
     public:
         // Wait on any event in the static sensitivity list.
-        WaitEvent(Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(Context *context, ProcessBase *process = nullptr);
 
         // Wait on a dynamically added event.
-        WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
 
         // Wait on multiple dynamic events, if any occur (or list);
-        WaitEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process = nullptr);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;

@@ -28,9 +28,9 @@ public:
         context()->logger->info("Starting some_task, t={}", context()->time());
         while (true)
         {
-            co_await Wait{10, context(), _coro_process};
+            co_await WaitTimeEvent{10, context(), _coro_process};
             context()->logger->info("After wait(10), t={}", context()->time());
-            co_await Wait{10, context(), _coro_process};
+            co_await WaitTimeEvent{10, context(), _coro_process};
             context()->logger->info("After second wait(10), t={}", context()->time());
         }
         context()->logger->info("Exiting some_task loop, t={}", context()->time());
@@ -66,6 +66,14 @@ public:
     }
 };
 
+#define DSPSIM_ALWAYS_BEGIN \
+    while (true)            \
+    {                       \
+        co_await wait();
+
+#define DSPSIM_ALWAYS_END \
+    }
+
 class StaticCoros : public Module
 {
 public:
@@ -81,9 +89,42 @@ public:
 
     Task add()
     {
+        // while (true)
+        // {
+        //     co_await wait();
+        //     c.write(a.read() + b.read());
+        // }
+        DSPSIM_ALWAYS_BEGIN
+        c.write(a.read() + b.read());
+        DSPSIM_ALWAYS_END
+    }
+};
+
+class SerialAwait : public Module
+{
+public:
+    Input<uint8_t> a{"a"};
+    Input<uint8_t> b{"b"};
+    Output<uint8_t> c{"c"};
+
+    DSPSIM_CTOR(SerialAwait)
+    {
+        DSPSIM_CORO(add);
+    }
+
+    Task add()
+    {
         while (true)
         {
-            co_await wait();
+            /*
+                await_ready is always false right now.
+                Need to be able to check the event, then clear it so that it doesn't continually evaluate true.
+                What if multiple processes are reading the ports?
+                What about signals?
+                Is this even a useful feature? To be able to AND events?
+            */
+            co_await wait(a.change_event());
+            co_await wait(b.change_event());
             c.write(a.read() + b.read());
         }
     }

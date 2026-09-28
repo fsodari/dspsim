@@ -244,31 +244,31 @@ namespace dspsim
         _time_event_stack.emplace(this, _time + time_delta, process);
     }
 
-    Wait Context::wait(uint64_t time_delta, ProcessBase *process)
+    WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
     {
         if (process == nullptr)
         {
             process = _current_process;
         }
-        return Wait{time_delta, this, process};
+        return WaitTimeEvent{time_delta, this, process};
     }
 
-    WaitEvent Context::wait(ProcessBase *process)
+    WaitSensitivityEvent Context::wait(ProcessBase *process)
     {
         if (process == nullptr)
         {
             process = _current_process;
         }
-        return WaitEvent{this, process};
+        return WaitSensitivityEvent{this, process};
     }
 
-    WaitEvent Context::wait(SensitivityEvent *event, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent *event, ProcessBase *process)
     {
         if (process == nullptr)
         {
             process = _current_process;
         }
-        return WaitEvent{event, this, process};
+        return WaitSensitivityEvent{event, this, process};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const

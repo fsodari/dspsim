@@ -9,6 +9,7 @@ namespace dspsim
     private:
         uint64_t _period;
         uint64_t _half_period;
+        uint64_t _remainder;
         ProcessBase *_process;
 
     public:
@@ -17,8 +18,7 @@ namespace dspsim
 
     private:
         // Toggles the clock signal and schedules the next time event.
-        void tick();
-        Task tick_task();
+        Task tick();
 
     public:
         static auto create(const std::string &name, uint64_t period)

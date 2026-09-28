@@ -44,22 +44,22 @@ namespace dspsim
         process->schedule_dynamic_event(event_name);
     }
 
-    Wait Module::wait(uint64_t time_delta, ProcessBase *process)
+    WaitTimeEvent Module::wait(uint64_t time_delta, ProcessBase *process)
     {
         return context()->wait(time_delta, process);
     }
 
-    WaitEvent Module::wait(ProcessBase *process)
+    WaitSensitivityEvent Module::wait(ProcessBase *process)
     {
         return context()->wait(process);
     }
 
-    WaitEvent Module::wait(SensitivityEvent *event, ProcessBase *process)
+    WaitSensitivityEvent Module::wait(SensitivityEvent *event, ProcessBase *process)
     {
         return context()->wait(event, process);
     }
 
-    WaitEvent Module::wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process)
+    WaitSensitivityEvent Module::wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process)
     {
         return context()->wait(events, process);
     }

@@ -60,30 +60,30 @@ namespace dspsim
     /*
         Time Event awaitable.
     */
-    Wait::Wait(uint64_t time_delta, Context *context, ProcessBase *process)
+    WaitTimeEvent::WaitTimeEvent(uint64_t time_delta, Context *context, ProcessBase *process)
         : _time_delta(time_delta), _context(context), _process(process)
     {
     }
 
-    bool Wait::await_ready() const noexcept
+    bool WaitTimeEvent::await_ready() const noexcept
     {
         return _time_delta <= 0; // Always false...
     }
 
-    void Wait::await_suspend(std::coroutine_handle<> h) noexcept
+    void WaitTimeEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
         _context->schedule_time_delta_event(_time_delta, _process);
     }
 
-    void Wait::resume() {}
+    void WaitTimeEvent::resume() {}
 
-    void Wait::await_resume() noexcept {}
+    void WaitTimeEvent::await_resume() noexcept {}
 
     /*
         Sensitivity Event awaitable.
     */
-    WaitEvent::WaitEvent(Context *context, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(Context *context, ProcessBase *process)
         : _context(context), _process(process)
     {
         if (_process == nullptr)
@@ -92,19 +92,19 @@ namespace dspsim
         }
     }
 
-    WaitEvent::WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
-        : WaitEvent(context, process)
+    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
+        : WaitSensitivityEvent(context, process)
     {
         _events.push_back(event);
     }
 
-    WaitEvent::WaitEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process)
-        : WaitEvent(context, process)
+    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process)
+        : WaitSensitivityEvent(context, process)
     {
         _events.push_range(events);
     }
 
-    bool WaitEvent::await_ready() const noexcept
+    bool WaitSensitivityEvent::await_ready() const noexcept
     {
         // return _event->has_happened();
 
@@ -112,7 +112,7 @@ namespace dspsim
         return false;
     }
 
-    void WaitEvent::await_suspend(std::coroutine_handle<> h) noexcept
+    void WaitSensitivityEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
         for (auto &event : _events)
@@ -121,7 +121,7 @@ namespace dspsim
         }
     }
 
-    void WaitEvent::resume() {}
+    void WaitSensitivityEvent::resume() {}
 
-    void WaitEvent::await_resume() noexcept {}
+    void WaitSensitivityEvent::await_resume() noexcept {}
 } // namespace dspsim
