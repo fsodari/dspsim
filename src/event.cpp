@@ -12,8 +12,10 @@ namespace dspsim
     {
     }
 
+    // void SensitivityEvent::notify(bool &event_flag)
     void SensitivityEvent::notify()
     {
+        // _event_flag = &event_flag;
         // Schedule processes with static sensitivity if they are not currently waiting on a dynamic event.
         for (const auto &process : _static_subscribers)
         {

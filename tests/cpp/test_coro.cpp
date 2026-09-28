@@ -8,16 +8,20 @@ using namespace dspsim;
 
 class SomeModule : public Module
 {
-    ProcessBase *_coro_process;
-
 public:
+    ProcessBase *_coro_process;
     ProcessBase *_one_shot_process;
+    ProcessBase *_clocked_task_process;
+
+    Input<uint8_t> clk{"clk"};
+
     SomeModule(ModuleName name)
         : Module(name)
     {
         // context()->register_coro_task(some_task(), "some_task");
         _coro_process = DSPSIM_CORO(some_task);
         _one_shot_process = DSPSIM_CORO(one_shot);
+        _clocked_task_process = DSPSIM_CORO(clocked_task);
     }
 
     Task some_task()
@@ -37,10 +41,24 @@ public:
     Task one_shot()
     {
         context()->logger->info("Starting one_shot");
-        co_await wait{5, context()};
+        REQUIRE(context()->time() == 0);
+        co_await context()->wait_(5);
+        REQUIRE(context()->time() == 5);
         context()->logger->info("After one_shot wait(5), t={}", context()->time());
 
         co_return;
+    }
+
+    Task clocked_task()
+    {
+        context()->logger->info("Starting clocked_task");
+        while (true)
+        {
+            co_await context()->wait_(clk.posedge_event());
+
+            REQUIRE(clk.posedge());
+            context()->logger->info("clk.pos() event at t={}, posedge?={}", context()->time(), clk.posedge());
+        }
     }
 };
 
@@ -51,6 +69,7 @@ TEST_CASE("test coro basic", "[coro]")
 
     Clock clk{"clk", 10};
     SomeModule some_module{"some_module"};
+    some_module.clk.bind(clk);
 
     ctx->elaborate();
 

@@ -9,6 +9,7 @@ namespace dspsim
 {
     class Context;
     class ProcessBase;
+    class SensitivityEvent;
 
     struct Task
     {
@@ -74,6 +75,21 @@ namespace dspsim
         void resume();
 
         // Returns result when the coroutine resumes. Can return a value if needed.
+        void await_resume() noexcept;
+    };
+
+    class wait_event
+    {
+        SensitivityEvent *_event;
+        Context *_context;
+        ProcessBase *_process;
+
+    public:
+        wait_event(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+
+        bool await_ready() const noexcept;
+        void await_suspend(std::coroutine_handle<> h) noexcept;
+        void resume();
         void await_resume() noexcept;
     };
 

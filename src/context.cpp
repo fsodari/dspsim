@@ -126,6 +126,7 @@ namespace dspsim
         // Any model that was updated this cycle should be traced.
 
         // Reset signal event flag at the beginning of each delta cycle.
+        // Is this correct?
         if (_signal_event)
         {
             _signal_event = false;
@@ -241,6 +242,23 @@ namespace dspsim
             process = _current_process;
         }
         _time_event_stack.emplace(this, _time + time_delta, process);
+    }
+
+    wait Context::wait_(uint64_t time_delta, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return wait{time_delta, this, process};
+    }
+    wait_event Context::wait_(SensitivityEvent *event, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return wait_event{event, this, process};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const

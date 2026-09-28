@@ -57,6 +57,9 @@ namespace dspsim
         }
     }
 
+    /*
+        Time Event awaitable.
+    */
     wait::wait(uint64_t time_delta, Context *context, ProcessBase *process)
         : _time_delta(time_delta), _context(context), _process(process)
     {
@@ -64,7 +67,7 @@ namespace dspsim
 
     bool wait::await_ready() const noexcept
     {
-        return _time_delta <= 0;
+        return _time_delta <= 0; // Always false...
     }
 
     void wait::await_suspend(std::coroutine_handle<> h) noexcept
@@ -77,4 +80,33 @@ namespace dspsim
 
     void wait::await_resume() noexcept {}
 
+    /*
+        Sensitivity Event awaitable.
+    */
+    wait_event::wait_event(SensitivityEvent *event, Context *context, ProcessBase *process)
+        : _event(event), _context(context), _process(process)
+    {
+        if (_process == nullptr)
+        {
+            _process = _context->_current_process;
+        }
+    }
+
+    bool wait_event::await_ready() const noexcept
+    {
+        // return _event->has_happened();
+
+        // Must wait until the event occurs in the notification phase and the task is explicitly resumed.
+        return false;
+    }
+
+    void wait_event::await_suspend(std::coroutine_handle<> h) noexcept
+    {
+        (void)h;
+        _event->dynamic_subscribers().push_back(_process);
+    }
+
+    void wait_event::resume() {}
+
+    void wait_event::await_resume() noexcept {}
 } // namespace dspsim
