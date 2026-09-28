@@ -81,22 +81,32 @@ public:
     Input<uint8_t> b{"b"};
     Output<uint8_t> c{"c"};
 
+    Input<uint8_t> d{"d"};
+    Input<uint8_t> e{"e"};
+    Output<uint8_t> f{"f"};
+
     DSPSIM_CTOR(StaticCoros)
     {
         DSPSIM_CORO(add)
             ->always(a, b);
+        DSPSIM_CORO(add2);
     }
 
     Task add()
     {
-        // while (true)
-        // {
-        //     co_await wait();
-        //     c.write(a.read() + b.read());
-        // }
-        DSPSIM_ALWAYS_BEGIN
-        c.write(a.read() + b.read());
-        DSPSIM_ALWAYS_END
+        while (true)
+        {
+            co_await wait();
+            c.write(a.read() + b.read());
+        }
+    }
+    Task add2()
+    {
+        while (true)
+        {
+            co_await wait({d.change_event(), e.change_event()});
+            f.write(d.read() + e.read());
+        }
     }
 };
 
@@ -156,22 +166,34 @@ TEST_CASE("test coro static sensitivity", "[coro]")
     Signal<uint8_t> a{"a"};
     Signal<uint8_t> b{"b"};
     Signal<uint8_t> c{"c"};
+    Signal<uint8_t> d{"d"};
+    Signal<uint8_t> e{"e"};
+    Signal<uint8_t> f{"f"};
     StaticCoros static_coros{"static_coros"};
 
     static_coros.a.bind(a);
     static_coros.b.bind(b);
     static_coros.c.bind(c);
+    static_coros.d.bind(d);
+    static_coros.e.bind(e);
+    static_coros.f.bind(f);
 
     a.write(1);
     b.write(2);
+    d.write(3);
+    e.write(4);
 
     ctx->elaborate();
 
     ctx->run(0);
     REQUIRE(c.read() == 3);
+    REQUIRE(f.read() == 7);
 
     a.write(3);
     b.write(4);
+    d.write(5);
+    e.write(6);
     ctx->run(0);
     REQUIRE(c.read() == 7);
+    REQUIRE(f.read() == 11);
 }

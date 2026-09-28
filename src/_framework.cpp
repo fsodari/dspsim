@@ -21,6 +21,7 @@ NB_MODULE(_framework, m)
     // Bind Model base class
     bind_model(m, "Model");
     // Bind Process
+    bind_process_base(m, "ProcessBase");
     bind_process(m, "Process");
     // Bind TimeEvent
     bind_time_event(m, "TimeEvent");

@@ -102,6 +102,12 @@ namespace dspsim
         Context(const std::string &name, int id);
 
     public:
+        // Explicitly delete copy constructor and assignment
+        Context(const Context &) = delete;
+        Context &operator=(const Context &) = delete;
+
+        // Move operations can be kept if desired
+        Context(Context &&) noexcept = default;
         ~Context();
 
         // Methods
