@@ -8,14 +8,12 @@ namespace dspsim
 {
 
     SensitivityEvent::SensitivityEvent(Context *context)
-        : _context(context)
+        : _context(context), _id(_context->next_event_id())
     {
     }
 
-    // void SensitivityEvent::notify(bool &event_flag)
     void SensitivityEvent::notify()
     {
-        // _event_flag = &event_flag;
         // Schedule processes with static sensitivity if they are not currently waiting on a dynamic event.
         for (const auto &process : _static_subscribers)
         {

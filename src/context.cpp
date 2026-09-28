@@ -252,6 +252,16 @@ namespace dspsim
         }
         return Wait{time_delta, this, process};
     }
+
+    WaitEvent Context::wait(ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return WaitEvent{this, process};
+    }
+
     WaitEvent Context::wait(SensitivityEvent *event, ProcessBase *process)
     {
         if (process == nullptr)

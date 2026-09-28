@@ -38,6 +38,8 @@ namespace dspsim
         */
         SensitivityEvent(Context *context);
 
+        uint32_t id() const { return _id; }
+
         // Schedule subscribed processes for evaluation.
         // void notify(bool &event_flag);
         void notify();

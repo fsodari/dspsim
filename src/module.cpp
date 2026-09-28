@@ -46,20 +46,22 @@ namespace dspsim
 
     Wait Module::wait(uint64_t time_delta, ProcessBase *process)
     {
-        if (process == nullptr)
-        {
-            process = context()->_current_process;
-        }
-        return Wait{time_delta, context(), process};
+        return context()->wait(time_delta, process);
+    }
+
+    WaitEvent Module::wait(ProcessBase *process)
+    {
+        return context()->wait(process);
     }
 
     WaitEvent Module::wait(SensitivityEvent *event, ProcessBase *process)
     {
-        if (process == nullptr)
-        {
-            process = context()->_current_process;
-        }
-        return WaitEvent{event, context(), process};
+        return context()->wait(event, process);
+    }
+
+    WaitEvent Module::wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process)
+    {
+        return context()->wait(events, process);
     }
 
 } // namespace dspsim

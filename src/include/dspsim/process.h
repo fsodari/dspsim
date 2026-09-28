@@ -54,7 +54,7 @@ namespace dspsim
         //
         bool static_sensitivity_disabled() { return _static_sensitivity_disabled; }
         // Return to being sensitive to static events.
-        void reset_static_sensitivity() { _static_sensitivity_disabled = false; }
+        void reset_static_sensitivity();
 
         void schedule_static_event(SensitivityEvent *event);
         void schedule_static_event(const std::string &event_name);

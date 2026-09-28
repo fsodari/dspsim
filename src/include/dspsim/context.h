@@ -52,6 +52,8 @@ namespace dspsim
         // Each process is assigned a unique ID, starting from 0.
         uint32_t _next_process_id;
 
+        uint32_t _next_event_id;
+
     public:
         // Processes are allocated from functions, so they need to live somewhere.
         std::vector<std::unique_ptr<ProcessBase>> _processes;
@@ -127,8 +129,16 @@ namespace dspsim
         // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
         void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
+        // Wait on a time event.
         Wait wait(uint64_t time_delta, ProcessBase *process = nullptr);
+
+        // wait on all events in the static sensitivity list.
+        WaitEvent wait(ProcessBase *process = nullptr);
+
+        // wait on a dynamic event.
         WaitEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
+        // wait on multiple dynamic events.
+        WaitEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
@@ -189,6 +199,8 @@ namespace dspsim
         // void _own_module(std::shared_ptr<Module> module);
 
         void trace_model(Model *model) { _trace_stack.push_back(model); }
+
+        uint32_t next_event_id() { return _next_event_id++; }
 
         uint32_t next_process_id() { return _next_process_id++; }
         // Register a process with the context. This will create a Process object and set it as the active process.

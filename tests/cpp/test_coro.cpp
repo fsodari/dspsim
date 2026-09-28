@@ -66,6 +66,29 @@ public:
     }
 };
 
+class StaticCoros : public Module
+{
+public:
+    Input<uint8_t> a{"a"};
+    Input<uint8_t> b{"b"};
+    Output<uint8_t> c{"c"};
+
+    DSPSIM_CTOR(StaticCoros)
+    {
+        DSPSIM_CORO(add)
+            ->always(a, b);
+    }
+
+    Task add()
+    {
+        while (true)
+        {
+            co_await wait();
+            c.write(a.read() + b.read());
+        }
+    }
+};
+
 TEST_CASE("test coro basic", "[coro]")
 {
     auto ctx = Context::create();
@@ -82,4 +105,32 @@ TEST_CASE("test coro basic", "[coro]")
     // What happens when one_shot is dead? SEGFAULT.
     // Need to remove the process from everything that has a reference to it?
     some_module._one_shot_process->resume();
+}
+
+TEST_CASE("test coro static sensitivity", "[coro]")
+{
+    auto ctx = Context::create();
+    ctx->logger->set_level(spdlog::level::debug);
+
+    Signal<uint8_t> a{"a"};
+    Signal<uint8_t> b{"b"};
+    Signal<uint8_t> c{"c"};
+    StaticCoros static_coros{"static_coros"};
+
+    static_coros.a.bind(a);
+    static_coros.b.bind(b);
+    static_coros.c.bind(c);
+
+    a.write(1);
+    b.write(2);
+
+    ctx->elaborate();
+
+    ctx->run(0);
+    REQUIRE(c.read() == 3);
+
+    a.write(3);
+    b.write(4);
+    ctx->run(0);
+    REQUIRE(c.read() == 7);
 }

@@ -83,13 +83,25 @@ namespace dspsim
     /*
         Sensitivity Event awaitable.
     */
-    WaitEvent::WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
-        : _event(event), _context(context), _process(process)
+    WaitEvent::WaitEvent(Context *context, ProcessBase *process)
+        : _context(context), _process(process)
     {
         if (_process == nullptr)
         {
             _process = _context->_current_process;
         }
+    }
+
+    WaitEvent::WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
+        : WaitEvent(context, process)
+    {
+        _events.push_back(event);
+    }
+
+    WaitEvent::WaitEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process)
+        : WaitEvent(context, process)
+    {
+        _events.push_range(events);
     }
 
     bool WaitEvent::await_ready() const noexcept
@@ -103,7 +115,10 @@ namespace dspsim
     void WaitEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
-        _event->dynamic_subscribers().push_back(_process);
+        for (auto &event : _events)
+        {
+            event->dynamic_subscribers().push_back(_process);
+        }
     }
 
     void WaitEvent::resume() {}

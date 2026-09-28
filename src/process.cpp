@@ -15,6 +15,11 @@ namespace dspsim
     {
     }
 
+    void ProcessBase::reset_static_sensitivity()
+    {
+        _static_sensitivity_disabled = false;
+    }
+
     void ProcessBase::schedule_static_event(SensitivityEvent *event)
     {
         event->static_subscribers().push_back(this);

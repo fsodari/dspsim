@@ -1,9 +1,11 @@
 #pragma once
-#include <iostream>
+#include <dspsim/utils/unique_stack.h>
+
 #include <coroutine>
-#include <queue>
 #include <string>
 #include <utility>
+#include <vector>
+#include <initializer_list>
 
 namespace dspsim
 {
@@ -80,12 +82,20 @@ namespace dspsim
 
     class WaitEvent
     {
-        SensitivityEvent *_event;
+        // SensitivityEvent *_event;
+        UniqueStack<SensitivityEvent *> _events;
         Context *_context;
         ProcessBase *_process;
 
     public:
+        // Wait on any event in the static sensitivity list.
+        WaitEvent(Context *context, ProcessBase *process = nullptr);
+
+        // Wait on a dynamically added event.
         WaitEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+
+        // Wait on multiple dynamic events, if any occur (or list);
+        WaitEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process = nullptr);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;
