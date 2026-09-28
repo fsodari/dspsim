@@ -64,20 +64,22 @@ namespace dspsim
     }
 
     /*
-
+        Coroutine processes.
     */
-    // Coroutine Process
-    // CoroProcess::CoroProcess(Task *task, const std::string &name)
-    // CoroProcess::CoroProcess(std::coroutine_handle<> handle, const std::string &name)
-    //     : ProcessBase(name), _handle(handle)
-    // {
-    // }
     CoroProcess::CoroProcess(Task task, const std::string &name)
         : ProcessBase(name), _task(std::move(task))
     {
     }
     void CoroProcess::resume()
     {
-        _task.handle.resume();
+        if (!_task.handle.done()) [[likely]]
+        {
+            _task.handle.resume();
+        }
+        else
+        {
+            // Coroutine has completed and cannot be resumed.
+            context()->logger->error("Attempted to resume a completed coroutine! {}", name());
+        }
     }
 }

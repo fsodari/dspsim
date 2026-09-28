@@ -58,5 +58,5 @@ TEST_CASE("test coro basic", "[coro]")
 
     // What happens when one_shot is dead? SEGFAULT.
     // Need to remove the process from everything that has a reference to it?
-    // some_module._one_shot_process->resume();
+    some_module._one_shot_process->resume();
 }

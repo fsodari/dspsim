@@ -31,6 +31,7 @@ namespace dspsim
         ProcessBase(const std::string &name = "");
         virtual ~ProcessBase() = default;
 
+        Context *context() const { return _context; }
         uint32_t id() const { return _id; }
         const std::string &name() const { return _name; }
         bool &_scheduled_flag() { return _scheduled; }
