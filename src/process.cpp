@@ -62,4 +62,22 @@ namespace dspsim
         : ProcessBase(name), _eval(eval)
     {
     }
+
+    /*
+
+    */
+    // Coroutine Process
+    // CoroProcess::CoroProcess(Task *task, const std::string &name)
+    // CoroProcess::CoroProcess(std::coroutine_handle<> handle, const std::string &name)
+    //     : ProcessBase(name), _handle(handle)
+    // {
+    // }
+    CoroProcess::CoroProcess(Task task, const std::string &name)
+        : ProcessBase(name), _task(std::move(task))
+    {
+    }
+    void CoroProcess::resume()
+    {
+        _task.handle.resume();
+    }
 }

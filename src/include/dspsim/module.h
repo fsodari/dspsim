@@ -24,9 +24,9 @@ namespace dspsim
         // Removes the module from the active module stack in the context.
         void _end_construction();
 
-        // Schedule a process to be evaluated at the the time event
+        // Schedule a process to be evaluated after the given time delta relative to the current simulation time.
         // If this is ever used multithreaded, process must be explicitly provided since active_process may not be reliable.
-        void next_trigger(uint64_t time_update, ProcessBase *process = nullptr);
+        void next_trigger(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // Schedule to be sensitive to an event on the next trigger.
         void next_trigger(SensitivityEvent *event, ProcessBase *process = nullptr);

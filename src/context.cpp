@@ -67,13 +67,22 @@ namespace dspsim
 
     void Context::clear()
     {
-        // Clearing this will cause a segfault if signals go out of scope first.
+        // Clearing these will cause a segfault if signals go out of scope first.
         // _process_eval_stack.clear();
         // _signal_update_stack.clear();
+
         _registered_models.clear();
+        _modules.clear();
+        _signals.clear();
+        _processes.clear();
         _owned_models.clear();
         _children.clear();
+
+        _sensitivity_event_stack.clear();
         _time_event_stack = PriorityQueue<TimeEvent>();
+        _trace_stack.clear();
+        _active_module_stack.clear();
+        _active_module_name_stack.clear();
     }
 
     void Context::elaborate()
@@ -100,7 +109,7 @@ namespace dspsim
 
         // Force an initial settle: schedule every module for evaluation once so that
         // combinational logic propagates from initial signal values before the first eval().
-        for (auto process : _processes)
+        for (auto &process : _processes)
         {
             logger->debug("Processing initialization for process: {}, init={}", process->name(), process->initialize());
             if (process->initialize())
@@ -225,13 +234,13 @@ namespace dspsim
         }
     }
 
-    void Context::schedule_time_event(uint64_t time_update, ProcessBase *process)
+    void Context::schedule_time_delta_event(uint64_t time_delta, ProcessBase *process)
     {
         if (process == nullptr)
         {
             process = _current_process;
         }
-        _time_event_stack.emplace(this, time_update, process);
+        _time_event_stack.emplace(this, _time + time_delta, process);
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const
@@ -336,13 +345,18 @@ namespace dspsim
         _owned_models.push_back(model);
     }
 
-    Process *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
+    ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        auto process = std::make_shared<Process>(eval, name);
-        _processes.push_back(process);
+        _processes.emplace_back(std::make_unique<Process>(eval, name));
         logger->info("Registering process: {}", name);
-        // Set the active process of the context.
-        return process.get();
+        return _processes.back().get();
+    }
+
+    ProcessBase *Context::register_coro_task(Task task, const std::string &name)
+    {
+        _processes.emplace_back(std::make_unique<CoroProcess>(std::move(task), name));
+        logger->info("Registering coroutine task: {}", name);
+        return _processes.back().get();
     }
 
     Module *Context::_active_module() const

@@ -51,9 +51,12 @@ namespace dspsim
 
         // Each process is assigned a unique ID, starting from 0.
         uint32_t _next_process_id;
-        // Processes are allocated from functions, so they need to live somewhere.
-        std::vector<std::shared_ptr<ProcessBase>> _processes;
 
+    public:
+        // Processes are allocated from functions, so they need to live somewhere.
+        std::vector<std::unique_ptr<ProcessBase>> _processes;
+
+    private:
         // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
         // More likely to be used in Python
         std::vector<std::shared_ptr<Model>> _owned_models;
@@ -121,7 +124,8 @@ namespace dspsim
         */
         void run(uint64_t time_inc = 0);
 
-        void schedule_time_event(uint64_t time_update, ProcessBase *process = nullptr);
+        // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
+        void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
@@ -185,13 +189,15 @@ namespace dspsim
 
         uint32_t next_process_id() { return _next_process_id++; }
         // Register a process with the context. This will create a Process object and set it as the active process.
-        Process *register_process_func(const std::function<void()> &eval, const std::string &name = "");
+        ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
 
         template <typename MemberFunc, typename ClassType>
-        Process *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
+        ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
         {
             return register_process_func(method_to_function(mem_ptr, instance), name);
         }
+
+        ProcessBase *register_coro_task(Task task, const std::string &name = "");
 
         /*
             The current hierarchal module being constructed.

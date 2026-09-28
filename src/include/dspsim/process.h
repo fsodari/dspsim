@@ -3,6 +3,7 @@
 */
 #pragma once
 // #include <dspsim/sensitivity_list.h>
+#include <dspsim/coro/coro.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -99,10 +100,30 @@ namespace dspsim
             return (instance->*mem_ptr)();
         };
     }
+
+    /*
+        Coroutine-based process class.
+    */
+    class CoroProcess : public ProcessBase
+    {
+        Task _task;
+        // std::coroutine_handle<> _handle;
+
+    public:
+        // CoroProcess(std::coroutine_handle<> handle, const std::string &name = "");
+        CoroProcess(Task task, const std::string &name = "");
+
+        void resume() override;
+    };
 }
 
 // Convenience macro for registering a method as a process
 #define DSPSIM_METHOD(method) \
     context()->register_method(&std::remove_reference<decltype(*this)>::type::method, this, this->hier_name() + "." + std::string(#method))
 
+// Convenience macro for registering a coroutine task as a process
+#define DSPSIM_CORO(task) \
+    context()->register_coro_task(task(), this->hier_name() + "." + std::string(#task))
+//     context()->_processes.emplace_back(std::make_unique<CoroProcess>(some_task(), "some_task"));
+//     context()->register_coro_task(&std::remove_reference<decltype(*this)>::type::task, this, this->hier_name() + "." + std::string(#task))
 //

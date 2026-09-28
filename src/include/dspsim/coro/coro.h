@@ -3,49 +3,12 @@
 #include <coroutine>
 #include <queue>
 #include <string>
+#include <utility>
 
 namespace dspsim
 {
     class Context;
-
-    class SimContext
-    {
-    public:
-        using Time = long long; // e.g., simulation ticks/picoseconds
-
-        Time current_time() const { return now_; }
-
-        void schedule(Time delta, std::coroutine_handle<> h)
-        {
-            queue_.push({now_ + delta, h});
-        }
-
-        void run()
-        {
-            while (!queue_.empty())
-            {
-                auto top = queue_.top();
-                queue_.pop();
-                if (top.time < now_)
-                    continue; // stale event
-                now_ = top.time;
-                top.handle.resume();
-            }
-        }
-
-    private:
-        struct EventNode
-        {
-            Time time;
-            std::coroutine_handle<> handle;
-            bool operator>(const EventNode &o) const { return time > o.time; }
-        };
-        Time now_ = 0;
-        std::priority_queue<EventNode, std::vector<EventNode>, std::greater<>> queue_;
-    };
-
-    // Global or thread-local context pointer for easy access inside awaiters
-    inline thread_local SimContext *current_sim = nullptr;
+    class ProcessBase;
 
     struct Task
     {
@@ -57,112 +20,83 @@ namespace dspsim
             The object returned by this function is what the caller of the coroutine function
             actually receives when the coroutine first suspends or finishes
             */
-            Task get_return_object()
-            {
-                return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
-            }
+            Task get_return_object();
+            // Task get_return_object() { return {}; }
             // returning suspend_always here means the coroutine will always suspend initially.
             // returning suspend_never would start immediately.
-            std::suspend_always initial_suspend() noexcept { return {}; }
+            std::suspend_always initial_suspend() noexcept;
 
             // Called when the coroutine exits. suspend_always will suspend the coroutine at the end, requiring cleanup.
             // suspend_never will immediately destroy the coroutine without suspending at the end.
-            std::suspend_always final_suspend() noexcept { return {}; }
+            std::suspend_always final_suspend() noexcept;
 
-            // triggered with co_return. Other option is return_value(T) if the coroutine returns a value.
-            void return_void() {}
-            void unhandled_exception() { std::terminate(); }
+            // Executed on co_return. Other option is return_value(T) if the coroutine returns a value.
+            // This needs to clean up the context and remove any reference to the coroutine process so that it
+            // doesn't get triggered again.
+            void return_void();
+            void unhandled_exception();
         };
 
         //
-        std::coroutine_handle<promise_type> handle;
-        ~Task()
-        {
-            if (handle)
-                handle.destroy();
-        }
+        std::coroutine_handle<promise_type> handle{};
+
+        Task() = default;
+        explicit Task(std::coroutine_handle<promise_type> coroutine_handle) noexcept;
+        Task(const Task &) = delete;
+        Task &operator=(const Task &) = delete;
+
+        Task(Task &&other) noexcept;
+
+        Task &operator=(Task &&other) noexcept;
+
+        ~Task();
     };
 
     // Awaitable for waiting a specific time delta
-    struct wait
+    class wait
     {
-        int delta;
+        uint64_t _time_delta;
         Context *_context;
+        ProcessBase *_process;
         // Event *_event;
-
-        wait(int delta, Context *context) : delta(delta), _context(context) {}
-        // wait(SensitivityEvent *event, Context *context) : _dynamic_event(event), _context(context) {}
+        // Coro
+    public:
+        wait(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
 
         // Determine if the coroutine needs to suspend or it can continue immediately.
         // relative events will never be ready immediately. Absolute events could. Or passing 0 would do nothing?
-        bool await_ready() const noexcept { return delta <= 0; }
+        bool await_ready() const noexcept;
 
         // If await_ready is false, Schedule the time event and coro is suspended.
-        void await_suspend(std::coroutine_handle<> h) noexcept
-        {
-            // Add coro to time event priority queue.
-            current_sim->schedule(delta, h);
-        }
+        void await_suspend(std::coroutine_handle<> h) noexcept;
 
         // Scheduler will call this to resume execution.
-        void resume() {}
+        void resume();
 
         // Returns result when the coroutine resumes. Can return a value if needed.
-        void await_resume() noexcept {}
+        void await_resume() noexcept;
     };
-    struct wait_event
-    {
-        // SensitivityEvent *_dynamic_event;
-        Context *_context;
 
-        // Check if the dynamic event has occured already.
-        /*
-            For example:
-            while(True)
+    /*
+    class SomeModule : public Module
+    {
+        ProcessBase *_coro_process;
+
+    public:
+        SomeModule(ModuleName name)
+            : Module(name)
+        {
+            context()->_processes.emplace_back(std::make_unique<CoroProcess>(std::move(some_task()), "some_task"));
+            _coro_process = context()->_processes.back().get();
+        }
+
+        Task some_task()
+        {
+            while (true)
             {
-                // Both could be valid simultaneously, so the coroutine will not yield after the first event.
-                co_await wait_event{clk1.posedge_event(), context()};
-                co_await wait_event{clk2.posedge_event(), context()};
+                co_await wait{10, this->context(), _coro_process};
             }
-        */
-        bool await_ready() const noexcept { return delta <= 0; }
-
-        void await_suspend(std::coroutine_handle<> h) noexcept
-        {
-            // current_sim->schedule(delta, h);
         }
-
-        void resume() {}
-
-        void await_resume() noexcept {}
     };
-
-    Task sc_thread_example(int id)
-    {
-        while (true)
-        {
-            std::cout << "Thread " << id << " active at time: "
-                      << current_sim->current_time() << "\n";
-            // Wait for 10 time units (analogous to wait(10, SC_NS))
-            co_await wait{10};
-        }
-    }
-
-    int main()
-    {
-        SimContext sim;
-        current_sim = &sim;
-
-        // Register tasks in a vector in the context so the context has ownership.
-        auto t1 = sc_thread_example(1);
-        auto t2 = sc_thread_example(2);
-        // Add handles to a UniqueStack
-
-        // Kickstart them at t=0
-        sim.schedule(0, t1.handle);
-        sim.schedule(5, t2.handle); // offset start
-
-        sim.run();
-        return 0;
-    }
+    */
 } // namespace dspsim

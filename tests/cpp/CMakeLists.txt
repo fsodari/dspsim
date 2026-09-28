@@ -1,5 +1,6 @@
 #
 add_executable(tests
+    test_coro.cpp
     test_dff.cpp
     test_hierarchy.cpp
     test_submodule.cpp

@@ -22,9 +22,9 @@ namespace dspsim
         context()->_active_module_stack.pop_back();
     }
 
-    void Module::next_trigger(uint64_t time_update, ProcessBase *process)
+    void Module::next_trigger(uint64_t time_delta, ProcessBase *process)
     {
-        context()->schedule_time_event(time_update, process);
+        context()->schedule_time_delta_event(time_delta, process);
     }
 
     void Module::next_trigger(SensitivityEvent *event, ProcessBase *process)
