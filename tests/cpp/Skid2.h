@@ -18,8 +18,8 @@ public:
 
     DSPSIM_CTOR(Skid2)
     {
-        DSPSIM_METHOD(eval) // Standard eval func for verilated modules.
-            ->always("*");  // Default is sensitive to all inputs.
+        DSPSIM_CORO(eval)
+            ->always("*"); // Default is sensitive to all inputs.
     }
 
     // If the model is trace enabled, these need to be defined.

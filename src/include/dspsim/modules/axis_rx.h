@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/module.h>
 #include <dspsim/port.h>
+#include <dspsim/coro.h>
 #include <deque>
 
 namespace dspsim
@@ -23,14 +24,16 @@ namespace dspsim
 
         DSPSIM_CTOR(AxisRx)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(clk.pos());
         }
 
-        void eval()
+        Task eval()
         {
-            if (clk.pos())
+            while (true)
             {
+                co_await wait(clk.pos());
+
                 if (s_axis_tvalid.read() && s_axis_tready.read())
                 {
                     fifo.push_back(s_axis_tdata.read());

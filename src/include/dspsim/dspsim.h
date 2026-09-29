@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/clock.h>
 #include <dspsim/context.h>
+#include <dspsim/coro.h>
 #include <dspsim/event.h>
 #include <dspsim/model.h>
 #include <dspsim/module_name.h>

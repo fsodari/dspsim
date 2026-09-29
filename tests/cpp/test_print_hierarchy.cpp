@@ -23,13 +23,17 @@ namespace
             child.i.bind(i);
             child.o.bind(internal);
 
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(i, internal);
         }
 
-        void eval()
+        Task eval()
         {
-            o.write(internal.read());
+            while (true)
+            {
+                o.write(internal.read());
+                co_await wait();
+            }
         }
     };
 
@@ -42,13 +46,17 @@ namespace
 
         Nested(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(i);
         }
 
-        void eval()
+        Task eval()
         {
-            o.write(i.read() + 1);
+            while (true)
+            {
+                o.write(i.read() + 1);
+                co_await wait();
+            }
         }
     };
 

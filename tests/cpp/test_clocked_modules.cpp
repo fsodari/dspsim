@@ -16,20 +16,24 @@ namespace
 
         SomeModule(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(clk.pos())
                 ->initialize(false);
         }
 
-        void eval()
+        Task eval()
         {
-            if (clk.pos())
+            while (true)
             {
-                o.write(i.read());
-            }
-            else
-            {
-                FAIL("This should never eval unless there is a posedge event on clk, since initialize(false) was set");
+                if (clk.pos())
+                {
+                    o.write(i.read());
+                }
+                else
+                {
+                    FAIL("This should never eval unless there is a posedge event on clk, since initialize(false) was set");
+                }
+                co_await wait();
             }
         }
     };
@@ -48,22 +52,26 @@ namespace
         MultiClockSensitive(ModuleName name) : Module(name)
         {
             // Register the eval_ method with the simulation kernel.
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(clk1.pos(), clk2.pos());
         }
 
-        void eval()
+        Task eval()
         {
-            context()->logger->info("multi.eval()");
-            if (clk1.pos())
+            while (true)
             {
-                clk1_counts++;
-                context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
-            }
-            if (clk2.pos())
-            {
-                clk2_counts++;
-                context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                context()->logger->info("multi.eval()");
+                if (clk1.pos())
+                {
+                    clk1_counts++;
+                    context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                }
+                if (clk2.pos())
+                {
+                    clk2_counts++;
+                    context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                }
+                co_await wait();
             }
         }
     };

@@ -2,6 +2,7 @@
 #include <dspsim/context.h>
 #include <dspsim/module.h>
 #include <dspsim/vmodule/vport.h>
+#include <dspsim/coro.h>
 
 #include <verilated.h>
 #include <memory>
@@ -25,19 +26,23 @@ namespace dspsim
         VModule() : Module() {}
 
     public:
-        void eval()
+        Task eval()
         {
-            // Update the inputs to the verilated model.
-            for (auto &input : inputs())
+            while (true)
             {
-                input->sync();
-            }
-            // Evaluate the verilated model.
-            top->eval();
-            // Update the outputs from the verilated model.
-            for (auto &output : this->outputs())
-            {
-                output->sync();
+                // Update the inputs to the verilated model.
+                for (auto &input : inputs())
+                {
+                    input->sync();
+                }
+                // Evaluate the verilated model.
+                top->eval();
+                // Update the outputs from the verilated model.
+                for (auto &output : this->outputs())
+                {
+                    output->sync();
+                }
+                co_await wait();
             }
         }
 

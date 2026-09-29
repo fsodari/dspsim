@@ -16,14 +16,18 @@ namespace benchmarks
 
         DSPSIM_CTOR(HeavyDff)
         {
-            DSPSIM_METHOD(eval)
+            // DSPSIM_METHOD(eval)
+            //     ->always(clk.pos());
+            DSPSIM_CORO(eval)
                 ->always(clk.pos());
         }
 
-        void eval()
+        dspsim::Task eval()
         {
-            if (clk.pos())
+            while (true)
             {
+                co_await wait(clk.pos());
+
                 out.write(heavy_compute(in.read(), N));
             }
         }
@@ -40,13 +44,19 @@ namespace benchmarks
 
         DSPSIM_CTOR(HeavyWire)
         {
-            DSPSIM_METHOD(eval)
+            // DSPSIM_METHOD(eval)
+            //     ->always("*");
+            DSPSIM_CORO(eval)
                 ->always("*");
         }
 
-        void eval()
+        dspsim::Task eval()
         {
-            out.write(heavy_compute(in.read(), N));
+            while (true)
+            {
+                out.write(heavy_compute(in.read(), N));
+                co_await wait();
+            }
         }
     };
 

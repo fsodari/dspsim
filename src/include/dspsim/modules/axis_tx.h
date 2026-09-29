@@ -24,14 +24,16 @@ namespace dspsim
 
         DSPSIM_CTOR(AxisTx)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(clk.pos());
         }
 
-        void eval()
+        Task eval()
         {
-            if (clk.pos())
+            while (true)
             {
+                co_await wait(clk.pos());
+
                 // A valid transaction has occurred, pop the front of the FIFO.
                 if (m_axis_tvalid.read() && m_axis_tready.read())
                 {
