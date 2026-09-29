@@ -209,14 +209,14 @@ namespace dspsim
         uint32_t next_event_id() { return _next_event_id++; }
 
         uint32_t next_process_id() { return _next_process_id++; }
-        // // Register a process with the context. This will create a Process object and set it as the active process.
-        // ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
+        // Register a process with the context. This will create a Process object and set it as the active process.
+        ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
 
-        // template <typename MemberFunc, typename ClassType>
-        // ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
-        // {
-        //     return register_process_func(method_to_function(mem_ptr, instance), name);
-        // }
+        template <typename MemberFunc, typename ClassType>
+        ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
+        {
+            return register_process_func(method_to_function(mem_ptr, instance), name);
+        }
 
         ProcessBase *register_coro_task(Task task, const std::string &name = "");
 

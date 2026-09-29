@@ -382,12 +382,12 @@ namespace dspsim
         _owned_models.push_back(model);
     }
 
-    // ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
-    // {
-    //     _processes.emplace_back(std::make_unique<Process>(eval, name));
-    //     logger->info("Registering process: {}", name);
-    //     return _processes.back().get();
-    // }
+    ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
+    {
+        _processes.emplace_back(std::make_unique<Process>(eval, name));
+        logger->info("Registering process: {}", name);
+        return _processes.back().get();
+    }
 
     ProcessBase *Context::register_coro_task(Task task, const std::string &name)
     {

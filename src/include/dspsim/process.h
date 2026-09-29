@@ -118,9 +118,9 @@ namespace dspsim
     };
 }
 
-// // Convenience macro for registering a method as a process
-// #define DSPSIM_METHOD(method)
-//     context()->register_method(&std::remove_reference<decltype(*this)>::type::method, this, this->hier_name() + "." + std::string(#method))
+// Convenience macro for registering a method as a process
+#define DSPSIM_METHOD(method) \
+    context()->register_method(&std::remove_reference<decltype(*this)>::type::method, this, this->hier_name() + "." + std::string(#method))
 
 // Convenience macro for registering a coroutine task as a process
 #define DSPSIM_CORO(task) \
