@@ -251,7 +251,7 @@ namespace dspsim
         {
             process = _current_process;
         }
-        return WaitTimeEvent{time_delta, this, process};
+        return WaitTimeEvent{time_delta, process};
     }
 
     WaitSensitivityEvent Context::wait(ProcessBase *process)
@@ -260,7 +260,7 @@ namespace dspsim
         {
             process = _current_process;
         }
-        return WaitSensitivityEvent{this, process};
+        return WaitSensitivityEvent{process};
     }
 
     WaitSensitivityEvent Context::wait(SensitivityEvent &event, ProcessBase *process)
@@ -269,7 +269,7 @@ namespace dspsim
         {
             process = _current_process;
         }
-        return WaitSensitivityEvent{event, this, process};
+        return WaitSensitivityEvent{event, process};
     }
     WaitSensitivityEvent Context::wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
     {
@@ -277,7 +277,7 @@ namespace dspsim
         {
             process = _current_process;
         }
-        return WaitSensitivityEvent{events, this, process};
+        return WaitSensitivityEvent{events, process};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const

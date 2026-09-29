@@ -125,6 +125,3 @@ namespace dspsim
 // Convenience macro for registering a coroutine task as a process
 #define DSPSIM_CORO(task) \
     context()->register_coro_task(task(), this->hier_name() + "." + std::string(#task))
-//     context()->_processes.emplace_back(std::make_unique<CoroProcess>(some_task(), "some_task"));
-//     context()->register_coro_task(&std::remove_reference<decltype(*this)>::type::task, this, this->hier_name() + "." + std::string(#task))
-//

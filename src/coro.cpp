@@ -60,72 +60,63 @@ namespace dspsim
     /*
         Time Event awaitable.
     */
-    WaitTimeEvent::WaitTimeEvent(uint64_t time_delta, Context *context, ProcessBase *process)
-        : _time_delta(time_delta), _context(context), _process(process)
+    WaitTimeEvent::WaitTimeEvent(uint64_t time_delta, ProcessBase *process)
+        : time_delta_(time_delta),
+          process_(process)
     {
     }
 
     bool WaitTimeEvent::await_ready() const noexcept
     {
-        return _time_delta <= 0; // Always false...
+        return time_delta_ <= 0; // Always false...
     }
 
     void WaitTimeEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
-        _context->schedule_time_delta_event(_time_delta, _process);
+        process_->context()->schedule_time_delta_event(time_delta_, process_);
     }
-
-    void WaitTimeEvent::resume() {}
 
     void WaitTimeEvent::await_resume() noexcept {}
 
     /*
         Sensitivity Event awaitable.
     */
-    WaitSensitivityEvent::WaitSensitivityEvent(Context *context, ProcessBase *process)
-        : _context(context), _process(process)
+    WaitSensitivityEvent::WaitSensitivityEvent(ProcessBase *process)
+        : process_(process)
     {
-        if (_process == nullptr)
-        {
-            _process = _context->_current_process;
-        }
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, Context *context, ProcessBase *process)
-        : WaitSensitivityEvent(context, process)
+    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process)
+        : WaitSensitivityEvent(process)
     {
-        _events.push_back(&event);
+        events_.push_back(&event);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, Context *context, ProcessBase *process)
-        : WaitSensitivityEvent(context, process)
+    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+        : WaitSensitivityEvent(process)
     {
-        // _events.push_range(events);
         for (const auto &event : events)
         {
-            _events.push_back(&event.get());
+            events_.push_back(&event.get());
         }
     }
 
     bool WaitSensitivityEvent::await_ready() const noexcept
     {
-        // return _event->has_happened();
-
         // Must wait until the event occurs in the notification phase and the task is explicitly resumed.
         return false;
     }
 
     void WaitSensitivityEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
+        // Use the handle instead of a process?
         (void)h;
-        for (auto &event : _events)
+        for (auto &event : events_)
         {
-            event->dynamic_subscribers().push_back(_process);
+            event->dynamic_subscribers().push_back(process_);
         }
     }
-
-    void WaitSensitivityEvent::resume() {}
 
     void WaitSensitivityEvent::await_resume() noexcept {}
 } // namespace dspsim

@@ -28,9 +28,9 @@ public:
         context()->logger->info("Starting some_task, t={}", context()->time());
         while (true)
         {
-            co_await WaitTimeEvent{10, context(), _coro_process};
+            co_await WaitTimeEvent{10, _coro_process};
             context()->logger->info("After wait(10), t={}", context()->time());
-            co_await WaitTimeEvent{10, context(), _coro_process};
+            co_await WaitTimeEvent{10, _coro_process};
             context()->logger->info("After second wait(10), t={}", context()->time());
         }
         context()->logger->info("Exiting some_task loop, t={}", context()->time());
