@@ -30,7 +30,7 @@ namespace dspsim
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 // A valid transaction has occurred, pop the front of the FIFO.
                 if (m_axis_tvalid.read() && m_axis_tready.read())

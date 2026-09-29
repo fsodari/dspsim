@@ -8,35 +8,35 @@ namespace dspsim
 {
 
     SensitivityEvent::SensitivityEvent(Context *context)
-        : _context(context), _id(_context->next_event_id())
+        : context_(context),
+          id_(context_->next_event_id())
     {
     }
 
     void SensitivityEvent::notify()
     {
         // Schedule processes with static sensitivity if they are not currently waiting on a dynamic event.
-        for (const auto &process : _static_subscribers)
+        for (const auto &process : static_subscribers_)
         {
             if (!process->static_sensitivity_disabled())
             {
-                _context->_process_eval_stack.push_back(process);
+                context_->_process_eval_stack.push_back(process);
             }
         }
         // Schedule dynamic processes.
-        for (const auto &process : _dynamic_subscribers)
+        for (const auto &process : dynamic_subscribers_)
         {
-            _context->_process_eval_stack.push_back(process);
+            context_->_process_eval_stack.push_back(process);
             // Clear the static sensitivity disabled flag for the process, as it has now been notified by a dynamic event.
             process->reset_static_sensitivity();
         }
         // Clear the dynamic subscribers after notifying.
-        _dynamic_subscribers.clear();
+        dynamic_subscribers_.clear();
     }
 
-    TimeEvent::TimeEvent(Context *context, uint64_t time_update, ProcessBase *process)
-        : _context(context),
-          time_update(time_update),
-          process(process)
+    TimeEvent::TimeEvent(uint64_t time_update, ProcessBase *process)
+        : time_update_(time_update),
+          process_(process)
     {
     }
 }

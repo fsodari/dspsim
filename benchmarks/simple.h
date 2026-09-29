@@ -23,7 +23,7 @@ namespace benchmarks
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 out.write(in.read());
             }

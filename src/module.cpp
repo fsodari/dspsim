@@ -27,7 +27,7 @@ namespace dspsim
         context()->schedule_time_delta_event(time_delta, process);
     }
 
-    void Module::next_trigger(SensitivityEvent *event, ProcessBase *process)
+    void Module::next_trigger(SensitivityEvent &event, ProcessBase *process)
     {
         if (process == nullptr)
         {
@@ -54,12 +54,12 @@ namespace dspsim
         return context()->wait(process);
     }
 
-    WaitSensitivityEvent Module::wait(SensitivityEvent *event, ProcessBase *process)
+    WaitSensitivityEvent Module::wait(SensitivityEvent &event, ProcessBase *process)
     {
         return context()->wait(event, process);
     }
 
-    WaitSensitivityEvent Module::wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process)
+    WaitSensitivityEvent Module::wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
     {
         return context()->wait(events, process);
     }

@@ -11,8 +11,8 @@ namespace dspsim
     {
         // Information about the module's ports.
         std::vector<PortBase *> _ports;
-        std::vector<InputBase *> _inputs;
-        std::vector<OutputBase *> _outputs;
+        std::vector<PortBase *> _inputs;
+        std::vector<PortBase *> _outputs;
 
     public:
         // A subclass of Module should use ModuleName with no reference so that the ModuleName goes out of scope at the end of the subclass constructor.
@@ -29,7 +29,7 @@ namespace dspsim
         void next_trigger(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // Schedule to be sensitive to an event on the next trigger.
-        void next_trigger(SensitivityEvent *event, ProcessBase *process = nullptr);
+        void next_trigger(SensitivityEvent &event, ProcessBase *process = nullptr);
 
         // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
         void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
@@ -37,13 +37,13 @@ namespace dspsim
         // Coroutine awaitables
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
 
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }
-        std::vector<InputBase *> &inputs() { return _inputs; }
-        std::vector<OutputBase *> &outputs() { return _outputs; }
+        std::vector<PortBase *> &inputs() { return _inputs; }
+        std::vector<PortBase *> &outputs() { return _outputs; }
     };
 
     template <typename M>

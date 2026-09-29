@@ -1,4 +1,4 @@
-#include <dspsim/coro/coro.h>
+#include <dspsim/coro.h>
 #include <dspsim/context.h>
 #include <dspsim/process.h>
 
@@ -92,16 +92,20 @@ namespace dspsim
         }
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent *event, Context *context, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, Context *context, ProcessBase *process)
         : WaitSensitivityEvent(context, process)
     {
-        _events.push_back(event);
+        _events.push_back(&event);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, Context *context, ProcessBase *process)
         : WaitSensitivityEvent(context, process)
     {
-        _events.push_range(events);
+        // _events.push_range(events);
+        for (const auto &event : events)
+        {
+            _events.push_back(&event.get());
+        }
     }
 
     bool WaitSensitivityEvent::await_ready() const noexcept

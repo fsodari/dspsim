@@ -22,7 +22,7 @@ namespace
 
         void eval()
         {
-            o.write(i.read() + 1);
+            o = i + 1;
         }
     };
 
@@ -71,6 +71,7 @@ namespace
         void eval()
         {
             o.write(p1_internal.read() + p2_internal.read());
+            // o = p1_internal + p2_internal;
         }
     };
 
@@ -79,7 +80,7 @@ namespace
 TEST_CASE("Better binding test", "[better_binding]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->logger->set_level(spdlog::level::trace);
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};

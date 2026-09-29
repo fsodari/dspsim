@@ -142,9 +142,9 @@ namespace dspsim
         WaitSensitivityEvent wait(ProcessBase *process = nullptr);
 
         // wait on a dynamic event.
-        WaitSensitivityEvent wait(SensitivityEvent *event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
         // wait on multiple dynamic events.
-        WaitSensitivityEvent wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;

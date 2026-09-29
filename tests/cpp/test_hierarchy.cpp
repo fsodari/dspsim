@@ -56,7 +56,7 @@ namespace
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
                 q.write(sig.read());

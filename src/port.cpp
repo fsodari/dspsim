@@ -6,188 +6,120 @@
 namespace dspsim
 {
     PortBase::PortBase(const std::string &name, int width, const std::string &kind)
-        : Model(name, kind), _width(width)
+        : Model(name, kind),
+          width_(width),
+          static_change_event_(context()),
+          static_posedge_event_(context()),
+          static_negedge_event_(context())
     {
+        // Associate the events with the internal events during construction.
+        change_event_ = &static_change_event_;
+        posedge_event_ = &static_posedge_event_;
+        negedge_event_ = &static_negedge_event_;
+
+        // Ports must only be declared within a module context.
         if (context()->_active_module())
         {
             context()->_active_module()->ports().push_back(this);
         }
         else
         {
-            context()->logger->error("No active module to register port {}", name);
+            context()->logger->error("A port cannot be declared at root level. Port: {}", hier_name());
         }
     }
 
-    InputBase::InputBase(const std::string &name, int width)
-        : PortBase(name, width, "input"),
-          _static_change_event(context()),
-          _static_posedge_event(context()),
-          _static_negedge_event(context())
+    void PortBase::finalize()
+    {
+        // Finalize the port by resolving its bound signal and updating the bound signal's subscribers.
+        resolve();
+
+        // Associate the port's sensitivity events with the bound signal's events.
+        update_bound_signal_subscribers();
+    }
+
+    void PortBase::bind_base(SignalBase &signal)
+    {
+        // Already bound.
+        if (bound_signal_)
+        {
+            context()->logger->error("Port {} is already bound to a signal", hier_name());
+        }
+
+        // // Width mismatch check
+        // if (signal.width() != this->width())
+        // {
+        //     // Error or warning?
+        //     context()->logger->warn("Port {} width mismatch with signal {}", hier_name(), signal.hier_name());
+        // }
+
+        bound_signal_ = &signal;
+    }
+
+    void PortBase::bind_base(PortBase &port)
+    {
+        // TODO: Give an error if attempting to bind ports at the same hierarchical level.
+        bound_ports_.push_back(&port);
+    }
+
+    void PortBase::resolve()
+    {
+        // This port has already been bound/resolved.
+        if (bound_signal_)
+        {
+            return;
+        }
+        // If the port has not been bound, recursive search through connected ports to find a bound signal.
+        for (auto *port : bound_ports_)
+        {
+            port->resolve();
+            if (port->bound_signal())
+            {
+                bound_signal_ = port->bound_signal();
+                break;
+            }
+        }
+        // If no bound signal was found after searching all connected ports,
+        // the port is unconnected.
+        if (!bound_signal_)
+        {
+            context()->logger->error("Port {} is not bound to a signal", hier_name());
+        }
+    }
+
+    void PortBase::update_bound_signal_subscribers()
+    {
+        // If binding failed, this will be a nullptr.
+        // This is an error condition, but it should fail gracefully at the end of elaboration.
+        if (bound_signal_)
+        {
+            bound_signal_->pos().static_subscribers().push_range(static_posedge_event_.static_subscribers());
+            bound_signal_->neg().static_subscribers().push_range(static_negedge_event_.static_subscribers());
+            bound_signal_->change().static_subscribers().push_range(static_change_event_.static_subscribers());
+
+            // Set dynamic sensitivity to the signal's dynamic events.
+            change_event_ = &bound_signal_->change();
+            posedge_event_ = &bound_signal_->pos();
+            negedge_event_ = &bound_signal_->neg();
+        }
+    }
+
+    template <typename T>
+    Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
     {
         // Register an input port with the parent module.
         if (context()->_active_module())
         {
             context()->_active_module()->inputs().push_back(this);
         }
-        else
-        {
-            context()->logger->error("No active module to register input port {}", name);
-        }
     }
 
     template <typename T>
-    Input<T>::Input(const std::string &name, int width) : InputBase(name, width)
-    {
-    }
-
-    template <typename T>
-    void Input<T>::finalize()
-    {
-        resolve();
-    }
-
-    template <typename T>
-    void Input<T>::update_bound_signal_subscribers()
-    {
-        _bound_signal->pos()->static_subscribers().push_range(_static_posedge_event.static_subscribers());
-        _bound_signal->neg()->static_subscribers().push_range(_static_negedge_event.static_subscribers());
-        _bound_signal->_change()->static_subscribers().push_range(_static_change_event.static_subscribers());
-
-        // Set dynamic sensitivity to the signal's dynamic events.
-        _dynamic_change_event = _bound_signal->_change();
-        _dynamic_posedge_event = _bound_signal->pos();
-        _dynamic_negedge_event = _bound_signal->neg();
-    }
-
-    template <typename T>
-    void Input<T>::resolve()
-    {
-        if (_bound_signal)
-        {
-            update_bound_signal_subscribers();
-            // What if downstream ports need to be bound? Can this happen in an input?
-
-            return;
-        }
-        for (auto *port : _bound_ports)
-        {
-            port->resolve();
-            if (port->_bound_signal)
-            {
-                _bound_signal = port->_bound_signal;
-                // Add the ports events to the bound signal's events.
-                update_bound_signal_subscribers();
-                break;
-            }
-        }
-        if (!_bound_signal)
-        {
-            context()->logger->error("Input port {} could not be resolved to a signal", hier_name());
-        }
-    }
-
-    template <typename T>
-    void Input<T>::bind(Signal<T> &signal)
-    {
-        if (_bound_signal)
-        {
-            context()->logger->error("Input port {} is already bound to a signal", name());
-        }
-        _bound_signal = &signal;
-    }
-
-    template <typename T>
-    void Input<T>::bind(Input<T> &port)
-    {
-        _bound_ports.push_back(&port);
-    }
-    template <typename T>
-    void Input<T>::_bind_signal(Signal<T> &signal)
-    {
-        bind(signal);
-    }
-    template <typename T>
-    void Input<T>::_bind_port(Input<T> &port)
-    {
-        bind(port);
-    }
-
-    //
-    // OUTPUT<T>
-    //
-
-    OutputBase::OutputBase(const std::string &name, int width) : PortBase(name, width, "output")
+    Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
     {
         if (context()->_active_module())
         {
             context()->_active_module()->outputs().push_back(this);
         }
-        else
-        {
-            context()->logger->error("No active module to register output port {}", name);
-        }
-    }
-
-    template <typename T>
-    Output<T>::Output(const std::string &name, int width) : OutputBase(name, width)
-    {
-    }
-
-    template <typename T>
-    void Output<T>::finalize()
-    {
-        resolve();
-    }
-
-    template <typename T>
-    void Output<T>::resolve()
-    {
-        if (_bound_signal)
-        {
-            // What if downstream ports need to be bound? Can this happen in an output?
-            return;
-        }
-        for (auto *port : _bound_ports)
-        {
-            port->resolve();
-            if (port->_bound_signal)
-            {
-                _bound_signal = port->_bound_signal;
-                break;
-            }
-        }
-        if (!_bound_signal)
-        {
-            context()->logger->error("Output port {} could not be resolved to a signal", hier_name());
-        }
-    }
-
-    template <typename T>
-    void Output<T>::bind(Signal<T> &signal)
-    {
-        if (_bound_signal)
-        {
-            context()->logger->error("Output port {} is already bound to a signal", hier_name());
-        }
-        _bound_signal = &signal;
-    }
-
-    template <typename T>
-    void Output<T>::bind(Output<T> &port)
-    {
-        _bound_ports.push_back(&port);
-    }
-
-    template <typename T>
-    void Output<T>::_bind_signal(Signal<T> &signal)
-    {
-        bind(signal);
-    }
-
-    template <typename T>
-    void Output<T>::_bind_port(Output<T> &port)
-    {
-        bind(port);
     }
 
     template class Input<uint8_t>;

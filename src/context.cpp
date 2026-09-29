@@ -126,14 +126,15 @@ namespace dspsim
         // Any model that was updated this cycle should be traced.
 
         // Reset signal event flag at the beginning of each delta cycle.
-        // Is this correct?
+        // How can I clear this state without needing to iterate through every signal.
+        // Is this in the right place?
         if (_signal_event)
         {
             _signal_event = false;
             // Reset state of all signals.
             for (auto signal : _signals)
             {
-                signal->_clear_event_flag();
+                signal->clear_event_flag();
             }
         }
 
@@ -198,7 +199,7 @@ namespace dspsim
             // Advance to the next time step.
             if (!_time_event_stack.empty())
             {
-                next_time_step = _time_event_stack.top().time_update - _time;
+                next_time_step = _time_event_stack.top().time_update() - _time;
                 // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
                 if (next_time_step > time_inc)
                 {
@@ -218,12 +219,12 @@ namespace dspsim
             SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
 
             // Queue all models for evaluation that have a zero time update.
-            while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time)
+            while (!_time_event_stack.empty() && _time_event_stack.top().time_update() == _time)
             {
                 auto event = _time_event_stack.top();
                 _time_event_stack.pop();
-                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process->name());
-                _process_eval_stack.push_back(event.process);
+                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process()->name());
+                _process_eval_stack.push_back(event.process());
             }
             // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
             // Models with the time update will still be queued for the next delta cycle.
@@ -241,7 +242,7 @@ namespace dspsim
         {
             process = _current_process;
         }
-        _time_event_stack.emplace(this, _time + time_delta, process);
+        _time_event_stack.emplace(_time + time_delta, process);
     }
 
     WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
@@ -262,7 +263,7 @@ namespace dspsim
         return WaitSensitivityEvent{this, process};
     }
 
-    WaitSensitivityEvent Context::wait(SensitivityEvent *event, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event, ProcessBase *process)
     {
         if (process == nullptr)
         {
@@ -270,7 +271,7 @@ namespace dspsim
         }
         return WaitSensitivityEvent{event, this, process};
     }
-    WaitSensitivityEvent Context::wait(std::initializer_list<SensitivityEvent *> events, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
     {
         if (process == nullptr)
         {

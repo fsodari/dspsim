@@ -20,55 +20,44 @@ namespace dspsim
 
     class SignalBase : public Model
     {
-    protected:
-        SensitivityEvent _change_event;
-        SensitivityEvent _posedge_event;
-        SensitivityEvent _negedge_event;
-        bool _changed_flag;
-        bool _posedge_flag;
-        bool _negedge_flag;
-
-        // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
-        bool _scheduled;
-
     public:
         SignalBase(const std::string &name = "");
 
+        // Called during the update phase to commit pending changes to the signal.
         virtual void update() = 0;
 
         // Access the sensitivity events for this signal.
-        SensitivityEvent *_change() { return &_change_event; }
-        SensitivityEvent *pos() { return &_posedge_event; }
-        SensitivityEvent *neg() { return &_negedge_event; }
+        SensitivityEvent &change() { return change_event_; }
+        SensitivityEvent &pos() { return posedge_event_; }
+        SensitivityEvent &neg() { return negedge_event_; }
+        // Implicit conversion to SensitivityEvent (change event)
+        operator SensitivityEvent &() { return change(); }
 
-        operator SensitivityEvent *() { return _change(); }
-
-        // Set if there was a change event in the previous update cycle.
-        bool changed() const { return _changed_flag; }
-        // Set if there was a posedge event in the previous update cycle.
-        bool posedge() const { return _posedge_flag; }
-        // Set if there was a negedge event in the previous update cycle.
-        bool negedge() const { return _negedge_flag; }
-
-        void _clear_event_flag()
+        void clear_event_flag()
         {
-            _changed_flag = false;
-            _posedge_flag = false;
-            _negedge_flag = false;
+            changed_flag_ = false;
+            posedge_flag_ = false;
+            negedge_flag_ = false;
         }
-        bool &_scheduled_flag() { return _scheduled; }
+        bool &scheduled_flag() { return scheduled_; }
+
+    protected:
+        bool changed_flag_;
+        bool posedge_flag_;
+        bool negedge_flag_;
+
+        // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
+        bool scheduled_;
+
+    private:
+        SensitivityEvent change_event_;
+        SensitivityEvent posedge_event_;
+        SensitivityEvent negedge_event_;
     };
 
     template <typename T>
     class Signal : public SignalBase
     {
-    private:
-        int _width;
-        bool _is_signed;
-        int _parent_id;
-
-    protected:
-        T _d, _q;
 
     public:
         Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
@@ -78,16 +67,20 @@ namespace dspsim
         /*
             Properties
         */
-        int width() const { return _width; }
-        bool is_signed() const { return _is_signed; }
+        int width() const { return width_; }
+        bool is_signed() const { return is_signed_; }
 
         virtual const std::string repr() const override { return ""; }
 
-        void write(const T &value);
+        const T &read() const { return q_; }
+        const T &operator()() const { return read(); }
 
-        const T &read() const { return _q; }
-        // Used for python d property
-        const T &_read_d() const { return _d; }
+        void write(const T &value);
+        const T &operator=(const T &value)
+        {
+            write(value);
+            return read();
+        }
 
         void update() override;
         /*
@@ -97,6 +90,17 @@ namespace dspsim
         {
             return Model::create<Signal<T>>(name, width, init, is_signed);
         }
+
+        // This shouldn't be used, but it's available.
+        const T &read_d_() const { return d_; }
+
+    protected:
+        T d_, q_;
+
+    private:
+        int width_;
+        bool is_signed_;
+        int parent_id_;
     };
 
     using Signal8 = Signal<uint8_t>;
@@ -111,9 +115,9 @@ namespace dspsim
     template <typename T>
     void Signal<T>::write(const T &value)
     {
-        _d = value;
+        d_ = value;
 
-        if (_d != _q)
+        if (d_ != q_)
         {
             // Schedule for update
             context()->_signal_update_stack.push_back(this);
@@ -135,27 +139,27 @@ namespace dspsim
     template <typename T>
     void Signal<T>::update()
     {
-        _changed_flag = true;
+        changed_flag_ = true;
         context()->_signal_event = true;
 
-        if (_d && !_q)
+        if (d_ && !q_)
         {
-            _posedge_flag = true;
+            posedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(pos());
-            pos()->set_event_flag(&_posedge_flag);
-            // pos()->notify(&_posedge_flag);
+            context()->_sensitivity_event_stack.push_back(&pos());
+            pos().set_event_flag(&posedge_flag_);
+            // pos().notify(&posedge_flag_);
         }
-        else if (!_d && _q)
+        else if (!d_ && q_)
         {
-            _negedge_flag = true;
+            negedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(neg());
-            neg()->set_event_flag(&_negedge_flag);
+            context()->_sensitivity_event_stack.push_back(&neg());
+            neg().set_event_flag(&negedge_flag_);
         }
-        context()->_sensitivity_event_stack.push_back(_change());
-        _change()->set_event_flag(&_changed_flag);
+        context()->_sensitivity_event_stack.push_back(&change());
+        change().set_event_flag(&changed_flag_);
 
-        this->_q = this->_d;
+        this->q_ = this->d_;
     }
 }

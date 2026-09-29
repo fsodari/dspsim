@@ -20,7 +20,7 @@ namespace dspsim
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 q.write(d.read());
             }

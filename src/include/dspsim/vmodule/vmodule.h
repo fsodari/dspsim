@@ -23,30 +23,21 @@ namespace dspsim
         // This class must be subclassed.
         VModule(ModuleName &name) : Module(name) {}
         VModule() : Module() {}
+
     public:
         void eval()
         {
             // Update the inputs to the verilated model.
-            this->_sync_inputs();
+            for (auto &input : inputs())
+            {
+                input->sync();
+            }
             // Evaluate the verilated model.
             top->eval();
             // Update the outputs from the verilated model.
-            this->_sync_outputs();
-        }
-
-        void _sync_inputs()
-        {
-            for (auto &input : inputs())
-            {
-                input->_sync();
-            }
-        }
-
-        void _sync_outputs()
-        {
             for (auto &output : this->outputs())
             {
-                output->_sync();
+                output->sync();
             }
         }
 

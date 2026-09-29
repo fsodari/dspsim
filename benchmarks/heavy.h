@@ -22,7 +22,7 @@ namespace benchmarks
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 out.write(heavy_compute(in.read(), N));
             }

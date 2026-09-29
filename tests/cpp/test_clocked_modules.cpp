@@ -23,7 +23,7 @@ namespace
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 o.write(i.read());
             }
@@ -55,12 +55,12 @@ namespace
         void eval()
         {
             context()->logger->info("multi.eval()");
-            if (clk1.posedge())
+            if (clk1.pos())
             {
                 clk1_counts++;
                 context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
             }
-            if (clk2.posedge())
+            if (clk2.pos())
             {
                 clk2_counts++;
                 context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);

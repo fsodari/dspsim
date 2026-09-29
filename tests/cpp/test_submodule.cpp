@@ -54,10 +54,10 @@ namespace
     };
 } // namespace
 
-TEST_CASE("test_submodule")
+TEST_CASE("test_submodule", "[submodule]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->logger->set_level(spdlog::level::debug);
 
     Clock clk{"clk", 10};
     Signal<uint8_t> in_signal{"in_signal"};

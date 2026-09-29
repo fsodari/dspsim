@@ -29,7 +29,7 @@ namespace dspsim
 
         void eval()
         {
-            if (clk.posedge())
+            if (clk.pos())
             {
                 if (s_axis_tvalid.read() && s_axis_tready.read())
                 {

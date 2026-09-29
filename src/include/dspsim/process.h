@@ -3,7 +3,7 @@
 */
 #pragma once
 // #include <dspsim/sensitivity_list.h>
-#include <dspsim/coro/coro.h>
+#include <dspsim/coro.h>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -34,7 +34,7 @@ namespace dspsim
         Context *context() const { return _context; }
         uint32_t id() const { return _id; }
         const std::string &name() const { return _name; }
-        bool &_scheduled_flag() { return _scheduled; }
+        bool &scheduled_flag() { return _scheduled; }
 
         // If initialize is true(default), the process will be queued for evaluation at the start of simulation
         // regardless if any events have occurred.
@@ -56,10 +56,10 @@ namespace dspsim
         // Return to being sensitive to static events.
         void reset_static_sensitivity();
 
-        void schedule_static_event(SensitivityEvent *event);
+        void schedule_static_event(SensitivityEvent &event);
         void schedule_static_event(const std::string &event_name);
 
-        void schedule_dynamic_event(SensitivityEvent *event);
+        void schedule_dynamic_event(SensitivityEvent &event);
         void schedule_dynamic_event(const std::string &event_name);
 
         // void always(SensitivityEvent *event, Process *process = nullptr) { _always.link_process(event, process); }

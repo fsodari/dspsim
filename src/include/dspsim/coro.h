@@ -91,10 +91,10 @@ namespace dspsim
         WaitSensitivityEvent(Context *context, ProcessBase *process = nullptr);
 
         // Wait on a dynamically added event.
-        WaitSensitivityEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(SensitivityEvent &event, Context *context, ProcessBase *process = nullptr);
 
         // Wait on multiple dynamic events, if any occur (or list);
-        WaitSensitivityEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, Context *context, ProcessBase *process = nullptr);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;

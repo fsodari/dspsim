@@ -1,5 +1,5 @@
 #include <dspsim/dspsim.h>
-#include <dspsim/coro/coro.h>
+#include <dspsim/coro.h>
 #include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
@@ -58,10 +58,10 @@ public:
         context()->logger->info("Starting clocked_task");
         while (true)
         {
-            co_await wait(clk.posedge_event());
+            co_await wait(clk.pos());
 
-            REQUIRE(clk.posedge());
-            context()->logger->info("clk.pos() event at t={}, posedge?={}", context()->time(), clk.posedge());
+            REQUIRE(clk.pos());
+            context()->logger->info("clk.pos() event at t={}, posedge?={:s}", context()->time(), clk.pos().has_happened());
         }
     }
 };
@@ -97,15 +97,15 @@ public:
         while (true)
         {
             co_await wait();
-            c.write(a.read() + b.read());
+            c = a + b;
         }
     }
     Task add2()
     {
         while (true)
         {
-            co_await wait({d.change_event(), e.change_event()});
-            f.write(d.read() + e.read());
+            co_await wait({d.change(), e.change()});
+            f = d + e;
         }
     }
 };
@@ -133,9 +133,9 @@ public:
                 What about signals?
                 Is this even a useful feature? To be able to AND events?
             */
-            co_await wait(a.change_event());
-            co_await wait(b.change_event());
-            c.write(a.read() + b.read());
+            co_await wait(a.change());
+            co_await wait(b.change());
+            c = a + b;
         }
     }
 };
