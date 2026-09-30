@@ -17,6 +17,7 @@ int sc_main(int argc, char *argv[])
 
     constexpr size_t depth = 500; // Example depth for the nested module
 
+    // 9.476481 with coroutine implementation.
     if (which == "dspsim" || which == "both")
     {
         auto dspsim_result = dspsim_runner<NestedComb<SimpleDff<T>, T, depth>, T>(n_iter, run_step);

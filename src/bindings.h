@@ -105,17 +105,17 @@ namespace dspsim
     {
         for (auto arg : args)
         {
-            if (nb::isinstance<SensitivityEvent>(arg))
+            if (nb::isinstance<SensitivityEvent &>(arg))
             {
-                self->always(&nb::cast<SensitivityEvent &>(arg));
+                self->schedule_static_event(nb::cast<SensitivityEvent &>(arg));
             }
-            else if (nb::isinstance<InputBase>(arg))
+            else if (nb::isinstance<PortBase>(arg))
             {
-                self->always(nb::cast<InputBase &>(arg)._change());
+                self->schedule_static_event(nb::cast<PortBase &>(arg).change());
             }
             else if (nb::isinstance<SignalBase>(arg))
             {
-                self->always(nb::cast<SignalBase &>(arg)._change());
+                self->schedule_static_event(nb::cast<SignalBase &>(arg).change());
             }
             else
             {
@@ -154,12 +154,9 @@ namespace dspsim
     static inline auto bind_signal_base(nb::module_ &m, const char *name)
     {
         return nb::class_<SignalBase, Model>(m, name)
+            .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
             .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
-            .def("change", &SignalBase::operator SensitivityEvent *, nb::rv_policy::reference_internal)
-            .def("posedge", &SignalBase::posedge)
-            .def("negedge", &SignalBase::negedge)
-            .def("changed", &SignalBase::changed);
+            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal);
     }
 
     template <typename T>
@@ -178,61 +175,49 @@ namespace dspsim
             .def_prop_ro("width", &Signal<T>::width)
             .def_prop_ro("is_signed", &Signal<T>::is_signed)
             .def_prop_rw("value", &Signal<T>::read, &Signal<T>::write, nb::arg("value"))
-            .def_prop_rw("d", &Signal<T>::_read_d, &Signal<T>::write, nb::arg("value"))
+            .def_prop_rw("d", &Signal<T>::read_d_, &Signal<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Signal<T>::read);
     }
 
     static inline auto bind_port_base(nb::module_ &m, const char *name)
     {
         return nb::class_<PortBase, Model>(m, name)
-            .def_prop_ro("width", &PortBase::width);
-    }
-
-    static inline auto bind_input_base(nb::module_ &m, const char *name)
-    {
-        return nb::class_<InputBase, PortBase>(m, name)
-            .def("pos", &InputBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &InputBase::neg, nb::rv_policy::reference_internal);
+            .def_prop_ro("width", &PortBase::width)
+            .def("change", &PortBase::change, nb::rv_policy::reference_internal)
+            .def("pos", &PortBase::pos, nb::rv_policy::reference_internal)
+            .def("neg", &PortBase::neg, nb::rv_policy::reference_internal);
     }
 
     template <typename T>
     static inline auto bind_input(nb::module_ &m, const char *name)
     {
-        return nb::class_<Input<T>, InputBase>(m, name)
+        return nb::class_<Input<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &>(), nb::arg("name"))
             // Methods
-            .def("bind", &Input<T>::_bind_signal, nb::arg("signal"))
-            .def("bind", &Input<T>::_bind_port, nb::arg("input"))
-            .def("__call__", &Input<T>::_bind_signal, nb::arg("signal"))
-            .def("__call__", &Input<T>::_bind_port, nb::arg("input"))
+            .def("bind", &Input<T>::bind_signal, nb::arg("signal"))
+            .def("bind", &Input<T>::bind_port, nb::arg("input"))
+            .def("__call__", &Input<T>::bind_signal, nb::arg("signal"))
+            .def("__call__", &Input<T>::bind_port, nb::arg("input"))
             .def("read", &Input<T>::read)
             .def_prop_ro("value", &Input<T>::read)
-            .def_prop_ro("q", &Input<T>::read)
-            .def("posedge", &Input<T>::posedge)
-            .def("negedge", &Input<T>::negedge)
-            .def("changed", &Input<T>::changed);
-    }
-
-    static inline auto bind_output_base(nb::module_ &m, const char *name)
-    {
-        return nb::class_<OutputBase, PortBase>(m, name);
+            .def_prop_ro("q", &Input<T>::read);
     }
 
     template <typename T>
     static inline auto bind_output(nb::module_ &m, const char *name)
     {
-        return nb::class_<Output<T>, OutputBase>(m, name)
+        return nb::class_<Output<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &>(), nb::arg("name"))
             // Methods
-            .def("bind", &Output<T>::_bind_signal, nb::arg("signal"))
-            .def("bind", &Output<T>::_bind_port, nb::arg("output"))
-            .def("__call__", &Output<T>::_bind_signal, nb::arg("signal"))
-            .def("__call__", &Output<T>::_bind_port, nb::arg("output"))
+            .def("bind", &Output<T>::bind_signal, nb::arg("signal"))
+            .def("bind", &Output<T>::bind_port, nb::arg("output"))
+            .def("__call__", &Output<T>::bind_signal, nb::arg("signal"))
+            .def("__call__", &Output<T>::bind_port, nb::arg("output"))
             .def("write", &Output<T>::write, nb::arg("value"))
             .def_prop_rw("value", &Output<T>::read, &Output<T>::write, nb::arg("value"))
-            .def_prop_rw("d", &Output<T>::_read_d, &Output<T>::write, nb::arg("value"))
+            .def_prop_rw("d", &Output<T>::read_d_, &Output<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Output<T>::read);
     }
 

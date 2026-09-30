@@ -36,7 +36,7 @@ namespace dspsim
 
         // Coroutine awaitables
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(ProcessBase *process = nullptr);
+        Wait wait();
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
 

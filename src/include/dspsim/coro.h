@@ -78,6 +78,15 @@ namespace dspsim
         ProcessBase *process_;
     };
 
+    class Wait
+    {
+    public:
+        Wait() {}
+        bool await_ready() const noexcept { return false; }
+        void await_suspend(std::coroutine_handle<> handle) noexcept { (void)handle; }
+        void await_resume() noexcept {}
+    };
+
     class WaitSensitivityEvent
     {
 

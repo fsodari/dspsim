@@ -139,7 +139,7 @@ namespace dspsim
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
 
         // wait on all events in the static sensitivity list.
-        WaitSensitivityEvent wait(ProcessBase *process = nullptr);
+        Wait wait();
 
         // wait on a dynamic event.
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);

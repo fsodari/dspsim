@@ -49,9 +49,9 @@ namespace dspsim
         return context()->wait(time_delta, process);
     }
 
-    WaitSensitivityEvent Module::wait(ProcessBase *process)
+    Wait Module::wait()
     {
-        return context()->wait(process);
+        return context()->wait();
     }
 
     WaitSensitivityEvent Module::wait(SensitivityEvent &event, ProcessBase *process)

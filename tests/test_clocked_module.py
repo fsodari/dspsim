@@ -16,7 +16,7 @@ class Counter(Module):
         self.process(self.eval, "Counter.eval").always(self.clk.pos()).initialize(False)
 
     def eval(self):
-        if self.clk.posedge():
+        if self.clk.pos():
             self.count.d = self.count.q + 1
             print(f"Counter updated: {self.count.d}")
         else:
