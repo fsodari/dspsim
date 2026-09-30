@@ -38,15 +38,17 @@ namespace benchmarks
         DSPSIM_CTOR(SimpleDff)
         {
             DSPSIM_METHOD(eval)
-                ->always(clk.pos());
+                ->always(clk.pos())
+                ->initialize(false);
         }
 
         void eval()
         {
-            if (clk.pos())
-            {
-                out.write(in.read());
-            }
+            // if (clk.pos())
+            // if (clk)
+            // {
+            out.write(in.read());
+            // }
         }
     };
 
