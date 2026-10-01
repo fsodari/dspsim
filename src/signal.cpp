@@ -3,9 +3,8 @@
 #include <dspsim/port.h>
 #include <dspsim/module.h>
 #include <dspsim/event.h>
-#include <format>
 
-#include "internal.h"
+#include <spdlog/spdlog.h>
 
 namespace dspsim
 {
