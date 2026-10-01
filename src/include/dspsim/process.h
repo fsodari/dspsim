@@ -16,34 +16,24 @@ namespace dspsim
 
     class ProcessBase
     {
-        Context *_context;
-        uint32_t _id;
-        std::string _name;
-        Module *_parent_module;
-
-        bool _scheduled = false;
-        bool _initialize = true;
-
-        // Static sensitivity will be disabled until a dynamic event occurs.
-        bool _static_sensitivity_disabled = false;
 
     public:
         ProcessBase(const std::string &name = "");
         virtual ~ProcessBase() = default;
 
-        Context *context() const { return _context; }
-        uint32_t id() const { return _id; }
-        const std::string &name() const { return _name; }
-        bool &scheduled_flag() { return _scheduled; }
+        Context *context() const { return context_; }
+        uint32_t id() const { return id_; }
+        const std::string &name() const { return name_; }
+        bool &scheduled_flag() { return scheduled_; }
 
         // If initialize is true(default), the process will be queued for evaluation at the start of simulation
         // regardless if any events have occurred.
         // Accessor for the initialization flag.
-        bool &initialize() { return _initialize; }
+        bool &initialize() { return initialize_; }
         // Set the initialization flag. Can be chained with always() calls.
         ProcessBase *initialize(bool init)
         {
-            _initialize = init;
+            initialize_ = init;
             return this;
         }
 
@@ -52,7 +42,7 @@ namespace dspsim
         ProcessBase *_set_initialize(bool init) { return initialize(init); }
 
         //
-        bool static_sensitivity_disabled() { return _static_sensitivity_disabled; }
+        bool static_sensitivity_disabled() { return static_sensitivity_disabled_; }
         // Return to being sensitive to static events.
         void reset_static_sensitivity();
 
@@ -79,16 +69,39 @@ namespace dspsim
 
         // Processes will call their bound eval() func. Coroutines will be resumed with their handle.
         virtual void resume() = 0;
+
+        // Indicates if the coroutine or process has completed.
+        virtual bool done() const = 0;
+
+    private:
+        Context *context_;
+        uint32_t id_;
+        std::string name_;
+        Module *parent_module_;
+
+        bool scheduled_ = false;
+        bool initialize_ = true;
+
+        // Static sensitivity will be disabled until a dynamic event occurs.
+        bool static_sensitivity_disabled_ = false;
     };
 
     class Process : public ProcessBase
     {
-        std::function<void()> _eval;
 
     public:
         Process(std::function<void()> eval, const std::string &name = "");
 
-        void resume() override { _eval(); }
+        void resume() override
+        {
+            eval_();
+            done_ = true;
+        }
+        bool done() const override { return done_; }
+
+    private:
+        std::function<void()> eval_;
+        bool done_ = false;
     };
 
     // Custom utility function. Wraps a method and this ptr in a lambda.
@@ -107,14 +120,15 @@ namespace dspsim
     */
     class CoroProcess : public ProcessBase
     {
-        Task _task;
-        // std::coroutine_handle<> _handle;
 
     public:
-        // CoroProcess(std::coroutine_handle<> handle, const std::string &name = "");
         CoroProcess(Task task, const std::string &name = "");
 
+        bool done() const override;
         void resume() override;
+
+    private:
+        Task task_;
     };
 }
 

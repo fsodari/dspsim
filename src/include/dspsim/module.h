@@ -35,10 +35,10 @@ namespace dspsim
         void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
 
         // Coroutine awaitables
-        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
         Wait wait();
+        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
 
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }

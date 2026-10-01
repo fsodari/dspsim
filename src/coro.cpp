@@ -64,6 +64,7 @@ namespace dspsim
         : time_delta_(time_delta),
           process_(process)
     {
+        process_->context()->schedule_time_delta_event(time_delta_, process_);
     }
 
     bool WaitTimeEvent::await_ready() const noexcept
@@ -74,7 +75,6 @@ namespace dspsim
     void WaitTimeEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
         (void)h;
-        process_->context()->schedule_time_delta_event(time_delta_, process_);
     }
 
     void WaitTimeEvent::await_resume() noexcept {}
@@ -93,7 +93,7 @@ namespace dspsim
         events_.push_back(&event);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
         : WaitSensitivityEvent(process)
     {
         for (const auto &event : events)

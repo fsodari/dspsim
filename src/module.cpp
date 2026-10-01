@@ -59,7 +59,7 @@ namespace dspsim
         return context()->wait(event, process);
     }
 
-    WaitSensitivityEvent Module::wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+    WaitSensitivityEvent Module::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
     {
         return context()->wait(events, process);
     }

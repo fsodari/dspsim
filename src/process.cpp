@@ -8,16 +8,16 @@
 namespace dspsim
 {
     ProcessBase::ProcessBase(const std::string &name)
-        : _context(Context::obtain().get()),
-          _id(_context->next_process_id()),
-          _name(name),
-          _parent_module(_context->_active_module())
+        : context_(Context::obtain().get()),
+          id_(context()->next_process_id()),
+          name_(name),
+          parent_module_(context()->_active_module())
     {
     }
 
     void ProcessBase::reset_static_sensitivity()
     {
-        _static_sensitivity_disabled = false;
+        static_sensitivity_disabled_ = false;
     }
 
     void ProcessBase::schedule_static_event(SensitivityEvent &event)
@@ -31,14 +31,14 @@ namespace dspsim
         // Make the sensitivity list sensitive to all events.
         if (event_name == "*")
         {
-            for (auto &input : _parent_module->inputs())
+            for (auto &input : parent_module_->inputs())
             {
                 schedule_static_event(input->change());
             }
         }
         else
         {
-            _context->logger->error("Event not found: {}", event_name);
+            context_->logger->error("Event not found: {}", event_name);
         }
     }
 
@@ -46,25 +46,25 @@ namespace dspsim
     {
         // Implementation goes here
         event.dynamic_subscribers().push_back(this);
-        this->_static_sensitivity_disabled = true;
+        this->static_sensitivity_disabled_ = true;
     }
     void ProcessBase::schedule_dynamic_event(const std::string &event_name)
     {
         if (event_name == "*")
         {
-            for (auto &input : _parent_module->inputs())
+            for (auto &input : parent_module_->inputs())
             {
                 schedule_dynamic_event(input->change());
             }
         }
         else
         {
-            _context->logger->error("Event not found: {}", event_name);
+            context_->logger->error("Event not found: {}", event_name);
         }
     }
 
     Process::Process(std::function<void()> eval, const std::string &name)
-        : ProcessBase(name), _eval(eval)
+        : ProcessBase(name), eval_(eval)
     {
     }
 
@@ -72,19 +72,23 @@ namespace dspsim
         Coroutine processes.
     */
     CoroProcess::CoroProcess(Task task, const std::string &name)
-        : ProcessBase(name), _task(std::move(task))
+        : ProcessBase(name), task_(std::move(task))
     {
     }
     void CoroProcess::resume()
     {
-        if (!_task.handle.done()) [[likely]]
+        if (!task_.handle.done()) [[likely]]
         {
-            _task.handle.resume();
+            task_.handle.resume();
         }
         else
         {
             // Coroutine has completed and cannot be resumed.
             context()->logger->error("Attempted to resume a completed coroutine! {}", name());
         }
+    }
+    bool CoroProcess::done() const
+    {
+        return !task_.handle || task_.handle.done();
     }
 }
