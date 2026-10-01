@@ -18,7 +18,8 @@ namespace dspsim
 
     private:
         // Toggles the clock signal and schedules the next time event.
-        Task tick();
+        // Task tick();
+        void tick();
 
     public:
         static auto create(const std::string &name, uint64_t period)

@@ -58,6 +58,7 @@ target_sources(dspsim-core
     FILES 
         ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/coro.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/dspsim.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/event.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/model.h
@@ -67,7 +68,6 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
         # ${DSPSIM_INCLUDE_DIR}/dspsim/sensitivity_list.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/signal.h
-        ${DSPSIM_INCLUDE_DIR}/dspsim/coro/coro.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_rx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h

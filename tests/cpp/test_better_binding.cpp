@@ -16,13 +16,17 @@ namespace
 
         DSPSIM_CTOR(Child)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(i);
         }
 
-        void eval()
+        Task eval()
         {
-            o.write(i.read() + 1);
+            while (true)
+            {
+                o = i + 1;
+                co_await wait();
+            }
         }
     };
 
@@ -60,7 +64,7 @@ namespace
 
         Top(ModuleName name) : Module(name)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always(i, p1_internal, p2_internal);
 
             parent1.i.bind(i);
@@ -68,9 +72,13 @@ namespace
             parent2.i.bind(i);
             parent2.o.bind(p2_internal);
         }
-        void eval()
+        Task eval()
         {
-            o.write(p1_internal.read() + p2_internal.read());
+            while (true)
+            {
+                o.write(p1_internal.read() + p2_internal.read());
+                co_await wait();
+            }
         }
     };
 
@@ -79,7 +87,7 @@ namespace
 TEST_CASE("Better binding test", "[better_binding]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->logger->set_level(spdlog::level::trace);
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};

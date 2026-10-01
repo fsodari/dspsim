@@ -19,20 +19,18 @@ namespace
         Adder(ModuleName name)
             : Module(name)
         {
-            // Using static sensitivity.
-            // DSPSIM_METHOD(eval)
-            //     ->always("*");
-
-            // Using dynamic sensitivity for testing purposes.
-            DSPSIM_METHOD(eval);
+            DSPSIM_CORO(eval);
         }
 
-        void eval()
+        Task eval()
         {
-            context()->logger->debug("Evaluating adder: {}", hier_name());
-            c.write(a.read() + b.read());
-            // Dynamic sensitivity for the next evaluation.
-            next_trigger("*");
+            while (true)
+            {
+                context()->logger->debug("Evaluating adder: {}", hier_name());
+                c.write(a.read() + b.read());
+                // Dynamic sensitivity for the next evaluation.
+                co_await wait({a.change(), b.change()});
+            }
         }
     };
 

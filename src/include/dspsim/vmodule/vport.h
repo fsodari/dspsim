@@ -7,36 +7,36 @@ namespace dspsim
     template <typename T>
     class VInput final : public Input<T>
     {
-    private:
-        T *_ext_port;
 
     public:
         VInput(const std::string &name, int width, T &ext_port) : Input<T>(name, width)
         {
-            bind_ext_port(ext_port);
+            ext_port_ = &ext_port;
         }
 
         // write the input value to the top model port.
-        void _sync() override { *_ext_port = this->read(); }
-        void bind_ext_port(T &ext_port) { _ext_port = &ext_port; }
+        void sync() override { *ext_port_ = this->read(); }
+
+    private:
+        T *ext_port_;
     };
 
     template <typename T>
     class VOutput final : public Output<T>
     {
-    private:
-        T *_ext_port;
 
     public:
         // Initialize the port with the verilated model's port.
         VOutput(const std::string &name, int width, T &ext_port) : Output<T>(name, width)
         {
-            bind_ext_port(ext_port);
+            ext_port_ = &ext_port;
         }
 
         // Write the top model value to the output port.
-        void _sync() override { this->write(*_ext_port); }
-        void bind_ext_port(T &ext_port) { _ext_port = &ext_port; }
+        void sync() override { this->write(*ext_port_); }
+
+    private:
+        T *ext_port_;
     };
 
 }

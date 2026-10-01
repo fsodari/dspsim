@@ -20,9 +20,9 @@ namespace dspsim
         _static_sensitivity_disabled = false;
     }
 
-    void ProcessBase::schedule_static_event(SensitivityEvent *event)
+    void ProcessBase::schedule_static_event(SensitivityEvent &event)
     {
-        event->static_subscribers().push_back(this);
+        event.static_subscribers().push_back(this);
     }
 
     void ProcessBase::schedule_static_event(const std::string &event_name)
@@ -33,7 +33,7 @@ namespace dspsim
         {
             for (auto &input : _parent_module->inputs())
             {
-                schedule_static_event(input->_change());
+                schedule_static_event(input->change());
             }
         }
         else
@@ -42,10 +42,10 @@ namespace dspsim
         }
     }
 
-    void ProcessBase::schedule_dynamic_event(SensitivityEvent *event)
+    void ProcessBase::schedule_dynamic_event(SensitivityEvent &event)
     {
         // Implementation goes here
-        event->dynamic_subscribers().push_back(this);
+        event.dynamic_subscribers().push_back(this);
         this->_static_sensitivity_disabled = true;
     }
     void ProcessBase::schedule_dynamic_event(const std::string &event_name)
@@ -54,7 +54,7 @@ namespace dspsim
         {
             for (auto &input : _parent_module->inputs())
             {
-                schedule_dynamic_event(input->change_event());
+                schedule_dynamic_event(input->change());
             }
         }
         else

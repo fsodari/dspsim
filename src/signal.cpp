@@ -11,30 +11,30 @@ namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name)
         : Model(name, "signal"),
-          _change_event(context()),
-          _posedge_event(context()),
-          _negedge_event(context()),
-          _changed_flag(false),
-          _posedge_flag(false),
-          _negedge_flag(false),
-          _scheduled(false)
+          changed_flag_(false),
+          posedge_flag_(false),
+          negedge_flag_(false),
+          scheduled_(false),
+          change_event_(context()),
+          posedge_event_(context()),
+          negedge_event_(context())
     {
         context()->_add_signal(this);
     }
 
     template <typename T>
     Signal<T>::Signal(const std::string &name, int width, T init, bool is_signed)
-        : SignalBase(name), _width(width), _is_signed(is_signed)
+        : SignalBase(name), width_(width), is_signed_(is_signed)
     {
-        _d = init;
-        _q = init;
+        d_ = init;
+        q_ = init;
     }
 
     template <typename T>
     Signal<T> &Signal<T>::init(const T &value)
     {
-        _d = value;
-        _q = value;
+        d_ = value;
+        q_ = value;
         return *this;
     }
 

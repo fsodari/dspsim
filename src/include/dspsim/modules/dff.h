@@ -14,14 +14,16 @@ namespace dspsim
 
         DSPSIM_CTOR(Dff)
         {
-            DSPSIM_METHOD(eval)
-                ->always(clk.pos());
+            // DSPSIM_METHOD(eval)
+            //     ->always(clk.pos());
+            DSPSIM_CORO(eval);
         }
 
-        void eval()
+        Task eval()
         {
-            if (clk.posedge())
+            while (true)
             {
+                co_await wait(clk.pos());
                 q.write(d.read());
             }
         }

@@ -6,118 +6,135 @@
 
 namespace dspsim
 {
+    /*
+        Ports represent the interface between modules and signals in the simulation framework.
+        Ports can be instantiated within a module and bound to signals
+        or parent ports to facilitate communication between different parts of the simulation.
+    */
     class PortBase : public Model
     {
-        int _width;
-
     public:
+        // Constructor for the port base class. Initializes the port with a name, width, and kind.
+        // kind will be input/output.
         PortBase(const std::string &name, int width, const std::string &kind);
-        virtual void finalize() override = 0;
-        // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
-        virtual void _sync() {}
-        int width() const { return _width; }
-    };
+        virtual ~PortBase() = default;
 
-    class InputBase : public PortBase
-    {
-    protected:
-        // During elaboration, these events will be added to the bound signal's events.
-        SensitivityEvent _static_change_event;
-        SensitivityEvent _static_posedge_event;
-        SensitivityEvent _static_negedge_event;
-        SensitivityEvent *_dynamic_change_event;
-        SensitivityEvent *_dynamic_posedge_event;
-        SensitivityEvent *_dynamic_negedge_event;
-
-    public:
-        InputBase(const std::string &name, int width);
-        virtual void finalize() override = 0;
+        // Get the width of the port.
+        int width() const { return width_; }
 
         // Processes can be sensitive to port changes.
-        SensitivityEvent *_change() { return &_static_change_event; }
-        SensitivityEvent *pos() { return &_static_posedge_event; }
-        SensitivityEvent *neg() { return &_static_negedge_event; }
+        SensitivityEvent &change() { return *change_event_; }
+        SensitivityEvent &pos() { return *posedge_event_; }
+        SensitivityEvent &neg() { return *negedge_event_; }
 
-        // Processes can be sensitive to dynamic change events.
-        SensitivityEvent *change_event() { return _dynamic_change_event; }
-        SensitivityEvent *posedge_event() { return _dynamic_posedge_event; }
-        SensitivityEvent *negedge_event() { return _dynamic_negedge_event; }
+        // Implicit conversion to the change event. This may interfere with implicit conversions to the port value...
+        operator SensitivityEvent &() { return *change_event_; }
 
-        // Cast this class as _change() event when using in a sensitivity list.
-        operator SensitivityEvent *() { return _change(); }
-    };
-
-    template <typename T>
-    class Input : public InputBase
-    {
-        Signal<T> *_bound_signal = nullptr;
-        std::vector<Input<T> *> _bound_ports;
-
-    public:
-        Input(const std::string &name, int width = default_bitwidth<T>::value);
+        /*
+            Called automatically during elaboration.
+            This is where the port finalizes its binding to signals and updates its sensitivity events.
+            Should this be private and the context a friend?
+        */
         void finalize() override;
 
+        // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
+        virtual void sync() {}
+
     protected:
+        // Provides access to the bound signal.
+        SignalBase *bound_signal() const { return bound_signal_; }
+
+        // Bind functions. These will check for width and hierarchical level constraints.
+        // Input/Output classes enforce binding to the correct signal type with their public interface.
+        void bind_base(SignalBase &signal);
+        void bind_base(PortBase &port);
+
+    private:
+        // Recursively search bound ports to resolve the final bound signal.
+        void resolve();
         // Update the bound signal's subscribers with the ports subscribers
         void update_bound_signal_subscribers();
-        // Resolve a chain of port-to-port bindings down to the underlying signal.
-        void resolve();
 
-    public:
-        void bind(Signal<T> &signal);
-        void bind(Input<T> &port);
+    protected:
+        // Ports must be bound to a signal before the simulation starts.
+        SignalBase *bound_signal_ = nullptr;
 
-        // Explicit functions for python bindings
-        void _bind_signal(Signal<T> &signal);
-        void _bind_port(Input<T> &port);
+    private:
+        // Width of the port.
+        int width_;
 
-        // Read the value of the port (bound signal).
-        const T &read() const { return _bound_signal->read(); }
+        /*
+            During construction, processes can specify static sensitivity to signals.
+            Since the ports will not be bound to a signal at this stage, ports need to expose an event interface.
+        */
+        SensitivityEvent static_change_event_;
+        SensitivityEvent static_posedge_event_;
+        SensitivityEvent static_negedge_event_;
 
-        // Set in the update cycle after a signal event. Derived from the bound signal.
-        bool changed() const { return _bound_signal->changed(); }
-        bool posedge() const { return _bound_signal->posedge(); }
-        bool negedge() const { return _bound_signal->negedge(); }
-    };
+        // After elaboration, the port's sensitivity event will be associated with the bound signal's events.
+        SensitivityEvent *change_event_;
+        SensitivityEvent *posedge_event_;
+        SensitivityEvent *negedge_event_;
 
-    class OutputBase : public PortBase
-    {
-    public:
-        OutputBase(const std::string &name, int width);
-        virtual void finalize() override = 0;
+        /*
+            Submodule ports can bind to the ports of parent modules.
+            Ports may not be bound between modules at the same hierarchical level.
+        */
+        std::vector<PortBase *> bound_ports_;
     };
 
     template <typename T>
-    class Output : public OutputBase
+    class Input : public PortBase
     {
-    private:
-        Signal<T> *_bound_signal = nullptr;
-        std::vector<Output<T> *> _bound_ports;
-
     public:
-        Output(const std::string &name, int width = default_bitwidth<T>::value);
-        void finalize() override;
+        Input(const std::string &name, int width = default_bitwidth<T>::value);
 
-    protected:
-        // Resolve a chain of port-to-port bindings down to the underlying signal.
-        void resolve();
+        // Bind the input port to a signal.
+        void bind(Signal<T> &signal) { bind_base(signal); }
+        // Bind the input port to another input port.
+        void bind(Input<T> &port) { bind_base(port); }
 
-    public:
-        void bind(Signal<T> &signal);
-        void bind(Output<T> &port);
+        // Read the value of the port (bound signal).
+        const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
 
-        // Explicit functions for python bindings
-        void _bind_signal(Signal<T> &signal);
-        void _bind_port(Output<T> &port);
+        // Implicit conversion to read the value of the bound signal from the port
+        operator const T &() const { return read(); }
 
-        // Read the value of the bound signal.
-        const T &read() const { return _bound_signal->read(); }
-
-        // Write to the bound signal.
-        void write(const T &value) { _bound_signal->write(value); }
-
-        // Read the pending value. Shouldn't be used, but is available.
-        const T &_read_d() const { return _bound_signal->_read_d(); }
+        // Explicit functions for nanobind bindings
+        void bind_signal(Signal<T> &signal) { bind_base(signal); }
+        void bind_port(Input<T> &port) { bind_base(port); }
     };
 
+    template <typename T>
+    class Output : public PortBase
+    {
+    public:
+        Output(const std::string &name, int width = default_bitwidth<T>::value);
+
+        // Bind the output port to a signal.
+        void bind(Signal<T> &signal) { bind_base(signal); }
+        // Bind the output port to another output port.
+        void bind(Output<T> &port) { bind_base(port); }
+
+        // Read the value of the bound signal.
+        const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
+        // Implicit conversion to read the value of the bound signal from the port
+        operator const T &() const { return read(); }
+
+        // Write to the bound signal.
+        void write(const T &value) { static_cast<Signal<T> *>(bound_signal_)->write(value); }
+        // Implicit conversion to write to the bound signal from the port
+        Output<T> &operator=(const T &value)
+        {
+            write(value);
+            return *this;
+        }
+
+        // Explicit functions for python bindings
+        void bind_signal(Signal<T> &signal) { bind_base(signal); }
+        void bind_port(Output<T> &port) { bind_base(port); }
+
+        // Read the pending value. Shouldn't be used, but is available.
+        const T &read_d_() const { return static_cast<Signal<T> *>(bound_signal_)->read_d_(); }
+    };
 }

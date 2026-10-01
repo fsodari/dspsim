@@ -58,70 +58,57 @@ namespace dspsim
     // Awaitable for waiting a specific time delta
     class WaitTimeEvent
     {
-        uint64_t _time_delta;
-        Context *_context;
-        ProcessBase *_process;
 
     public:
-        WaitTimeEvent(uint64_t time_delta, Context *context, ProcessBase *process = nullptr);
+        WaitTimeEvent(uint64_t time_delta, ProcessBase *process);
 
         // Determine if the coroutine needs to suspend or it can continue immediately.
         // relative events will never be ready immediately. Absolute events could. Or passing 0 would do nothing?
         bool await_ready() const noexcept;
 
-        // If await_ready is false, Schedule the time event and coro is suspended.
-        void await_suspend(std::coroutine_handle<> h) noexcept;
+        // If await_ready is false, the coroutine is suspended and await_suspend is called.
+        // The handle is the coroutine handle that is being suspended.
+        void await_suspend(std::coroutine_handle<> handle) noexcept;
 
-        // Scheduler will call this to resume execution.
-        void resume();
-
-        // Returns result when the coroutine resumes. Can return a value if needed.
+        // Called when the coroutine resumes. Can return a value if needed.
         void await_resume() noexcept;
+
+    private:
+        uint64_t time_delta_;
+        ProcessBase *process_;
+    };
+
+    class Wait
+    {
+    public:
+        Wait() {}
+        bool await_ready() const noexcept { return false; }
+        void await_suspend(std::coroutine_handle<> handle) noexcept { (void)handle; }
+        void await_resume() noexcept {}
     };
 
     class WaitSensitivityEvent
     {
-        // SensitivityEvent *_event;
-        UniqueStack<SensitivityEvent *> _events;
-        Context *_context;
-        ProcessBase *_process;
 
     public:
         // Wait on any event in the static sensitivity list.
-        WaitSensitivityEvent(Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(ProcessBase *process);
 
         // Wait on a dynamically added event.
-        WaitSensitivityEvent(SensitivityEvent *event, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process);
 
         // Wait on multiple dynamic events, if any occur (or list);
-        WaitSensitivityEvent(std::initializer_list<SensitivityEvent *> events, Context *context, ProcessBase *process = nullptr);
+        WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;
-        void resume();
         void await_resume() noexcept;
+
+    private:
+        // 0 initial capacity: this is constructed fresh on every co_await in hot loops, and the
+        // common case (waiting on already-registered static sensitivity) never pushes any events,
+        // so an eager reserve() here would mean two heap allocations per resume for nothing.
+        UniqueStack<SensitivityEvent *> events_{0};
+        ProcessBase *process_;
     };
-
-    /*
-    class SomeModule : public Module
-    {
-        ProcessBase *_coro_process;
-
-    public:
-        SomeModule(ModuleName name)
-            : Module(name)
-        {
-            context()->_processes.emplace_back(std::make_unique<CoroProcess>(std::move(some_task()), "some_task"));
-            _coro_process = context()->_processes.back().get();
-        }
-
-        Task some_task()
-        {
-            while (true)
-            {
-                co_await wait{10, this->context(), _coro_process};
-            }
-        }
-    };
-    */
 } // namespace dspsim

@@ -32,7 +32,7 @@ namespace dspsim
 
         void push_back(const T &element)
         {
-            bool &scheduled = element->_scheduled_flag();
+            bool &scheduled = element->scheduled_flag();
             if (!scheduled)
             {
                 scheduled = true;
@@ -44,14 +44,14 @@ namespace dspsim
         {
             T element = _stack.back();
             _stack.pop_back();
-            element->_scheduled_flag() = false;
+            element->scheduled_flag() = false;
         }
 
         void clear()
         {
             for (auto &element : _stack)
             {
-                element->_scheduled_flag() = false;
+                element->scheduled_flag() = false;
             }
             _stack.clear();
         }
@@ -60,7 +60,7 @@ namespace dspsim
         // is actually present (same worst case as UniqueStack::find).
         iterator find(const T &element)
         {
-            if (!element->_scheduled_flag())
+            if (!element->scheduled_flag())
             {
                 return _stack.end();
             }
@@ -71,7 +71,7 @@ namespace dspsim
         {
             if (it != _stack.end())
             {
-                (*it)->_scheduled_flag() = false;
+                (*it)->scheduled_flag() = false;
                 return _stack.erase(it);
             }
             return _stack.end();

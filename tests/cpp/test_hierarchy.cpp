@@ -22,14 +22,18 @@ namespace
         SomeModule(ModuleName name)
             : Module(name)
         {
-            DSPSIM_METHOD(eval)
+            DSPSIM_CORO(eval)
                 ->always("*");
         }
 
-        void eval()
+        Task eval()
         {
-            context()->logger->debug("SomeModule eval(), time: {}", context()->time());
-            c.write(a.read() + b.read());
+            while (true)
+            {
+                context()->logger->debug("SomeModule eval(), time: {}", context()->time());
+                c.write(a.read() + b.read());
+                co_await wait();
+            }
         }
     };
 
@@ -50,20 +54,25 @@ namespace
             some_module.a.bind(clk);
             some_module.b.bind(d);
             some_module.c.bind(sig);
-            DSPSIM_METHOD(eval)
+
+            DSPSIM_CORO(eval)
                 ->always(clk.pos());
         }
 
-        void eval()
+        Task eval()
         {
-            if (clk.posedge())
+            while (true)
             {
-                context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
-                q.write(sig.read());
-            }
-            else
-            {
-                context()->logger->error("SyncModel eval() on negedge, time: {}", context()->time());
+                if (clk.pos())
+                {
+                    context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
+                    q.write(sig.read());
+                }
+                else
+                {
+                    context()->logger->error("SyncModel eval() on negedge, time: {}", context()->time());
+                }
+                co_await wait();
             }
         }
     };

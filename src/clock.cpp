@@ -12,18 +12,25 @@ namespace dspsim
         _half_period = _period / 2;
         // If half_period wasn't an even number.
         _remainder = _period - _half_period;
-        _process = DSPSIM_CORO(tick);
+        // _process = DSPSIM_CORO(tick);
+        _process = DSPSIM_METHOD(tick);
     }
 
-    Task Clock::tick()
+    // Task Clock::tick()
+    // {
+    //     while (true)
+    //     {
+    //         this->write(!this->read());
+    //         co_await context()->wait(_half_period, _process);
+    //         this->write(!this->read());
+    //         co_await context()->wait(_remainder, _process);
+    //     }
+    // }
+
+    void Clock::tick()
     {
-        while (true)
-        {
-            this->write(!this->read());
-            co_await context()->wait(_half_period, _process);
-            this->write(!this->read());
-            co_await context()->wait(_remainder, _process);
-        }
+        this->write(!this->read());
+        context()->_time_event_stack.emplace(context()->time() + _half_period, _process);
     }
 
     uint64_t Clock::period() const

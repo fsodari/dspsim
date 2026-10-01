@@ -20,17 +20,6 @@ namespace dspsim
     */
     class SensitivityEvent
     {
-    private:
-        Context *_context;
-        uint32_t _id;
-        bool *_event_flag = nullptr;
-
-        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
-        UniqueStack<ProcessBase *> _static_subscribers;
-
-        // Processes with dynamic sensitivity. This list is cleared when the event occurs and
-        // the process will return to having static sensitivity.
-        UniqueStack<ProcessBase *> _dynamic_subscribers;
 
     public:
         /*
@@ -38,17 +27,38 @@ namespace dspsim
         */
         SensitivityEvent(Context *context);
 
-        uint32_t id() const { return _id; }
+        // Event id.
+        uint32_t id() const { return id_; }
 
         // Schedule subscribed processes for evaluation.
         // void notify(bool &event_flag);
+
+        // Notify all subscribed processes that this event has occurred.
+        // called after the signal update phase.
         void notify();
-        void set_event_flag(bool *event_flag) { _event_flag = event_flag; }
 
-        bool has_happened() const { return _event_flag ? *_event_flag : false; }
+        // This is hacky. Need to improve.
+        void set_event_flag(bool *event_flag) { event_flag_ = event_flag; }
 
-        UniqueStack<ProcessBase *> &static_subscribers() { return _static_subscribers; }
-        UniqueStack<ProcessBase *> &dynamic_subscribers() { return _dynamic_subscribers; }
+        // Check if the event has occurred in the last evaluation cycle.
+        bool has_happened() const { return event_flag_ ? *event_flag_ : false; }
+        operator bool() const { return has_happened(); }
+
+        // Need to encapsulate this better.
+        UniqueStack<ProcessBase *> &static_subscribers() { return static_subscribers_; }
+        UniqueStack<ProcessBase *> &dynamic_subscribers() { return dynamic_subscribers_; }
+
+    private:
+        Context *context_;
+        uint32_t id_;
+        bool *event_flag_ = nullptr;
+
+        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
+        UniqueStack<ProcessBase *> static_subscribers_;
+
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs and
+        // the process will return to having static sensitivity.
+        UniqueStack<ProcessBase *> dynamic_subscribers_;
     };
 
     /*
@@ -56,20 +66,20 @@ namespace dspsim
     */
     class TimeEvent
     {
-        Context *_context;
-
-    public:
-        uint64_t time_update;
-        ProcessBase *process;
-
     public:
         /*
             Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
-        TimeEvent(Context *context, uint64_t time_update, ProcessBase *process);
+        TimeEvent(uint64_t time_update, ProcessBase *process);
+        uint64_t time_update() const { return time_update_; }
+        ProcessBase *process() const { return process_; }
 
         // Need to expose comparison operators so this can be used with a priority queue or other sorted structure.
-        bool operator<(const TimeEvent &other) const { return time_update < other.time_update; }
-        bool operator>(const TimeEvent &other) const { return time_update > other.time_update; }
+        bool operator<(const TimeEvent &other) const { return time_update_ < other.time_update_; }
+        bool operator>(const TimeEvent &other) const { return time_update_ > other.time_update_; }
+
+    private:
+        uint64_t time_update_;
+        ProcessBase *process_;
     };
 } // namespace dspsim

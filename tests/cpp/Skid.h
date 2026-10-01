@@ -18,8 +18,8 @@ public:
 
     DSPSIM_CTOR(Skid)
     {
-        DSPSIM_METHOD(eval) // Standard eval func for verilated modules.
-            ->always("*");  // Default is sensitive to all inputs. Can be changed by generator.
+        DSPSIM_CORO(eval)
+            ->always("*"); // Default is sensitive to all inputs. Can be changed by generator.
     }
 
     // Tracing methods.
