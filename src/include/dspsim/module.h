@@ -9,11 +9,6 @@ namespace dspsim
     class ProcessBase;
     class Module : public Model
     {
-        // Information about the module's ports.
-        std::vector<PortBase *> _ports;
-        std::vector<PortBase *> _inputs;
-        std::vector<PortBase *> _outputs;
-
     public:
         // A subclass of Module should use ModuleName with no reference so that the ModuleName goes out of scope at the end of the subclass constructor.
         Module(ModuleName &name);
@@ -44,6 +39,12 @@ namespace dspsim
         std::vector<PortBase *> &ports() { return _ports; }
         std::vector<PortBase *> &inputs() { return _inputs; }
         std::vector<PortBase *> &outputs() { return _outputs; }
+
+    private:
+        // Information about the module's ports.
+        std::vector<PortBase *> _ports;
+        std::vector<PortBase *> _inputs;
+        std::vector<PortBase *> _outputs;
     };
 
     template <typename M>

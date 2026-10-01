@@ -16,7 +16,6 @@ namespace dspsim
 
     class ProcessBase
     {
-
     public:
         ProcessBase(const std::string &name = "");
         virtual ~ProcessBase() = default;

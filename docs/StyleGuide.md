@@ -16,7 +16,7 @@ This document defines the development standards and architectural guidelines for
 - Private member variable names should use a trailing underscore_
 
 ### Class organization
-- From top to bottom, declare members in this order: types/enums, consts/constexprs, constructors/destructors, public methods, protected methods, private methods, public member variabls, protected member variables, private member variables.
+- From top to bottom, declare members in this order: types/enums, consts/constexprs, constructors/destructors, static factory functions, public methods, protected methods, private methods, public member variables, protected member variables, private member variables.
 - Member variables must be declared in the order they are initialized, specifically in the order they must be initialized
 - In this project specifically, if an object obtains or is passed a Context*, that should be the first member.
 - Group related functions together.
