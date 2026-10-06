@@ -125,7 +125,8 @@ namespace dspsim
         // 0 initial capacity: this is constructed fresh on every co_await in hot loops, and the
         // common case (waiting on already-registered static sensitivity) never pushes any events,
         // so an eager reserve() here would mean two heap allocations per resume for nothing.
-        UniqueStack<SensitivityEvent *> events_{0};
+        // UniqueStack<SensitivityEvent *> events_{0};
+        std::vector<SensitivityEvent *> dynamic_events_;
         ProcessBase *process_;
     };
 } // namespace dspsim

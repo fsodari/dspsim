@@ -152,7 +152,8 @@ namespace dspsim
         {
             posedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(&pos());
+            // context()->_sensitivity_event_stack.push_back(&pos());
+            pos().notify();
             pos().set_event_flag(&posedge_flag_);
             // pos().notify(&posedge_flag_);
         }
@@ -160,10 +161,12 @@ namespace dspsim
         {
             negedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(&neg());
+            // context()->_sensitivity_event_stack.push_back(&neg());
+            neg().notify();
             neg().set_event_flag(&negedge_flag_);
         }
-        context()->_sensitivity_event_stack.push_back(&change());
+        // context()->_sensitivity_event_stack.push_back(&change());
+        change().notify();
         change().set_event_flag(&changed_flag_);
 
         this->q_ = this->d_;

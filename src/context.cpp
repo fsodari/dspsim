@@ -166,7 +166,8 @@ namespace dspsim
             for (const auto &event : _sensitivity_event_stack)
             {
                 SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
-                event->notify();
+                // event->notify();
+                event->trigger();
             }
             _sensitivity_event_stack.clear();
         }

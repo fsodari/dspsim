@@ -90,7 +90,8 @@ namespace dspsim
     WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process)
         : WaitSensitivityEvent(process)
     {
-        events_.push_back(&event);
+        // events_.push_back(&event);
+        dynamic_events_.push_back(&event);
     }
 
     WaitSensitivityEvent::WaitSensitivityEvent(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
@@ -98,7 +99,8 @@ namespace dspsim
     {
         for (const auto &event : events)
         {
-            events_.push_back(&event.get());
+            dynamic_events_.push_back(&event.get());
+            // event.get().dynamic_subscribers().push_back(process_);
         }
     }
 
@@ -112,7 +114,7 @@ namespace dspsim
     {
         // Use the handle instead of a process?
         (void)h;
-        for (auto &event : events_)
+        for (auto &event : dynamic_events_)
         {
             event->dynamic_subscribers().push_back(process_);
         }
