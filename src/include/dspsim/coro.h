@@ -23,21 +23,21 @@ namespace dspsim
             The object returned by this function is what the caller of the coroutine function
             actually receives when the coroutine first suspends or finishes
             */
-            Task get_return_object();
+            Task get_return_object() { return Task{std::coroutine_handle<promise_type>::from_promise(*this)}; }
             // Task get_return_object() { return {}; }
             // returning suspend_always here means the coroutine will always suspend initially.
             // returning suspend_never would start immediately.
-            std::suspend_always initial_suspend() noexcept;
+            std::suspend_always initial_suspend() noexcept { return {}; }
 
             // Called when the coroutine exits. suspend_always will suspend the coroutine at the end, requiring cleanup.
             // suspend_never will immediately destroy the coroutine without suspending at the end.
-            std::suspend_always final_suspend() noexcept;
+            std::suspend_always final_suspend() noexcept { return {}; }
 
             // Executed on co_return. Other option is return_value(T) if the coroutine returns a value.
             // This needs to clean up the context and remove any reference to the coroutine process so that it
             // doesn't get triggered again.
-            void return_void();
-            void unhandled_exception();
+            void return_void() { /* Clean up context. */ }
+            void unhandled_exception() { std::terminate(); }
         };
 
         //
