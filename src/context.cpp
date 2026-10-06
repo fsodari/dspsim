@@ -166,7 +166,8 @@ namespace dspsim
             for (const auto &event : _sensitivity_event_stack)
             {
                 SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
-                event->notify();
+                // event->notify();
+                event->trigger();
             }
             _sensitivity_event_stack.clear();
         }
@@ -245,6 +246,11 @@ namespace dspsim
         _time_event_stack.emplace(_time + time_delta, process);
     }
 
+    Wait Context::wait()
+    {
+        return Wait{};
+    }
+
     WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
     {
         if (process == nullptr)
@@ -252,11 +258,6 @@ namespace dspsim
             process = _current_process;
         }
         return WaitTimeEvent{time_delta, process};
-    }
-
-    Wait Context::wait()
-    {
-        return Wait{};
     }
 
     WaitSensitivityEvent Context::wait(SensitivityEvent &event, ProcessBase *process)
@@ -267,7 +268,7 @@ namespace dspsim
         }
         return WaitSensitivityEvent{event, process};
     }
-    WaitSensitivityEvent Context::wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
     {
         if (process == nullptr)
         {

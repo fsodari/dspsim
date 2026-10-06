@@ -28,7 +28,7 @@ namespace dspsim
         SensitivityEvent(Context *context);
 
         // Event id.
-        uint32_t id() const { return id_; }
+        // uint32_t id() const { return id_; }
 
         // Schedule subscribed processes for evaluation.
         // void notify(bool &event_flag);
@@ -36,6 +36,8 @@ namespace dspsim
         // Notify all subscribed processes that this event has occurred.
         // called after the signal update phase.
         void notify();
+
+        void trigger();
 
         // This is hacky. Need to improve.
         void set_event_flag(bool *event_flag) { event_flag_ = event_flag; }
@@ -50,7 +52,7 @@ namespace dspsim
 
     private:
         Context *context_;
-        uint32_t id_;
+        // uint32_t id_;
         bool *event_flag_ = nullptr;
 
         // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.

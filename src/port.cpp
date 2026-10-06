@@ -1,7 +1,8 @@
 #include <dspsim/port.h>
 #include <dspsim/context.h>
 #include <dspsim/module.h>
-#include "internal.h"
+
+#include <spdlog/spdlog.h>
 
 namespace dspsim
 {

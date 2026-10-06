@@ -21,25 +21,35 @@ namespace benchmarks
 
         DSPSIM_CTOR(Wide)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always(clk, in);
-            DSPSIM_CORO(eval)
+            DSPSIM_METHOD(eval)
                 ->always(clk, in);
+            // DSPSIM_CORO(eval)
+            //     ->always(clk, in);
         }
 
-        dspsim::Task eval()
+        // dspsim::Task eval()
+        // {
+        //     while (true)
+        //     {
+        //         T sum = 0;
+        //         for (size_t i = 0; i < N; ++i)
+        //         {
+        //             sigs[i].write(in.read());
+        //             sum += sigs[i].read();
+        //         }
+        //         out.write(sum);
+        //         co_await wait();
+        //     }
+        // }
+        void eval()
         {
-            while (true)
+            T sum = 0;
+            for (size_t i = 0; i < N; ++i)
             {
-                T sum = 0;
-                for (size_t i = 0; i < N; ++i)
-                {
-                    sigs[i].write(in.read());
-                    sum += sigs[i].read();
-                }
-                out.write(sum);
-                co_await wait();
+                sigs[i].write(in.read());
+                sum += sigs[i].read();
             }
+            out.write(sum);
         }
     };
 

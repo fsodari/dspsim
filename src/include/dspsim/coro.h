@@ -55,8 +55,32 @@ namespace dspsim
         ~Task();
     };
 
+    class WaitBase
+    {
+    public:
+        // Python's __await__ must call once to suspend, then again to complete. This mirrors a single suspend point.
+        bool py_step_done() noexcept
+        {
+            bool done = suspended_;
+            suspended_ = true;
+            return done;
+        }
+
+    private:
+        bool suspended_ = false;
+    };
+
+    class Wait : public WaitBase
+    {
+    public:
+        Wait() {}
+        bool await_ready() const noexcept { return false; }
+        void await_suspend(std::coroutine_handle<> handle) noexcept { (void)handle; }
+        void await_resume() noexcept {}
+    };
+
     // Awaitable for waiting a specific time delta
-    class WaitTimeEvent
+    class WaitTimeEvent : public WaitBase
     {
 
     public:
@@ -78,16 +102,7 @@ namespace dspsim
         ProcessBase *process_;
     };
 
-    class Wait
-    {
-    public:
-        Wait() {}
-        bool await_ready() const noexcept { return false; }
-        void await_suspend(std::coroutine_handle<> handle) noexcept { (void)handle; }
-        void await_resume() noexcept {}
-    };
-
-    class WaitSensitivityEvent
+    class WaitSensitivityEvent : public WaitBase
     {
 
     public:
@@ -96,9 +111,11 @@ namespace dspsim
 
         // Wait on a dynamically added event.
         WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process);
+        WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process)
+            : WaitSensitivityEvent(event.get(), process) {}
 
         // Wait on multiple dynamic events, if any occur (or list);
-        WaitSensitivityEvent(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process);
+        WaitSensitivityEvent(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;
@@ -108,7 +125,8 @@ namespace dspsim
         // 0 initial capacity: this is constructed fresh on every co_await in hot loops, and the
         // common case (waiting on already-registered static sensitivity) never pushes any events,
         // so an eager reserve() here would mean two heap allocations per resume for nothing.
-        UniqueStack<SensitivityEvent *> events_{0};
+        // UniqueStack<SensitivityEvent *> events_{0};
+        std::vector<SensitivityEvent *> dynamic_events_;
         ProcessBase *process_;
     };
 } // namespace dspsim

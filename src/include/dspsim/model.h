@@ -13,16 +13,6 @@ namespace dspsim
     {
         friend class Context;
 
-    private:
-        Context *_context;
-        uint32_t _id;
-        std::string _name;
-        std::string _hier_name;
-        Model *_parent;
-
-    protected:
-        std::string _kind;
-
     public:
         Model(const std::string &name, const std::string &kind = "model");
 
@@ -55,6 +45,16 @@ namespace dspsim
             _own_model_helper(m->context(), m);
             return m;
         }
+
+    private:
+        Context *_context;
+        uint32_t _id;
+        std::string _name;
+        std::string _hier_name;
+        Model *_parent;
+
+    protected:
+        std::string _kind;
     };
 
 }

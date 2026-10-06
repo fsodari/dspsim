@@ -75,6 +75,5 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/priority_queue.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/unique_stack.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/utils.h
-        ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/bindings.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vmodule.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/vmodule/vport.h)

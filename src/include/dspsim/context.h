@@ -37,65 +37,6 @@ namespace dspsim
     class Context
     {
         friend class ContextFactory;
-        // Members
-    private:
-        // Context info
-        std::string _name;
-        int _id;
-        // Each model is assigned a unique ID, starting from 0.
-        uint32_t _next_model_id;
-        // List of all registered models, modules, and signals.
-        std::vector<Model *> _registered_models;
-        std::vector<Module *> _modules;
-        std::vector<SignalBase *> _signals;
-
-        // Each process is assigned a unique ID, starting from 0.
-        uint32_t _next_process_id;
-
-        uint32_t _next_event_id;
-
-    public:
-        // Processes are allocated from functions, so they need to live somewhere.
-        std::vector<std::unique_ptr<ProcessBase>> _processes;
-
-    private:
-        // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
-        // More likely to be used in Python
-        std::vector<std::shared_ptr<Model>> _owned_models;
-
-        // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
-        std::unordered_map<Model *, std::vector<Model *>> _children;
-
-        // Current simulation time.
-        uint64_t _time;
-        // Time unit used for tracing.
-        std::string _time_unit;
-        bool _initialized = false;
-
-    public:
-        // All processes that need to run in the current delta cycle.
-        FlaggedStack<ProcessBase *> _process_eval_stack;
-        ProcessBase *_current_process;
-
-        // All signals that need to be updated in the current delta cycle.
-        FlaggedStack<SignalBase *> _signal_update_stack;
-        // Scheduled sensitivity events.
-        std::vector<SensitivityEvent *> _sensitivity_event_stack;
-        // Scheduled time events.
-        PriorityQueue<TimeEvent> _time_event_stack;
-        // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
-        std::vector<Model *> _trace_stack;
-
-        // Flag indicating if there has been a signal event in the current delta cycle.
-        // All signal event flags are cleared at the start of every delta cycle.
-        bool _signal_event;
-
-        std::shared_ptr<spdlog::logger> logger;
-
-        // Keep track of the currently active module to build a hierarchy.
-        std::vector<Module *> _active_module_stack;
-        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
-        std::vector<ModuleName *> _active_module_name_stack;
 
     private:
         // Can't create context directly. Must use obtain() to get global context, or create() to make a new global context.
@@ -135,16 +76,19 @@ namespace dspsim
         // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
         void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
-        // Wait on a time event.
-        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
-
         // wait on all events in the static sensitivity list.
         Wait wait();
+        // Wait py_wait() { return wait(); }
+        // Wait on a time event.
+        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        // WaitTimeEvent py_wait_time_event(uint64_t time_delta, ProcessBase *process = nullptr) { return wait(time_delta, process); }
 
         // wait on a dynamic event.
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
+        // WaitSensitivityEvent py_wait_sensitivity_event(SensitivityEvent &event, ProcessBase *process = nullptr) { return wait(event, process); }
         // wait on multiple dynamic events.
-        WaitSensitivityEvent wait(std::initializer_list<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        // WaitSensitivityEvent py_wait_sensitivity_events(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr) { return wait(events, process); }
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
@@ -243,6 +187,66 @@ namespace dspsim
         static void reset();
         // Reset the global context, then obtain a new one.
         static std::shared_ptr<Context> create(const std::string &name = "");
+        // Members
+
+    private:
+        // Context info
+        std::string _name;
+        int _id;
+        // Each model is assigned a unique ID, starting from 0.
+        uint32_t _next_model_id;
+        // List of all registered models, modules, and signals.
+        std::vector<Model *> _registered_models;
+        std::vector<Module *> _modules;
+        std::vector<SignalBase *> _signals;
+
+        // Each process is assigned a unique ID, starting from 0.
+        uint32_t _next_process_id;
+
+        uint32_t _next_event_id;
+
+    public:
+        // Processes are allocated from functions, so they need to live somewhere.
+        std::vector<std::unique_ptr<ProcessBase>> _processes;
+
+    private:
+        // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
+        // More likely to be used in Python
+        std::vector<std::shared_ptr<Model>> _owned_models;
+
+        // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
+        std::unordered_map<Model *, std::vector<Model *>> _children;
+
+        // Current simulation time.
+        uint64_t _time;
+        // Time unit used for tracing.
+        std::string _time_unit;
+        bool _initialized = false;
+
+    public:
+        // All processes that need to run in the current delta cycle.
+        FlaggedStack<ProcessBase *> _process_eval_stack;
+        ProcessBase *_current_process;
+
+        // All signals that need to be updated in the current delta cycle.
+        FlaggedStack<SignalBase *> _signal_update_stack;
+        // Scheduled sensitivity events.
+        std::vector<SensitivityEvent *> _sensitivity_event_stack;
+        // Scheduled time events.
+        PriorityQueue<TimeEvent> _time_event_stack;
+        // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
+        std::vector<Model *> _trace_stack;
+
+        // Flag indicating if there has been a signal event in the current delta cycle.
+        // All signal event flags are cleared at the start of every delta cycle.
+        bool _signal_event;
+
+        std::shared_ptr<spdlog::logger> logger;
+
+        // Keep track of the currently active module to build a hierarchy.
+        std::vector<Module *> _active_module_stack;
+        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
+        std::vector<ModuleName *> _active_module_name_stack;
     };
 
     class ContextFactory

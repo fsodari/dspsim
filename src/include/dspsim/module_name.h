@@ -24,10 +24,6 @@ namespace dspsim
     */
     class ModuleName
     {
-    private:
-        Context *_context;
-        std::string _name;
-
     public:
         ModuleName(const std::string &name);
         ModuleName(const char *name) : ModuleName(std::string(name)) {}
@@ -38,5 +34,9 @@ namespace dspsim
         const std::string &name() const { return _name; }
         operator const char *() const { return _name.c_str(); }
         operator const std::string &() const { return _name; }
+
+    private:
+        Context *_context;
+        std::string _name;
     };
 }

@@ -9,12 +9,21 @@ namespace dspsim
 
     SensitivityEvent::SensitivityEvent(Context *context)
         : context_(context),
-          id_(context_->next_event_id()),
+          //   id_(context_->next_event_id()),
           static_subscribers_{100}
     {
     }
 
     void SensitivityEvent::notify()
+    {
+        if (!static_subscribers_.empty() || !dynamic_subscribers_.empty())
+        {
+            context_->_sensitivity_event_stack.push_back(this);
+        }
+        // context_->_sensitivity_event_stack.push_back(this);
+    }
+
+    void SensitivityEvent::trigger()
     {
         // for (const auto &process : static_subscribers_.stack())
         // {

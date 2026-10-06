@@ -117,28 +117,34 @@ namespace dspsim
     {
         d_ = value;
 
-        if (d_ != q_)
+        if (d_ != q_) [[likely]]
         {
             // Schedule for update
             context()->_signal_update_stack.push_back(this);
         }
-        else [[unlikely]]
-        {
-            // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
-            // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
-            // will write the same signal multiple times within the same update cycle.
-            auto it = context()->_signal_update_stack.find(this);
+        // Erasing is probably more expensive than just ignoring a change during the update cycle.
+        // else [[unlikely]]
+        // {
+        //     // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
+        //     // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
+        //     // will write the same signal multiple times within the same update cycle.
+        //     auto it = context()->_signal_update_stack.find(this);
 
-            if (it != context()->_signal_update_stack.end())
-            {
-                context()->_signal_update_stack.erase(it);
-            }
-        }
+        //     if (it != context()->_signal_update_stack.end())
+        //     {
+        //         context()->_signal_update_stack.erase(it);
+        //     }
+        // }
     }
 
     template <typename T>
     void Signal<T>::update()
     {
+        if (d_ == q_) [[unlikely]]
+        {
+            return;
+        }
+
         changed_flag_ = true;
         context()->_signal_event = true;
 
@@ -146,7 +152,8 @@ namespace dspsim
         {
             posedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(&pos());
+            // context()->_sensitivity_event_stack.push_back(&pos());
+            pos().notify();
             pos().set_event_flag(&posedge_flag_);
             // pos().notify(&posedge_flag_);
         }
@@ -154,10 +161,12 @@ namespace dspsim
         {
             negedge_flag_ = true;
 
-            context()->_sensitivity_event_stack.push_back(&neg());
+            // context()->_sensitivity_event_stack.push_back(&neg());
+            neg().notify();
             neg().set_event_flag(&negedge_flag_);
         }
-        context()->_sensitivity_event_stack.push_back(&change());
+        // context()->_sensitivity_event_stack.push_back(&change());
+        change().notify();
         change().set_event_flag(&changed_flag_);
 
         this->q_ = this->d_;
