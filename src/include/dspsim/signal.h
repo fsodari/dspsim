@@ -33,18 +33,18 @@ namespace dspsim
         // Implicit conversion to SensitivityEvent (change event)
         operator SensitivityEvent &() { return change(); }
 
-        void clear_event_flag()
-        {
-            changed_flag_ = false;
-            posedge_flag_ = false;
-            negedge_flag_ = false;
-        }
+        // void clear_event_flag()
+        // {
+        //     changed_flag_ = false;
+        //     posedge_flag_ = false;
+        //     negedge_flag_ = false;
+        // }
         bool &scheduled_flag() { return scheduled_; }
 
     protected:
-        bool changed_flag_;
-        bool posedge_flag_;
-        bool negedge_flag_;
+        // bool changed_flag_;
+        // bool posedge_flag_;
+        // bool negedge_flag_;
 
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
         bool scheduled_;
@@ -145,29 +145,15 @@ namespace dspsim
             return;
         }
 
-        changed_flag_ = true;
-        context()->_signal_event = true;
-
         if (d_ && !q_)
         {
-            posedge_flag_ = true;
-
-            // context()->_sensitivity_event_stack.push_back(&pos());
             pos().notify();
-            pos().set_event_flag(&posedge_flag_);
-            // pos().notify(&posedge_flag_);
         }
         else if (!d_ && q_)
         {
-            negedge_flag_ = true;
-
-            // context()->_sensitivity_event_stack.push_back(&neg());
             neg().notify();
-            neg().set_event_flag(&negedge_flag_);
         }
-        // context()->_sensitivity_event_stack.push_back(&change());
         change().notify();
-        change().set_event_flag(&changed_flag_);
 
         this->q_ = this->d_;
     }

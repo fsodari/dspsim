@@ -7,6 +7,8 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+#define USE_COROUTINES false
+
 namespace benchmarks
 {
     template <typename T, int N>
@@ -21,12 +23,16 @@ namespace benchmarks
 
         DSPSIM_CTOR(Wide)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always(clk, in);
+#if USE_COROUTINES
             DSPSIM_CORO(eval)
                 ->always(clk, in);
+#else
+            DSPSIM_METHOD(eval)
+                ->always(clk, in);
+#endif
         }
 
+#if USE_COROUTINES
         dspsim::Task eval()
         {
             while (true)
@@ -41,16 +47,18 @@ namespace benchmarks
                 co_await wait();
             }
         }
-        // void eval()
-        // {
-        //     T sum = 0;
-        //     for (size_t i = 0; i < N; ++i)
-        //     {
-        //         sigs[i].write(in.read());
-        //         sum += sigs[i].read();
-        //     }
-        //     out.write(sum);
-        // }
+#else
+        void eval()
+        {
+            T sum = 0;
+            for (size_t i = 0; i < N; ++i)
+            {
+                sigs[i].write(in.read());
+                sum += sigs[i].read();
+            }
+            out.write(sum);
+        }
+#endif
     };
 
     template <typename T, int N>
@@ -65,21 +73,15 @@ namespace benchmarks
 
         SC_CTOR(WideSC)
         {
-            // SC_METHOD(eval);
+#if USE_COROUTINES
             SC_THREAD(eval);
+#else
+            SC_METHOD(eval);
+
+#endif
             sensitive << clk << in;
         }
-
-        // void eval()
-        // {
-        //     T sum = 0;
-        //     for (size_t i = 0; i < N; ++i)
-        //     {
-        //         sigs[i].write(in.read());
-        //         sum += sigs[i].read();
-        //     }
-        //     out.write(sum);
-        // }
+#if USE_COROUTINES
         void eval()
         {
             while (true)
@@ -94,5 +96,17 @@ namespace benchmarks
                 wait(); // Wait for the next clock edge
             }
         }
+#else
+        void eval()
+        {
+            T sum = 0;
+            for (size_t i = 0; i < N; ++i)
+            {
+                sigs[i].write(in.read());
+                sum += sigs[i].read();
+            }
+            out.write(sum);
+        }
+#endif
     };
 }
