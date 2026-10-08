@@ -43,6 +43,7 @@ namespace dspsim::bindings
             .def("__call__", &Output<T>::bind_signal, nb::arg("signal"))
             .def("__call__", &Output<T>::bind_port, nb::arg("output"))
             .def("write", &Output<T>::write, nb::arg("value"))
+            .def("read", &Output<T>::read)
             .def_prop_rw("value", &Output<T>::read, &Output<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Output<T>::read_d_, &Output<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Output<T>::read);

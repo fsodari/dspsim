@@ -141,3 +141,97 @@ def test_array_slicing():
         a[2, 4].d = 9
         ctx.run(1)
         assert i[1, 2].value == 9
+
+
+def test_array_read_write():
+    class M(Module):
+        def __init__(self, name):
+            super().__init__(name)
+            self.i = Input8Array("i", (2, 3))
+            self.o = Output8Array("o", (2, 3))
+
+    with Context() as ctx:
+        m = M("m")
+        a = Signal8Array("a", (2, 3))
+        b = Signal8Array("b", (2, 3))
+        m.i.bind(a)
+        m.o.bind(b)
+        ctx.elaborate()
+
+        a.write([[1, 2, 3], [4, 5, 6]])
+        assert a.d.tolist() == [[1, 2, 3], [4, 5, 6]]
+        assert a.read().tolist() == [[0, 0, 0], [0, 0, 0]]
+        ctx.run(1)
+        assert a.read().tolist() == a.value.tolist() == a.q.tolist() == [[1, 2, 3], [4, 5, 6]]
+        assert m.i.read().tolist() == m.i.value.tolist() == [[1, 2, 3], [4, 5, 6]]
+
+        # Scalar broadcast, and writes through views.
+        a.value = 7
+        a[1, :].write([8, 9, 10])
+        a[:, ::2].write([[11, 12], [13, 14]])
+        a[0, 1:2].write(15)
+        assert a.d.tolist() == [[11, 15, 12], [13, 9, 14]]
+        ctx.run(1)
+        assert a[:, 1:].read().tolist() == [[15, 12], [9, 14]]
+        assert m.i[0, :].read().tolist() == [11, 15, 12]
+        assert m.i[:, 0:1].q.tolist() == [[11], [13]]
+
+        m.o.write([[1, 2, 3], [4, 5, 6]])
+        m.o[1, :].d = 0
+        assert m.o.d.tolist() == [[1, 2, 3], [0, 0, 0]]
+        ctx.run(1)
+        assert b.read().tolist() == [[1, 2, 3], [0, 0, 0]]
+        assert m.o[0, :].read().tolist() == [1, 2, 3]
+
+        # 0-d views and shape errors.
+        assert a.slice((1, 1)).read() == 9
+        with pytest.raises(ValueError):
+            a.write([1, 2, 3])
+        with pytest.raises(ValueError):
+            a.write([[1, 2], [3, 4]])
+        assert not hasattr(m.i, "write")
+        assert not hasattr(m.i[0, :], "write")
+
+
+def test_array_numpy():
+    import numpy as np
+
+    from dspsim.framework import SignalFloatArray
+
+    class M(Module):
+        def __init__(self, name):
+            super().__init__(name)
+            self.i = Input8Array("i", (2, 3))
+
+    with Context() as ctx:
+        m = M("m")
+        a = Signal8Array("a", (2, 3))
+        m.i.bind(a)
+        f = SignalFloatArray("f", (2,), init=0)
+        ctx.elaborate()
+
+        a.write(np.arange(6, dtype=np.uint8).reshape(2, 3))
+        ctx.run(1)
+        n = a.to_numpy()
+        assert n.dtype == np.uint8 and n.shape == (2, 3)
+        assert (n == np.arange(6).reshape(2, 3)).all()
+        assert (np.asarray(m.i) == n).all()
+        assert (m.i[:, 1:].to_numpy() == [[1, 2], [4, 5]]).all()
+
+        # Other dtypes are converted, views accept arrays of the view's shape, 0-d arrays broadcast.
+        a.value = np.array([[9, 8, 7], [6, 5, 4]])
+        a[:, ::2].write(np.array([[1, 2], [3, 4]]))
+        a[1, 1:].d = np.array(0)
+        ctx.run(1)
+        assert a.read().tolist() == [[1, 8, 2], [3, 0, 0]]
+        assert a.slice((0, 0)).to_numpy().shape == ()
+
+        f.write(np.array([1.5, 2.5]))
+        ctx.run(1)
+        assert f.to_numpy().dtype == np.float64
+        assert list(f.to_numpy()) == [1.5, 2.5]
+
+        with pytest.raises(ValueError):
+            a.write(np.zeros((3, 2), dtype=np.uint8))
+        with pytest.raises(ValueError):
+            a[0, :].write(np.zeros((2, 2), dtype=np.uint8))

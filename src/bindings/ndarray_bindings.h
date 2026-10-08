@@ -62,6 +62,134 @@ namespace dspsim::bindings
         }
     };
 
+    // Nested python lists with the shape of the array, with get(i) providing the i-th element value in row-major order.
+    template <typename Get>
+    static inline nb::object to_nested(const Shape &shape, std::size_t dim, std::size_t &flat, Get &get)
+    {
+        if (dim == shape.size())
+            return nb::cast(get(flat++));
+        nb::list out;
+        for (std::size_t i = 0; i < shape[dim]; ++i)
+            out.append(to_nested(shape, dim + 1, flat, get));
+        return std::move(out);
+    }
+
+    // Flatten a scalar (broadcast to every element) or nested sequences matching the shape into row-major values.
+    template <typename V>
+    static inline void from_nested(nb::handle value, const Shape &shape, std::size_t dim, std::vector<V> &out)
+    {
+        if (dim == shape.size())
+        {
+            out.push_back(nb::cast<V>(value));
+            return;
+        }
+        if (!nb::hasattr(value, "__len__"))
+            throw nb::value_error("value must be a scalar or a nested sequence matching the array shape");
+        std::size_t n = 0;
+        for (auto item : nb::iter(value))
+        {
+            if (n++ >= shape[dim])
+                break;
+            from_nested(item, shape, dim + 1, out);
+        }
+        if (n != shape[dim])
+            throw nb::value_error("sequence length does not match the array shape");
+    }
+
+    // Copy the values into a new numpy array with the shape of the array or view.
+    template <typename V, typename Array, typename Get>
+    static inline nb::ndarray<nb::numpy, V> to_numpy(const Array &a, Get get)
+    {
+        auto *data = new V[a.size() ? a.size() : 1];
+        std::size_t i = 0;
+        for (auto &e : a)
+            data[i++] = get(e);
+        nb::capsule owner(data, [](void *p) noexcept
+                          { delete[] static_cast<V *>(p); });
+        return nb::ndarray<nb::numpy, V>(data, a.ndim(), a.shape().data(), owner);
+    }
+
+    template <typename V, typename Array>
+    static inline nb::ndarray<nb::numpy, V> to_numpy(const Array &a)
+    {
+        return to_numpy<V>(a, [](const auto &e)
+                           { return e.read(); });
+    }
+
+    // Read/write accessors, added only where the element type supports them (Signal, Input, Output).
+    template <typename Array, typename NbClass>
+    static inline void bind_ndarray_values(NbClass &cls)
+    {
+        using Elem = typename Array::element_type;
+        using V = detail::value_of<Elem>;
+
+        if constexpr (detail::Readable<Elem>)
+        {
+            auto read = [](const Array &a)
+            {
+                return to_numpy<V>(a);
+            };
+            cls.def("to_numpy", [](const Array &a)
+                    { return to_numpy<V>(a); })
+                // Lets np.asarray(array) work. dtype and copy are handled by numpy after conversion.
+                .def("__array__", [](const Array &a, nb::handle, nb::handle)
+                     { return to_numpy<V>(a); },
+                     nb::arg("dtype") = nb::none(), nb::arg("copy") = nb::none())
+                .def("read", read)
+                .def_prop_ro("value", read, nb::rv_policy::move)
+                .def_prop_ro("q", read, nb::rv_policy::move);
+        }
+        if constexpr (detail::Writable<Elem>)
+        {
+            // numpy arrays (or anything convertible with the same shape). A 0-d array is broadcast.
+            auto write_np = [](Array &a, const nb::ndarray<const V, nb::c_contig, nb::device::cpu> &arr)
+            {
+                if (arr.ndim() == 0)
+                {
+                    a.write(arr.data()[0]);
+                    return;
+                }
+                if (arr.ndim() != a.ndim())
+                    throw nb::value_error("array shape does not match");
+                for (std::size_t d = 0; d < a.ndim(); ++d)
+                    if (arr.shape(d) != a.shape()[d])
+                        throw nb::value_error("array shape does not match");
+                std::size_t i = 0;
+                for (auto &e : a)
+                    e.write(arr.data()[i++]);
+            };
+            auto write = [write_np](Array &a, nb::handle value)
+            {
+                nb::ndarray<const V, nb::c_contig, nb::device::cpu> arr;
+                if (nb::try_cast(value, arr))
+                {
+                    write_np(a, arr);
+                    return;
+                }
+                std::vector<V> values;
+                if (a.ndim() > 0 && !nb::hasattr(value, "__len__"))
+                {
+                    a.write(nb::cast<V>(value));
+                    return;
+                }
+                values.reserve(a.size());
+                from_nested(value, a.shape(), 0, values);
+                a.write(values);
+            };
+            cls.def("write", write, nb::arg("value"))
+                .def_prop_rw(
+                    "value", [](const Array &a)
+                    { return to_numpy<V>(a); },
+                    write, nb::rv_policy::move, nb::arg("value"));
+            // "d" is the value that will be visible on the next update. Only present for Signal and Output elements.
+            if constexpr (requires(const Elem &e) { e.read_d_(); })
+                cls.def_prop_rw(
+                    "d", [](const Array &a)
+                    { return to_numpy<V>(a, [](const auto &e) { return e.read_d_(); }); },
+                    write, nb::rv_policy::move, nb::arg("value"));
+        }
+    }
+
     // Members shared by every array and array view class. Indexing with ints and slices (like numpy) is supported:
     // all ints returns the element, otherwise a view with the int dimensions dropped.
     template <typename Array, typename NbClass>
@@ -79,6 +207,7 @@ namespace dspsim::bindings
                 throw nb::type_error("array indices must be integers or slices");
             return a.select(*ranges);
         };
+        bind_ndarray_values<Array>(cls);
         cls.def_prop_ro("shape", [](const Array &a)
                         { return nb::tuple(nb::cast(a.shape())); })
             .def_prop_ro("ndim", [](const Array &a)

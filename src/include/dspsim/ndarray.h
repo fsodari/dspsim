@@ -7,6 +7,8 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -153,6 +155,40 @@ namespace dspsim
             return sel;
         }
 
+        template <typename Elem>
+        concept Readable = requires(const Elem &e) { e.read(); };
+        template <typename Elem>
+        concept Writable = requires(Elem &e, const std::remove_cvref_t<decltype(std::declval<const Elem &>().read())> &v) { e.write(v); };
+
+        template <typename Elem>
+        using value_of = std::remove_cvref_t<decltype(std::declval<const Elem &>().read())>;
+
+        // Bulk read/write of the elements of a range of Elem&, in row-major order.
+        template <typename Elem, typename Range>
+        std::vector<value_of<Elem>> read_all(const Range &r)
+        {
+            std::vector<value_of<Elem>> out;
+            out.reserve(r.size());
+            for (auto &e : r)
+                out.push_back(e.read());
+            return out;
+        }
+        template <typename Elem, typename Range>
+        void write_all(const Range &r, const value_of<Elem> &value)
+        {
+            for (auto &e : r)
+                e.write(value);
+        }
+        template <typename Elem, typename Range>
+        void write_all(const Range &r, const std::vector<value_of<Elem>> &values)
+        {
+            if (values.size() != r.size())
+                throw std::invalid_argument("write: number of values does not match array size");
+            std::size_t i = 0;
+            for (auto &e : r)
+                e.write(values[i++]);
+        }
+
         // Random access iterator that dereferences through a pointer-like element (unique_ptr<Elem> or Elem*).
         template <typename Elem, typename Inner>
         class DerefIterator
@@ -210,6 +246,11 @@ namespace dspsim
             using iterator = DerefIterator<Elem, typename std::vector<Elem *>::const_iterator>;
             iterator begin() const { return iterator(elems_.begin()); }
             iterator end() const { return iterator(elems_.end()); }
+
+            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one.
+            std::vector<value_of<Elem>> read() const requires Readable<Elem> { return read_all<Elem>(*this); }
+            void write(const value_of<Elem> &value) const requires Writable<Elem> { write_all<Elem>(*this, value); }
+            void write(const std::vector<value_of<Elem>> &values) const requires Writable<Elem> { write_all<Elem>(*this, values); }
 
             NdView<Elem> view() const { return *this; }
             NdView<Elem> slice(const Slices &slices) const { return select(resolve_slices(shape_, slices)); }
@@ -300,6 +341,11 @@ namespace dspsim
             using iterator = DerefIterator<Elem, typename std::vector<std::unique_ptr<Elem>>::const_iterator>;
             iterator begin() const { return iterator(elems_.begin()); }
             iterator end() const { return iterator(elems_.end()); }
+
+            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one.
+            std::vector<value_of<Elem>> read() const requires Readable<Elem> { return read_all<Elem>(*this); }
+            void write(const value_of<Elem> &value) const requires Writable<Elem> { write_all<Elem>(*this, value); }
+            void write(const std::vector<value_of<Elem>> &values) const requires Writable<Elem> { write_all<Elem>(*this, values); }
 
             // A view over every element.
             NdView<Elem> view() const { return select({}); }

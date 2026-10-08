@@ -134,3 +134,26 @@ TEST_CASE("array slicing")
     REQUIRE(in[{1, 2}].read() == 9);
     REQUIRE(in[{0, 0}].read() == 0);
 }
+
+TEST_CASE("array bulk read and write")
+{
+    auto ctx = Context::create();
+    SliceTop top{"top"};
+    SignalArray<int> a{"a", {2, 3}};
+    SignalArray<int> b{"b", {2, 3}};
+    top.in.bind(a);
+    top.out.bind(b);
+    ctx->elaborate();
+
+    a.write({1, 2, 3, 4, 5, 6});
+    top.out.write({6, 5, 4, 3, 2, 1});
+    a.slice({Slice::at(1)}).write(9);
+    top.out.slice({Slice::all(), Slice{0, 1}}).write({0, 7});
+    REQUIRE_THROWS(a.write({1, 2}));
+    ctx->run(1);
+
+    REQUIRE(top.in.read() == std::vector<int>{1, 2, 3, 9, 9, 9});
+    REQUIRE(top.in.slice({Slice::at(1)}).read() == std::vector<int>{9, 9, 9});
+    REQUIRE(b.read() == std::vector<int>{0, 5, 4, 7, 2, 1});
+    REQUIRE(b.slice({Slice::all(), Slice{0, 3, 2}}).read() == std::vector<int>{0, 4, 7, 1});
+}
