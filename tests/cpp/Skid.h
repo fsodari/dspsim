@@ -18,7 +18,7 @@ public:
 
     DSPSIM_CTOR(Skid)
     {
-        DSPSIM_CORO(eval)
+        DSPSIM_METHOD(eval)
             ->always("*"); // Default is sensitive to all inputs. Can be changed by generator.
     }
 

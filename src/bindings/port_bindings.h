@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/port.h>
 #include "nb_include.h"
+#include "ndarray_bindings.h"
 
 namespace dspsim::bindings
 {
@@ -45,6 +46,38 @@ namespace dspsim::bindings
             .def_prop_rw("value", &Output<T>::read, &Output<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Output<T>::read_d_, &Output<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Output<T>::read);
+    }
+
+    template <typename T>
+    static inline auto bind_input_array(nb::module_ &m, const char *name)
+    {
+        using Array = InputArray<T>;
+        auto cls = nb::class_<Array>(m, name)
+                       .def(nb::init<const std::string &, Shape, int>(),
+                            nb::arg("name"), nb::arg("shape"), nb::arg("width") = default_bitwidth<T>::value)
+                       .def("bind", &Array::bind_signal, nb::arg("signals"))
+                       .def("bind", &Array::bind_port, nb::arg("inputs"))
+                       .def("__call__", &Array::bind_signal, nb::arg("signals"))
+                       .def("__call__", &Array::bind_port, nb::arg("inputs"));
+        bind_ndarray_common<Array>(cls);
+        return cls;
+    }
+
+    template <typename T>
+    static inline auto bind_output_array(nb::module_ &m, const char *name)
+    {
+        using Array = OutputArray<T>;
+        auto cls = nb::class_<Array>(m, name)
+                       .def(nb::init<const std::string &, Shape, int>(),
+                            nb::arg("name"), nb::arg("shape"), nb::arg("width") = default_bitwidth<T>::value)
+                       .def("bind", &Array::bind_signal, nb::arg("signals"))
+                       .def("bind", &Array::bind_port, nb::arg("outputs"))
+                       .def("__call__", &Array::bind_signal, nb::arg("signals"))
+                       .def("__call__", &Array::bind_port, nb::arg("outputs"))
+                       .def("__setitem__", [](Array &a, const Index &idx, const T &value)
+                            { a.at(idx).write(value); }, nb::arg("index"), nb::arg("value"));
+        bind_ndarray_common<Array>(cls);
+        return cls;
     }
 
 } // namespace dspsim::bindings

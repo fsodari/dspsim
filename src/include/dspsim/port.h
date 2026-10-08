@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
+#include <dspsim/ndarray.h>
 #include <memory>
 #include <vector>
 
@@ -136,5 +137,105 @@ namespace dspsim
 
         // Read the pending value. Shouldn't be used, but is available.
         const T &read_d_() const { return static_cast<Signal<T> *>(bound_signal_)->read_d_(); }
+    };
+
+    /*
+        Multidimensional array of input ports. The shape is given at construction (any number of dimensions).
+            InputArray<int> p{"p", {2, 3}};
+        Elements are named "p[a][b]" and accessed with p[{a, b}] or p.at({a, b}).
+        Can only be bound to a SignalArray or another InputArray of identical shape.
+    */
+    template <typename T>
+    class InputArray : public detail::NdArray<Input<T>>
+    {
+    public:
+        InputArray(const std::string &name, Shape shape, int width = default_bitwidth<T>::value)
+            : detail::NdArray<Input<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                      { return std::make_unique<Input<T>>(n, width); })
+        {
+        }
+
+        // Bind elementwise to a signal array.
+        void bind(SignalArray<T> &signals) { bind_signal(signals); }
+        // Bind elementwise to another input port array.
+        void bind(InputArray<T> &ports) { bind_port(ports); }
+
+        // Explicit functions for python bindings
+        void bind_signal(SignalArray<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(InputArray<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+
+    protected:
+        // For subclasses that need to construct their own element types (e.g. VInput).
+        InputArray(const std::string &name, Shape shape, const typename detail::NdArray<Input<T>>::Factory &make)
+            : detail::NdArray<Input<T>>(name, std::move(shape), make)
+        {
+        }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("InputArray: shape mismatch");
+        }
+    };
+
+    /*
+        Multidimensional array of output ports. The shape is given at construction (any number of dimensions).
+            OutputArray<int> p{"p", {2, 3}};
+        Elements are named "p[a][b]" and accessed with p[{a, b}] or p.at({a, b}).
+        Can only be bound to a SignalArray or another OutputArray of identical shape.
+    */
+    template <typename T>
+    class OutputArray : public detail::NdArray<Output<T>>
+    {
+    public:
+        OutputArray(const std::string &name, Shape shape, int width = default_bitwidth<T>::value)
+            : detail::NdArray<Output<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                      { return std::make_unique<Output<T>>(n, width); })
+        {
+        }
+
+        // Bind elementwise to a signal array.
+        void bind(SignalArray<T> &signals) { bind_signal(signals); }
+        // Bind elementwise to another output port array.
+        void bind(OutputArray<T> &ports) { bind_port(ports); }
+
+        // Explicit functions for python bindings
+        void bind_signal(SignalArray<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(OutputArray<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+
+    protected:
+        // For subclasses that need to construct their own element types (e.g. VInput).
+        OutputArray(const std::string &name, Shape shape, const typename detail::NdArray<Output<T>>::Factory &make)
+            : detail::NdArray<Output<T>>(name, std::move(shape), make)
+        {
+        }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("OutputArray: shape mismatch");
+        }
     };
 }

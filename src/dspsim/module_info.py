@@ -71,6 +71,11 @@ class Port:
     shape: tuple[int, ...]
 
     @property
+    def is_array(self) -> bool:
+        """Unpacked array ports have a non-empty shape."""
+        return len(self.shape) > 0
+
+    @property
     def stdint_size(self) -> int:
         if self.width <= 8:
             return 8

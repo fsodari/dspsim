@@ -26,23 +26,19 @@ namespace dspsim
         VModule() : Module() {}
 
     public:
-        Task eval()
+        void eval()
         {
-            while (true)
+            // Update the inputs to the verilated model.
+            for (auto &input : inputs())
             {
-                // Update the inputs to the verilated model.
-                for (auto &input : inputs())
-                {
-                    input->sync();
-                }
-                // Evaluate the verilated model.
-                top->eval();
-                // Update the outputs from the verilated model.
-                for (auto &output : this->outputs())
-                {
-                    output->sync();
-                }
-                co_await wait();
+                input->sync();
+            }
+            // Evaluate the verilated model.
+            top->eval();
+            // Update the outputs from the verilated model.
+            for (auto &output : this->outputs())
+            {
+                output->sync();
             }
         }
 

@@ -12,14 +12,18 @@ public:
 
     // Ports
     {%-for port in model.ports.values()%}
+    {%-if port.is_array%}
+    DSPSIM_V{{port.direction.upper()}}_ARRAY({{port.name}}, {{port.width}});
+    {%-else%}
     DSPSIM_V{{port.direction.upper()}}({{port.name}}, {{port.width}});
+    {%-endif%}
     {%-endfor%}
 
     // {{model.name}} Constructor
     DSPSIM_CTOR_REF({{model.name}})
     {
         // Standard eval func for verilated modules.
-        DSPSIM_METHOD(eval) 
+        DSPSIM_METHOD(eval)
             ->always("*");  // Default is sensitive to all inputs. Can be changed by generator.
     }
 

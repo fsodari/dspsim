@@ -3,6 +3,7 @@
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
+#include <dspsim/ndarray.h>
 
 #include <vector>
 #include <memory>
@@ -91,6 +92,38 @@ namespace dspsim
         int width_;
         bool is_signed_;
         int parent_id_;
+    };
+
+    /*
+        Multidimensional array of signals. The shape is given at construction (any number of dimensions).
+            SignalArray<int> a{"a", {2, 3}};
+            a[{1, 2}] = 5;   // or a.at({1, 2})
+        Elements are named "a[i][j]".
+    */
+    template <typename T>
+    class SignalArray : public detail::NdArray<Signal<T>>
+    {
+    public:
+        SignalArray(const std::string &name, Shape shape,
+                    int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+            : detail::NdArray<Signal<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                         { return std::make_unique<Signal<T>>(n, width, init, is_signed); })
+        {
+        }
+
+        // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
+        // Each element shares ownership of the array, so it lives as long as the context holds any element.
+        static std::shared_ptr<SignalArray<T>> create(const std::string &name, Shape shape,
+                                                      int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        {
+            auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init, is_signed);
+            for (std::size_t i = 0; i < array->size(); ++i)
+            {
+                Signal<T> &element = array->flat(i);
+                _own_model_helper(element.context(), std::shared_ptr<Model>(array, &element));
+            }
+            return array;
+        }
     };
 
     using Signal8 = Signal<uint8_t>;

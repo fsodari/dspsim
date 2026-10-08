@@ -56,8 +56,23 @@ namespace dspsim
         ProcessBase *always(Args &&...args)
         {
             // The comma operator executes print_item for each argument in sequence
-            (this->schedule_static_event(std::forward<Args>(args)), ...);
+            (this->schedule_static_item(std::forward<Args>(args)), ...);
             return this;
+        }
+
+        // Signal/port arrays: be sensitive to every element.
+        template <typename Arr>
+            requires requires(Arr &a) { a.size(); a.flat(0); }
+        void schedule_static_item(Arr &array)
+        {
+            for (std::size_t i = 0; i < array.size(); ++i)
+                this->schedule_static_event(array.flat(i));
+        }
+        template <typename Arg>
+            requires(!requires(Arg &a) { a.size(); a.flat(0); })
+        void schedule_static_item(Arg &&arg)
+        {
+            this->schedule_static_event(std::forward<Arg>(arg));
         }
 
         ProcessBase *_always_str(const std::string &event_name)
