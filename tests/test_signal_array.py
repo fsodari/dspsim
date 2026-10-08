@@ -162,7 +162,12 @@ def test_array_read_write():
         assert a.d.tolist() == [[1, 2, 3], [4, 5, 6]]
         assert a.read().tolist() == [[0, 0, 0], [0, 0, 0]]
         ctx.run(1)
-        assert a.read().tolist() == a.value.tolist() == a.q.tolist() == [[1, 2, 3], [4, 5, 6]]
+        assert (
+            a.read().tolist()
+            == a.value.tolist()
+            == a.q.tolist()
+            == [[1, 2, 3], [4, 5, 6]]
+        )
         assert m.i.read().tolist() == m.i.value.tolist() == [[1, 2, 3], [4, 5, 6]]
 
         # Scalar broadcast, and writes through views.
