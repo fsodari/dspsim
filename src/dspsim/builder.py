@@ -1,6 +1,4 @@
 import annotationlib
-import atexit
-import functools
 import hashlib
 import importlib.util
 import os
@@ -32,7 +30,6 @@ from dspsim.framework import (
     Output64,
     Output64Array,
     _Module,
-    get_global_context_factory,
 )
 from dspsim.generate import render_template
 from dspsim.module_info import ModuleInfo, Parameter, Port
@@ -73,7 +70,9 @@ _valid_port_types = [
 ]
 
 
-_PORT_TYPE_NAME = re.compile(r"(?P<direction>Input|Output)(?P<width>\d+)(?P<array>Array)?")
+_PORT_TYPE_NAME = re.compile(
+    r"(?P<direction>Input|Output)(?P<width>\d+)(?P<array>Array)?"
+)
 
 
 def _get_class_annotations(namespace: dict[str, Any]):
