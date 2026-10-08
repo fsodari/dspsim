@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
+#include <dspsim/ndarray.h>
 #include <memory>
 #include <vector>
 
@@ -136,5 +137,237 @@ namespace dspsim
 
         // Read the pending value. Shouldn't be used, but is available.
         const T &read_d_() const { return static_cast<Signal<T> *>(bound_signal_)->read_d_(); }
+    };
+
+    template <typename T>
+    class InputArray;
+
+    /*
+        Non-owning view of a selection of an InputArray (or another view), from InputArray::slice.
+        Binds elementwise to a SignalArray/SignalArrayView or InputArray/InputArrayView of identical shape.
+        The source arrays must outlive the view.
+    */
+    template <typename T>
+    class InputArrayView : public detail::NdView<Input<T>>
+    {
+    public:
+        InputArrayView(detail::NdView<Input<T>> v) : detail::NdView<Input<T>>(std::move(v)) {}
+
+        InputArrayView view() const { return *this; }
+        InputArrayView slice(const Slices &slices) const { return detail::NdView<Input<T>>::slice(slices); }
+        InputArrayView select(const std::vector<Range> &ranges) const { return detail::NdView<Input<T>>::select(ranges); }
+
+        void bind(const SignalArrayView<T> &signals) { bind_signal(signals); }
+        void bind(const SignalArray<T> &signals) { bind_signal(signals.view()); }
+        void bind(const InputArrayView &ports) { bind_port(ports); }
+        void bind(const InputArray<T> &ports) { bind_port(ports.view()); }
+
+        void bind_signal(const SignalArrayView<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_signal(const SignalArray<T> &signals) { bind_signal(signals.view()); }
+        void bind_port(const InputArrayView &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+        void bind_port(const InputArray<T> &ports) { bind_port(ports.view()); }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("InputArrayView: shape mismatch");
+        }
+    };
+
+    /*
+        Multidimensional array of input ports. The shape is given at construction (any number of dimensions).
+            InputArray<int> p{"p", {2, 3}};
+        Elements are named "p[a][b]" and accessed with p[{a, b}] or p.at({a, b}).
+        Can only be bound to a SignalArray or another InputArray of identical shape.
+    */
+    template <typename T>
+    class InputArray : public detail::NdArray<Input<T>>
+    {
+    public:
+        InputArray(const std::string &name, Shape shape, int width = default_bitwidth<T>::value)
+            : detail::NdArray<Input<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                      { return std::make_unique<Input<T>>(n, width); })
+        {
+        }
+
+        // Bind elementwise to a signal array.
+        void bind(SignalArray<T> &signals) { bind_signal(signals); }
+        // Bind elementwise to another input port array.
+        void bind(InputArray<T> &ports) { bind_port(ports); }
+        // Bind elementwise to a slice of signals or ports. Shapes must match exactly.
+        void bind(const SignalArrayView<T> &signals) { bind_signal(signals); }
+        void bind(const InputArrayView<T> &ports) { bind_port(ports); }
+
+        // Views of the whole array or a sub-selection. One Slice per leading dimension; the rest are kept whole.
+        InputArrayView<T> view() const { return detail::NdArray<Input<T>>::view(); }
+        InputArrayView<T> slice(const Slices &slices) const { return detail::NdArray<Input<T>>::slice(slices); }
+        InputArrayView<T> select(const std::vector<Range> &ranges) const { return detail::NdArray<Input<T>>::select(ranges); }
+
+        // Explicit functions for python bindings
+        void bind_signal(SignalArray<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(InputArray<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+        void bind_signal(const SignalArrayView<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(const InputArrayView<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+
+    protected:
+        // For subclasses that need to construct their own element types (e.g. VInput).
+        InputArray(const std::string &name, Shape shape, const typename detail::NdArray<Input<T>>::Factory &make)
+            : detail::NdArray<Input<T>>(name, std::move(shape), make)
+        {
+        }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("InputArray: shape mismatch");
+        }
+    };
+
+    template <typename T>
+    class OutputArray;
+
+    /*
+        Non-owning view of a selection of an OutputArray (or another view), from OutputArray::slice.
+        Binds elementwise to a SignalArray/SignalArrayView or OutputArray/OutputArrayView of identical shape.
+        The source arrays must outlive the view.
+    */
+    template <typename T>
+    class OutputArrayView : public detail::NdView<Output<T>>
+    {
+    public:
+        OutputArrayView(detail::NdView<Output<T>> v) : detail::NdView<Output<T>>(std::move(v)) {}
+
+        OutputArrayView view() const { return *this; }
+        OutputArrayView slice(const Slices &slices) const { return detail::NdView<Output<T>>::slice(slices); }
+        OutputArrayView select(const std::vector<Range> &ranges) const { return detail::NdView<Output<T>>::select(ranges); }
+
+        void bind(const SignalArrayView<T> &signals) { bind_signal(signals); }
+        void bind(const SignalArray<T> &signals) { bind_signal(signals.view()); }
+        void bind(const OutputArrayView &ports) { bind_port(ports); }
+        void bind(const OutputArray<T> &ports) { bind_port(ports.view()); }
+
+        void bind_signal(const SignalArrayView<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_signal(const SignalArray<T> &signals) { bind_signal(signals.view()); }
+        void bind_port(const OutputArrayView &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+        void bind_port(const OutputArray<T> &ports) { bind_port(ports.view()); }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("OutputArrayView: shape mismatch");
+        }
+    };
+
+    /*
+        Multidimensional array of output ports. The shape is given at construction (any number of dimensions).
+            OutputArray<int> p{"p", {2, 3}};
+        Elements are named "p[a][b]" and accessed with p[{a, b}] or p.at({a, b}).
+        Can only be bound to a SignalArray or another OutputArray of identical shape.
+    */
+    template <typename T>
+    class OutputArray : public detail::NdArray<Output<T>>
+    {
+    public:
+        OutputArray(const std::string &name, Shape shape, int width = default_bitwidth<T>::value)
+            : detail::NdArray<Output<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                      { return std::make_unique<Output<T>>(n, width); })
+        {
+        }
+
+        // Bind elementwise to a signal array.
+        void bind(SignalArray<T> &signals) { bind_signal(signals); }
+        // Bind elementwise to another output port array.
+        void bind(OutputArray<T> &ports) { bind_port(ports); }
+        // Bind elementwise to a slice of signals or ports. Shapes must match exactly.
+        void bind(const SignalArrayView<T> &signals) { bind_signal(signals); }
+        void bind(const OutputArrayView<T> &ports) { bind_port(ports); }
+
+        // Views of the whole array or a sub-selection. One Slice per leading dimension; the rest are kept whole.
+        OutputArrayView<T> view() const { return detail::NdArray<Output<T>>::view(); }
+        OutputArrayView<T> slice(const Slices &slices) const { return detail::NdArray<Output<T>>::slice(slices); }
+        OutputArrayView<T> select(const std::vector<Range> &ranges) const { return detail::NdArray<Output<T>>::select(ranges); }
+
+        // Explicit functions for python bindings
+        void bind_signal(SignalArray<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(OutputArray<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+        void bind_signal(const SignalArrayView<T> &signals)
+        {
+            check_shape(signals.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_signal(signals.flat(i));
+        }
+        void bind_port(const OutputArrayView<T> &ports)
+        {
+            check_shape(ports.shape());
+            for (std::size_t i = 0; i < this->size(); ++i)
+                this->flat(i).bind_port(ports.flat(i));
+        }
+
+    protected:
+        // For subclasses that need to construct their own element types (e.g. VInput).
+        OutputArray(const std::string &name, Shape shape, const typename detail::NdArray<Output<T>>::Factory &make)
+            : detail::NdArray<Output<T>>(name, std::move(shape), make)
+        {
+        }
+
+    private:
+        void check_shape(const Shape &other) const
+        {
+            if (other != this->shape())
+                throw std::invalid_argument("OutputArray: shape mismatch");
+        }
     };
 }

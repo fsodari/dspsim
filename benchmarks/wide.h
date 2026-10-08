@@ -7,6 +7,8 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+#define USE_COROUTINES false
+
 namespace benchmarks
 {
     template <typename T, int N>
@@ -21,26 +23,31 @@ namespace benchmarks
 
         DSPSIM_CTOR(Wide)
         {
+#if USE_COROUTINES
+            DSPSIM_CORO(eval)
+                ->always(clk, in);
+#else
             DSPSIM_METHOD(eval)
                 ->always(clk, in);
-            // DSPSIM_CORO(eval)
-            //     ->always(clk, in);
+#endif
         }
 
-        // dspsim::Task eval()
-        // {
-        //     while (true)
-        //     {
-        //         T sum = 0;
-        //         for (size_t i = 0; i < N; ++i)
-        //         {
-        //             sigs[i].write(in.read());
-        //             sum += sigs[i].read();
-        //         }
-        //         out.write(sum);
-        //         co_await wait();
-        //     }
-        // }
+#if USE_COROUTINES
+        dspsim::Task eval()
+        {
+            while (true)
+            {
+                T sum = 0;
+                for (size_t i = 0; i < N; ++i)
+                {
+                    sigs[i].write(in.read());
+                    sum += sigs[i].read();
+                }
+                out.write(sum);
+                co_await wait();
+            }
+        }
+#else
         void eval()
         {
             T sum = 0;
@@ -51,6 +58,7 @@ namespace benchmarks
             }
             out.write(sum);
         }
+#endif
     };
 
     template <typename T, int N>
@@ -65,10 +73,30 @@ namespace benchmarks
 
         SC_CTOR(WideSC)
         {
+#if USE_COROUTINES
+            SC_THREAD(eval);
+#else
             SC_METHOD(eval);
+
+#endif
             sensitive << clk << in;
         }
-
+#if USE_COROUTINES
+        void eval()
+        {
+            while (true)
+            {
+                T sum = 0;
+                for (size_t i = 0; i < N; ++i)
+                {
+                    sigs[i].write(in.read());
+                    sum += sigs[i].read();
+                }
+                out.write(sum);
+                wait(); // Wait for the next clock edge
+            }
+        }
+#else
         void eval()
         {
             T sum = 0;
@@ -79,5 +107,6 @@ namespace benchmarks
             }
             out.write(sum);
         }
+#endif
     };
 }

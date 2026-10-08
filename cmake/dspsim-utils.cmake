@@ -19,7 +19,7 @@ endfunction()
 # Add nanobind module usind dspsim settings
 function(dspsim_add_nanobind_module name source_file)
     nanobind_add_module(${name}
-        FREE_THREADED
+        # FREE_THREADED
         BACKEND_MODULE nanobind_backend
         NB_DOMAIN dspsim
         ${source_file})
@@ -58,12 +58,7 @@ function(dspsim_add_module name pyproject_path output_dir)
         ${pyproject_path}
         ${gen_dir})
 
-    nanobind_add_module(${name}
-        FREE_THREADED
-        BACKEND_MODULE nanobind_backend
-        NB_DOMAIN dspsim
-        ${gen_dir}/${name}.cpp)
-    target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+    dspsim_add_nanobind_module(${name} ${gen_dir}/${name}.cpp)
 
     # Verilated models
     include(${gen_dir}/${name}_include.cmake)

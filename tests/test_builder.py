@@ -7,15 +7,18 @@ from dspsim.framework import (
     Context,
     Input8,
     Input16,
+    Input16Array,
     # Input32,
     # Input64,
     # Module,
     Output8,
     Output16,
+    Output16Array,
     # Output32,
     # Output64,
     Signal8,
     Signal16,
+    Signal16Array,
 )
 
 HDL_DIR = Path(__file__).parent.parent / "hdl"
@@ -117,4 +120,61 @@ def test_vbuilder():
         context.run(10)
 
         out_tready.d = 1
-        context.run(100)
+        context.run(10)
+        assert out_tvalid.q == 1
+        assert out_tdata.q == 99
+
+
+def test_builder_ndarray():
+    print()
+    source = HDL_DIR / "NDArrayModel.sv"
+
+    @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform", verbose=True)
+    class NDArrayModel(VModule):
+        # Parameters
+        WIDTH: int = 14
+        # Ports
+        clk: Input8
+        rst: Input8
+        a: Input16Array
+        b: Output16Array
+
+    with Context() as context:
+        ndarray_model = NDArrayModel("ndarray_model")
+        assert ndarray_model.WIDTH == 14
+        assert ndarray_model.a.shape == (2, 3, 4)
+        assert ndarray_model.b.shape == (2, 3, 4)
+
+        clk = Clock("clk", 10)
+        rst = Signal8("rst", 1)
+        a = Signal16Array("a", ndarray_model.a.shape)
+        b = Signal16Array("b", ndarray_model.b.shape)
+
+        ndarray_model.clk.bind(clk)
+        ndarray_model.rst.bind(rst)
+        ndarray_model.a.bind(a)
+        ndarray_model.b.bind(b)
+
+        context.elaborate()
+        rst.d = 1
+        context.run(10)
+        rst.d = 0
+        context.run(10)
+
+        # Fill the input array with test data
+        for i in range(2):
+            for j in range(3):
+                for k in range(4):
+                    a[i, j, k].d = i * 12 + j * 4 + k
+        context.run(10)
+
+        # Check multidimensional access
+        for i in range(2):
+            for j in range(3):
+                for k in range(4):
+                    assert b[i, j, k].q == i * 12 + j * 4 + k
+
+        # Check flat iteration over the arrays
+        for i, (siga, sigb) in enumerate(zip(a, b)):
+            assert sigb.q == siga.q
+            assert sigb.q == i

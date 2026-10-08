@@ -174,6 +174,8 @@ namespace dspsim
         */
         const std::string _current_hierarchy() const;
 
+        uint64_t update_count() const { return update_count_; }
+
     private:
         void _do_initialize();
 
@@ -222,6 +224,8 @@ namespace dspsim
         // Time unit used for tracing.
         std::string _time_unit;
         bool _initialized = false;
+        // Incremented every time a delta cycle occurs. Used to handle event flags.
+        uint64_t update_count_;
 
     public:
         // All processes that need to run in the current delta cycle.
@@ -236,10 +240,6 @@ namespace dspsim
         PriorityQueue<TimeEvent> _time_event_stack;
         // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
         std::vector<Model *> _trace_stack;
-
-        // Flag indicating if there has been a signal event in the current delta cycle.
-        // All signal event flags are cleared at the start of every delta cycle.
-        bool _signal_event;
 
         std::shared_ptr<spdlog::logger> logger;
 

@@ -40,7 +40,7 @@ namespace dspsim
           //   _active_process(nullptr),
           _time(0),
           _time_unit("1ns"),
-          _signal_event(false)
+          update_count_(0)
     {
         if (_name.empty())
         {
@@ -125,23 +125,10 @@ namespace dspsim
         bool any_model_updated = false;
         // Any model that was updated this cycle should be traced.
 
-        // Reset signal event flag at the beginning of each delta cycle.
-        // How can I clear this state without needing to iterate through every signal.
-        // Is this in the right place?
-        if (_signal_event)
-        {
-            _signal_event = false;
-            // Reset state of all signals.
-            for (auto signal : _signals)
-            {
-                signal->clear_event_flag();
-            }
-        }
-
         // Run eval cycle.
         while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
         {
-            any_model_updated = true;
+            any_model_updated = !_process_eval_stack.empty();
             SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
             ++n_iter;
 
@@ -153,6 +140,11 @@ namespace dspsim
                 process->resume();
             }
             _process_eval_stack.clear();
+            if (any_model_updated)
+            {
+                // Increment the update count for this delta cycle.
+                ++update_count_;
+            }
 
             // run update cycle on all signals that were scheduled to be updated.
             for (const auto &signal : _signal_update_stack)
@@ -162,11 +154,10 @@ namespace dspsim
             }
             _signal_update_stack.clear();
 
-            // run notify cycle on all sensitivity events that were scheduled to be notified.
+            // Trigger all sensitivity events that were notified.
             for (const auto &event : _sensitivity_event_stack)
             {
-                SPDLOG_LOGGER_TRACE(logger, "Notifying sensitivity event");
-                // event->notify();
+                SPDLOG_LOGGER_TRACE(logger, "Triggering sensitivity event");
                 event->trigger();
             }
             _sensitivity_event_stack.clear();
@@ -175,6 +166,7 @@ namespace dspsim
         // Trace modules that requested tracing.
         if (any_model_updated)
         {
+            // Dump traces
             [[unlikely]] for (auto m : _trace_stack)
             {
                 m->dump_trace();

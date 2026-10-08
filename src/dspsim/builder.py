@@ -1,13 +1,11 @@
 import annotationlib
-import atexit
-import functools
 import hashlib
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 import sysconfig
-from itertools import groupby
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -16,15 +14,22 @@ import dotenv
 import dspsim
 from dspsim.framework import (
     Input8,
+    Input8Array,
     Input16,
+    Input16Array,
     Input32,
+    Input32Array,
     Input64,
+    Input64Array,
     Output8,
+    Output8Array,
     Output16,
+    Output16Array,
     Output32,
+    Output32Array,
     Output64,
+    Output64Array,
     _Module,
-    get_global_context_factory,
 )
 from dspsim.generate import render_template
 from dspsim.module_info import ModuleInfo, Parameter, Port
@@ -54,7 +59,20 @@ _valid_port_types = [
     Output16,
     Output32,
     Output64,
+    Output8Array,
+    Output16Array,
+    Output32Array,
+    Output64Array,
+    Input8Array,
+    Input16Array,
+    Input32Array,
+    Input64Array,
 ]
+
+
+_PORT_TYPE_NAME = re.compile(
+    r"(?P<direction>Input|Output)(?P<width>\d+)(?P<array>Array)?"
+)
 
 
 def _get_class_annotations(namespace: dict[str, Any]):
@@ -118,11 +136,13 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     ports = {}
     for an, typ in annotations.items():
         if typ in _valid_port_types:
-            _direction, _width = (
-                "".join(group) for key, group in groupby(typ.__name__, key=str.isdigit)
-            )
-            width = int(_width)
-            direction = _direction.lower()
+            # Type names look like Input8 or Output32Array.
+            match = _PORT_TYPE_NAME.fullmatch(typ.__name__)
+            assert match is not None
+            width = int(match["width"])
+            direction = match["direction"].lower()
+            # Annotations don't specify extents. (0,) marks an array of unknown shape.
+            shape = (0,) if match["array"] else ()
 
             ports[an] = Port(
                 name=an,
@@ -130,7 +150,7 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
                 signed=False,
                 width=width,
                 direction=direction,
-                shape=(),
+                shape=shape,
             )
     return ports
 
@@ -151,6 +171,12 @@ def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> Non
             raise TypeError(
                 f"Width mismatch for port '{name}': "
                 f"expected {model_port.stdint_size}, got {port.stdint_size}"
+            )
+        if port.is_array != model_port.is_array:
+            raise TypeError(
+                f"Array mismatch for port '{name}': "
+                f"expected {'an array' if model_port.is_array else 'a scalar'}, "
+                f"got {'an array' if port.is_array else 'a scalar'}"
             )
         if port.direction != model_port.direction:
             raise TypeError(
@@ -377,6 +403,7 @@ if TYPE_CHECKING:
         def __init__(self, name: str): ...
         def open_trace(self, trace_path: Path, levels: int = 99, options: int = 0): ...
         def close_trace(self): ...
+
 else:
     VModule = object
 

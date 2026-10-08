@@ -4,29 +4,29 @@
 
 namespace dspsim
 {
-    Task Task::promise_type::get_return_object()
-    {
-        return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
-    }
-    std::suspend_always Task::promise_type::initial_suspend() noexcept
-    {
-        return {};
-    }
+    // Task Task::promise_type::get_return_object()
+    // {
+    //     return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
+    // }
+    // std::suspend_always Task::promise_type::initial_suspend() noexcept
+    // {
+    //     return {};
+    // }
 
-    std::suspend_always Task::promise_type::final_suspend() noexcept
-    {
-        return {};
-    }
+    // std::suspend_always Task::promise_type::final_suspend() noexcept
+    // {
+    //     return {};
+    // }
 
-    void Task::promise_type::return_void()
-    {
-        // Clean up context.
-    }
+    // void Task::promise_type::return_void()
+    // {
+    //     // Clean up context.
+    // }
 
-    void Task::promise_type::unhandled_exception()
-    {
-        std::terminate();
-    }
+    // void Task::promise_type::unhandled_exception()
+    // {
+    //     std::terminate();
+    // }
 
     Task::Task(std::coroutine_handle<promise_type> coroutine_handle) noexcept
         : handle(coroutine_handle)

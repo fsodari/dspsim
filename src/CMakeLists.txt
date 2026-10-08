@@ -64,6 +64,7 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/model.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/module_name.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/module.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/ndarray.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/port.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
         # ${DSPSIM_INCLUDE_DIR}/dspsim/sensitivity_list.h

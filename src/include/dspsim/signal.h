@@ -3,6 +3,7 @@
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
+#include <dspsim/ndarray.h>
 
 #include <vector>
 #include <memory>
@@ -33,19 +34,9 @@ namespace dspsim
         // Implicit conversion to SensitivityEvent (change event)
         operator SensitivityEvent &() { return change(); }
 
-        void clear_event_flag()
-        {
-            changed_flag_ = false;
-            posedge_flag_ = false;
-            negedge_flag_ = false;
-        }
         bool &scheduled_flag() { return scheduled_; }
 
     protected:
-        bool changed_flag_;
-        bool posedge_flag_;
-        bool negedge_flag_;
-
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
         bool scheduled_;
 
@@ -103,72 +94,61 @@ namespace dspsim
         int parent_id_;
     };
 
+    /*
+        Non-owning view of a selection of a SignalArray (or another view). Obtained with SignalArray::slice.
+        The array must outlive the view.
+    */
+    template <typename T>
+    class SignalArrayView : public detail::NdView<Signal<T>>
+    {
+    public:
+        SignalArrayView(detail::NdView<Signal<T>> v) : detail::NdView<Signal<T>>(std::move(v)) {}
+
+        SignalArrayView view() const { return *this; }
+        SignalArrayView slice(const Slices &slices) const { return detail::NdView<Signal<T>>::slice(slices); }
+        SignalArrayView select(const std::vector<Range> &ranges) const { return detail::NdView<Signal<T>>::select(ranges); }
+    };
+
+    /*
+        Multidimensional array of signals. The shape is given at construction (any number of dimensions).
+            SignalArray<int> a{"a", {2, 3}};
+            a[{1, 2}] = 5;   // or a.at({1, 2})
+        Elements are named "a[i][j]".
+    */
+    template <typename T>
+    class SignalArray : public detail::NdArray<Signal<T>>
+    {
+    public:
+        SignalArray(const std::string &name, Shape shape,
+                    int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+            : detail::NdArray<Signal<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
+                                         { return std::make_unique<Signal<T>>(n, width, init, is_signed); })
+        {
+        }
+
+        // Views of the whole array or a sub-selection. One Slice per leading dimension; the rest are kept whole.
+        SignalArrayView<T> view() const { return detail::NdArray<Signal<T>>::view(); }
+        SignalArrayView<T> slice(const Slices &slices) const { return detail::NdArray<Signal<T>>::slice(slices); }
+        SignalArrayView<T> select(const std::vector<Range> &ranges) const { return detail::NdArray<Signal<T>>::select(ranges); }
+
+        // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
+        // Each element shares ownership of the array, so it lives as long as the context holds any element.
+        static std::shared_ptr<SignalArray<T>> create(const std::string &name, Shape shape,
+                                                      int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        {
+            auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init, is_signed);
+            for (std::size_t i = 0; i < array->size(); ++i)
+            {
+                Signal<T> &element = array->flat(i);
+                _own_model_helper(element.context(), std::shared_ptr<Model>(array, &element));
+            }
+            return array;
+        }
+    };
+
     using Signal8 = Signal<uint8_t>;
     using Signal16 = Signal<uint16_t>;
     using Signal32 = Signal<uint32_t>;
     using Signal64 = Signal<uint64_t>;
 
 } // namespace dspsim
-
-namespace dspsim
-{
-    template <typename T>
-    void Signal<T>::write(const T &value)
-    {
-        d_ = value;
-
-        if (d_ != q_) [[likely]]
-        {
-            // Schedule for update
-            context()->_signal_update_stack.push_back(this);
-        }
-        // Erasing is probably more expensive than just ignoring a change during the update cycle.
-        // else [[unlikely]]
-        // {
-        //     // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
-        //     // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
-        //     // will write the same signal multiple times within the same update cycle.
-        //     auto it = context()->_signal_update_stack.find(this);
-
-        //     if (it != context()->_signal_update_stack.end())
-        //     {
-        //         context()->_signal_update_stack.erase(it);
-        //     }
-        // }
-    }
-
-    template <typename T>
-    void Signal<T>::update()
-    {
-        if (d_ == q_) [[unlikely]]
-        {
-            return;
-        }
-
-        changed_flag_ = true;
-        context()->_signal_event = true;
-
-        if (d_ && !q_)
-        {
-            posedge_flag_ = true;
-
-            // context()->_sensitivity_event_stack.push_back(&pos());
-            pos().notify();
-            pos().set_event_flag(&posedge_flag_);
-            // pos().notify(&posedge_flag_);
-        }
-        else if (!d_ && q_)
-        {
-            negedge_flag_ = true;
-
-            // context()->_sensitivity_event_stack.push_back(&neg());
-            neg().notify();
-            neg().set_event_flag(&negedge_flag_);
-        }
-        // context()->_sensitivity_event_stack.push_back(&change());
-        change().notify();
-        change().set_event_flag(&changed_flag_);
-
-        this->q_ = this->d_;
-    }
-}
