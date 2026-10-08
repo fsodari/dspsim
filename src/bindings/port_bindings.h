@@ -49,17 +49,55 @@ namespace dspsim::bindings
     }
 
     template <typename T>
+    static inline auto bind_input_array_view(nb::module_ &m, const char *name)
+    {
+        using View = InputArrayView<T>;
+        auto cls = nb::class_<View>(m, name)
+                       .def("bind", nb::overload_cast<const SignalArrayView<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const SignalArray<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const InputArrayView<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("bind", nb::overload_cast<const InputArray<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("__call__", nb::overload_cast<const SignalArrayView<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const SignalArray<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const InputArrayView<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("__call__", nb::overload_cast<const InputArray<T> &>(&View::bind_port), nb::arg("ports"));
+        bind_ndarray_common<View>(cls, name);
+        return cls;
+    }
+
+    template <typename T>
     static inline auto bind_input_array(nb::module_ &m, const char *name)
     {
         using Array = InputArray<T>;
         auto cls = nb::class_<Array>(m, name)
                        .def(nb::init<const std::string &, Shape, int>(),
                             nb::arg("name"), nb::arg("shape"), nb::arg("width") = default_bitwidth<T>::value)
-                       .def("bind", &Array::bind_signal, nb::arg("signals"))
-                       .def("bind", &Array::bind_port, nb::arg("inputs"))
-                       .def("__call__", &Array::bind_signal, nb::arg("signals"))
-                       .def("__call__", &Array::bind_port, nb::arg("inputs"));
-        bind_ndarray_common<Array>(cls);
+                       .def("bind", nb::overload_cast<SignalArray<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const SignalArrayView<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<InputArray<T> &>(&Array::bind_port), nb::arg("inputs"))
+                       .def("bind", nb::overload_cast<const InputArrayView<T> &>(&Array::bind_port), nb::arg("inputs"))
+                       .def("__call__", nb::overload_cast<SignalArray<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const SignalArrayView<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<InputArray<T> &>(&Array::bind_port), nb::arg("inputs"))
+                       .def("__call__", nb::overload_cast<const InputArrayView<T> &>(&Array::bind_port), nb::arg("inputs"));
+        bind_ndarray_common<Array>(cls, name);
+        return cls;
+    }
+
+    template <typename T>
+    static inline auto bind_output_array_view(nb::module_ &m, const char *name)
+    {
+        using View = OutputArrayView<T>;
+        auto cls = nb::class_<View>(m, name)
+                       .def("bind", nb::overload_cast<const SignalArrayView<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const SignalArray<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const OutputArrayView<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("bind", nb::overload_cast<const OutputArray<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("__call__", nb::overload_cast<const SignalArrayView<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const SignalArray<T> &>(&View::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const OutputArrayView<T> &>(&View::bind_port), nb::arg("ports"))
+                       .def("__call__", nb::overload_cast<const OutputArray<T> &>(&View::bind_port), nb::arg("ports"));
+        bind_ndarray_common<View>(cls, name);
         return cls;
     }
 
@@ -70,13 +108,17 @@ namespace dspsim::bindings
         auto cls = nb::class_<Array>(m, name)
                        .def(nb::init<const std::string &, Shape, int>(),
                             nb::arg("name"), nb::arg("shape"), nb::arg("width") = default_bitwidth<T>::value)
-                       .def("bind", &Array::bind_signal, nb::arg("signals"))
-                       .def("bind", &Array::bind_port, nb::arg("outputs"))
-                       .def("__call__", &Array::bind_signal, nb::arg("signals"))
-                       .def("__call__", &Array::bind_port, nb::arg("outputs"))
+                       .def("bind", nb::overload_cast<SignalArray<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<const SignalArrayView<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("bind", nb::overload_cast<OutputArray<T> &>(&Array::bind_port), nb::arg("outputs"))
+                       .def("bind", nb::overload_cast<const OutputArrayView<T> &>(&Array::bind_port), nb::arg("outputs"))
+                       .def("__call__", nb::overload_cast<SignalArray<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<const SignalArrayView<T> &>(&Array::bind_signal), nb::arg("signals"))
+                       .def("__call__", nb::overload_cast<OutputArray<T> &>(&Array::bind_port), nb::arg("outputs"))
+                       .def("__call__", nb::overload_cast<const OutputArrayView<T> &>(&Array::bind_port), nb::arg("outputs"))
                        .def("__setitem__", [](Array &a, const Index &idx, const T &value)
                             { a.at(idx).write(value); }, nb::arg("index"), nb::arg("value"));
-        bind_ndarray_common<Array>(cls);
+        bind_ndarray_common<Array>(cls, name);
         return cls;
     }
 

@@ -31,6 +31,22 @@ namespace
             }
         }
     };
+
+    class PortsTop : public Module
+    {
+    public:
+        InputArray<int> in{"in", {2, 2}};
+        OutputArray<int> out{"out", {2, 2}};
+        PortsTop(ModuleName name) : Module(name) {}
+    };
+
+    class SliceTop : public Module
+    {
+    public:
+        InputArray<int> in{"in", {2, 3}};
+        OutputArray<int> out{"out", {2, 3}};
+        SliceTop(ModuleName name) : Module(name) {}
+    };
 }
 
 TEST_CASE("multidimensional signals and ports")
@@ -71,8 +87,50 @@ TEST_CASE("array iteration")
     }
     REQUIRE(n == 6);
     REQUIRE(s.end() - s.begin() == 6);
-    InputArray<int> in{"in", {2, 2}};
-    OutputArray<int> out{"out", {2, 2}};
-    REQUIRE(std::distance(in.begin(), in.end()) == 4);
-    REQUIRE(std::distance(out.begin(), out.end()) == 4);
+    PortsTop top{"top"};
+    REQUIRE(std::distance(top.in.begin(), top.in.end()) == 4);
+    REQUIRE(std::distance(top.out.begin(), top.out.end()) == 4);
+}
+
+TEST_CASE("array slicing")
+{
+    auto ctx = Context::create();
+    SignalArray<int> s{"s", {4, 6}};
+
+    auto v = s.slice({Slice{1, 4}, Slice{0, std::nullopt, 2}});
+    REQUIRE(v.shape() == Shape{3, 3});
+    REQUIRE(&v[{0, 0}] == &s[{1, 0}]);
+    REQUIRE(&v[{2, 2}] == &s[{3, 4}]);
+
+    // Negative indices, reversed stride, clamping and dropped dimensions.
+    auto r = s.slice({Slice::at(-1), Slice{std::nullopt, std::nullopt, -1}});
+    REQUIRE(r.shape() == Shape{6});
+    REQUIRE(&r.flat(0) == &s[{3, 5}]);
+    REQUIRE(&r.flat(5) == &s[{3, 0}]);
+    REQUIRE(s.slice({Slice{-2, 100}}).shape() == Shape{2, 6});
+    REQUIRE(s.slice({Slice{3, 1}}).size() == 0);
+    REQUIRE_THROWS(s.slice({Slice::at(4)}));
+    REQUIRE_THROWS(s.slice({Slice{0, 1, 0}}));
+    REQUIRE_THROWS(s.slice({Slice::all(), Slice::all(), Slice::all()}));
+
+    // Slicing a slice.
+    auto vv = v.slice({Slice::all(), Slice{1, std::nullopt}});
+    REQUIRE(vv.shape() == Shape{3, 2});
+    REQUIRE(&vv[{1, 0}] == &s[{2, 2}]);
+
+    // Bind port slices to signal slices.
+    SliceTop slice_top{"slice_top"};
+    auto &in = slice_top.in;
+    auto &out = slice_top.out;
+    SignalArray<int> a{"a", {4, 6}};
+    SignalArray<int> b{"b", {4, 6}};
+    in.bind(a.slice({Slice{0, 4, 2}, Slice{0, 6, 2}}));
+    out.slice({Slice{0, 1}}).bind(b.slice({Slice{3, 4}, Slice{0, 3}}));
+    REQUIRE_THROWS(in.bind(a.slice({Slice{0, 2}})));
+
+    ctx->elaborate();
+    a[{2, 4}] = 9;
+    ctx->run(1);
+    REQUIRE(in[{1, 2}].read() == 9);
+    REQUIRE(in[{0, 0}].read() == 0);
 }

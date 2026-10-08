@@ -35,6 +35,17 @@ namespace dspsim::bindings
     }
 
     template <typename T>
+    static inline auto bind_signal_array_view(nb::module_ &m, const char *name)
+    {
+        using View = SignalArrayView<T>;
+        auto cls = nb::class_<View>(m, name)
+                       .def("__setitem__", [](View &a, const Index &idx, const T &value)
+                            { a.at(idx).write(value); }, nb::arg("index"), nb::arg("value"));
+        bind_ndarray_common<View>(cls, name);
+        return cls;
+    }
+
+    template <typename T>
     static inline auto bind_signal_array(nb::module_ &m, const char *name)
     {
         using Array = SignalArray<T>;
@@ -47,7 +58,7 @@ namespace dspsim::bindings
                             nb::arg("is_signed") = false)
                        .def("__setitem__", [](Array &a, const Index &idx, const T &value)
                             { a.at(idx).write(value); }, nb::arg("index"), nb::arg("value"));
-        bind_ndarray_common<Array>(cls);
+        bind_ndarray_common<Array>(cls, name);
         return cls;
     }
 

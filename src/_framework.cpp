@@ -45,6 +45,11 @@ NB_MODULE(_framework, m)
     bindings::bind_signal_array<uint32_t>(m, "Signal32Array");
     bindings::bind_signal_array<uint64_t>(m, "Signal64Array");
     bindings::bind_signal_array<double>(m, "SignalFloatArray");
+    bindings::bind_signal_array_view<uint8_t>(m, "SignalArrayView8");
+    bindings::bind_signal_array_view<uint16_t>(m, "SignalArrayView16");
+    bindings::bind_signal_array_view<uint32_t>(m, "SignalArrayView32");
+    bindings::bind_signal_array_view<uint64_t>(m, "SignalArrayView64");
+    bindings::bind_signal_array_view<double>(m, "SignalArrayViewFloat");
 
     // Clock
     bindings::bind_clock(m, "Clock");
@@ -68,11 +73,21 @@ NB_MODULE(_framework, m)
     bindings::bind_input_array<uint32_t>(m, "Input32Array");
     bindings::bind_input_array<uint64_t>(m, "Input64Array");
     bindings::bind_input_array<double>(m, "InputFloatArray");
+    bindings::bind_input_array_view<uint8_t>(m, "InputArrayView8");
+    bindings::bind_input_array_view<uint16_t>(m, "InputArrayView16");
+    bindings::bind_input_array_view<uint32_t>(m, "InputArrayView32");
+    bindings::bind_input_array_view<uint64_t>(m, "InputArrayView64");
+    bindings::bind_input_array_view<double>(m, "InputArrayViewFloat");
     bindings::bind_output_array<uint8_t>(m, "Output8Array");
     bindings::bind_output_array<uint16_t>(m, "Output16Array");
     bindings::bind_output_array<uint32_t>(m, "Output32Array");
     bindings::bind_output_array<uint64_t>(m, "Output64Array");
     bindings::bind_output_array<double>(m, "OutputFloatArray");
+    bindings::bind_output_array_view<uint8_t>(m, "OutputArrayView8");
+    bindings::bind_output_array_view<uint16_t>(m, "OutputArrayView16");
+    bindings::bind_output_array_view<uint32_t>(m, "OutputArrayView32");
+    bindings::bind_output_array_view<uint64_t>(m, "OutputArrayView64");
+    bindings::bind_output_array_view<double>(m, "OutputArrayViewFloat");
 
     // Module
     bindings::bind_module_name(m, "ModuleName");

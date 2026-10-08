@@ -95,6 +95,21 @@ namespace dspsim
     };
 
     /*
+        Non-owning view of a selection of a SignalArray (or another view). Obtained with SignalArray::slice.
+        The array must outlive the view.
+    */
+    template <typename T>
+    class SignalArrayView : public detail::NdView<Signal<T>>
+    {
+    public:
+        SignalArrayView(detail::NdView<Signal<T>> v) : detail::NdView<Signal<T>>(std::move(v)) {}
+
+        SignalArrayView view() const { return *this; }
+        SignalArrayView slice(const Slices &slices) const { return detail::NdView<Signal<T>>::slice(slices); }
+        SignalArrayView select(const std::vector<Range> &ranges) const { return detail::NdView<Signal<T>>::select(ranges); }
+    };
+
+    /*
         Multidimensional array of signals. The shape is given at construction (any number of dimensions).
             SignalArray<int> a{"a", {2, 3}};
             a[{1, 2}] = 5;   // or a.at({1, 2})
@@ -110,6 +125,11 @@ namespace dspsim
                                          { return std::make_unique<Signal<T>>(n, width, init, is_signed); })
         {
         }
+
+        // Views of the whole array or a sub-selection. One Slice per leading dimension; the rest are kept whole.
+        SignalArrayView<T> view() const { return detail::NdArray<Signal<T>>::view(); }
+        SignalArrayView<T> slice(const Slices &slices) const { return detail::NdArray<Signal<T>>::slice(slices); }
+        SignalArrayView<T> select(const std::vector<Range> &ranges) const { return detail::NdArray<Signal<T>>::select(ranges); }
 
         // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
         // Each element shares ownership of the array, so it lives as long as the context holds any element.
