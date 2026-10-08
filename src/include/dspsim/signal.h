@@ -33,19 +33,9 @@ namespace dspsim
         // Implicit conversion to SensitivityEvent (change event)
         operator SensitivityEvent &() { return change(); }
 
-        // void clear_event_flag()
-        // {
-        //     changed_flag_ = false;
-        //     posedge_flag_ = false;
-        //     negedge_flag_ = false;
-        // }
         bool &scheduled_flag() { return scheduled_; }
 
     protected:
-        // bool changed_flag_;
-        // bool posedge_flag_;
-        // bool negedge_flag_;
-
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
         bool scheduled_;
 
@@ -109,52 +99,3 @@ namespace dspsim
     using Signal64 = Signal<uint64_t>;
 
 } // namespace dspsim
-
-namespace dspsim
-{
-    template <typename T>
-    void Signal<T>::write(const T &value)
-    {
-        d_ = value;
-
-        if (d_ != q_) [[likely]]
-        {
-            // Schedule for update
-            context()->_signal_update_stack.push_back(this);
-        }
-        // Erasing is probably more expensive than just ignoring a change during the update cycle.
-        // else [[unlikely]]
-        // {
-        //     // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
-        //     // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
-        //     // will write the same signal multiple times within the same update cycle.
-        //     auto it = context()->_signal_update_stack.find(this);
-
-        //     if (it != context()->_signal_update_stack.end())
-        //     {
-        //         context()->_signal_update_stack.erase(it);
-        //     }
-        // }
-    }
-
-    template <typename T>
-    void Signal<T>::update()
-    {
-        if (d_ == q_) [[unlikely]]
-        {
-            return;
-        }
-
-        if (d_ && !q_)
-        {
-            pos().notify();
-        }
-        else if (!d_ && q_)
-        {
-            neg().notify();
-        }
-        change().notify();
-
-        this->q_ = this->d_;
-    }
-}
