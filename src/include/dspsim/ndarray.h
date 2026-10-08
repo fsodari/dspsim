@@ -1,6 +1,8 @@
 #pragma once
 #include <cstddef>
+#include <compare>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -67,6 +69,69 @@ namespace dspsim
 
             // Row-major flat access.
             Elem &flat(std::size_t i) const { return *elems_.at(i); }
+
+            // Iterates over every element in row-major order, yielding Elem&.
+            class iterator
+            {
+            public:
+                using iterator_category = std::random_access_iterator_tag;
+                using value_type = Elem;
+                using difference_type = std::ptrdiff_t;
+                using pointer = Elem *;
+                using reference = Elem &;
+
+                iterator() = default;
+                reference operator*() const { return **it_; }
+                pointer operator->() const { return it_->get(); }
+                reference operator[](difference_type n) const { return *it_[n]; }
+                iterator &operator++()
+                {
+                    ++it_;
+                    return *this;
+                }
+                iterator operator++(int)
+                {
+                    auto t = *this;
+                    ++it_;
+                    return t;
+                }
+                iterator &operator--()
+                {
+                    --it_;
+                    return *this;
+                }
+                iterator operator--(int)
+                {
+                    auto t = *this;
+                    --it_;
+                    return t;
+                }
+                iterator &operator+=(difference_type n)
+                {
+                    it_ += n;
+                    return *this;
+                }
+                iterator &operator-=(difference_type n)
+                {
+                    it_ -= n;
+                    return *this;
+                }
+                friend iterator operator+(iterator a, difference_type n) { return a += n; }
+                friend iterator operator+(difference_type n, iterator a) { return a += n; }
+                friend iterator operator-(iterator a, difference_type n) { return a -= n; }
+                friend difference_type operator-(const iterator &a, const iterator &b) { return a.it_ - b.it_; }
+                friend bool operator==(const iterator &a, const iterator &b) { return a.it_ == b.it_; }
+                friend auto operator<=>(const iterator &a, const iterator &b) { return a.it_ <=> b.it_; }
+
+            private:
+                friend class NdArray;
+                using Inner = typename std::vector<std::unique_ptr<Elem>>::const_iterator;
+                explicit iterator(Inner it) : it_(it) {}
+                Inner it_{};
+            };
+
+            iterator begin() const { return iterator(elems_.begin()); }
+            iterator end() const { return iterator(elems_.end()); }
 
             // Bounds-checked multidimensional access. Throws std::out_of_range.
             Elem &at(const Index &idx) const { return *elems_[flat_index(idx)]; }

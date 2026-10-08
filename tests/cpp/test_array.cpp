@@ -58,3 +58,21 @@ TEST_CASE("multidimensional signals and ports")
     REQUIRE(top->s[{0, 1}].read() == 6);
     REQUIRE(top->s3[{1, 0, 1}].read() == 7);
 }
+
+TEST_CASE("array iteration")
+{
+    auto ctx = Context::create();
+    SignalArray<int> s{"s", {2, 3}};
+    std::size_t n = 0;
+    for (auto &e : s)
+    {
+        REQUIRE(&e == &s.flat(n));
+        ++n;
+    }
+    REQUIRE(n == 6);
+    REQUIRE(s.end() - s.begin() == 6);
+    InputArray<int> in{"in", {2, 2}};
+    OutputArray<int> out{"out", {2, 2}};
+    REQUIRE(std::distance(in.begin(), in.end()) == 4);
+    REQUIRE(std::distance(out.begin(), out.end()) == 4);
+}

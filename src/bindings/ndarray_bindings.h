@@ -24,6 +24,9 @@ namespace dspsim::bindings
                  { return a.flat(i); }, nb::arg("index"), nb::rv_policy::reference_internal)
             .def("at", [](Array &a, const Index &idx) -> auto &
                  { return a.at(idx); }, nb::arg("index"), nb::rv_policy::reference_internal)
+            .def("__iter__", [](Array &a)
+                 { return nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end()); },
+                 nb::keep_alive<0, 1>())
             .def("__getitem__", [](Array &a, const Index &idx) -> auto &
                  { return a.at(idx); }, nb::arg("index"), nb::rv_policy::reference_internal);
     }

@@ -161,13 +161,20 @@ def test_builder_ndarray():
         rst.d = 0
         context.run(10)
 
+        # Fill the input array with test data
         for i in range(2):
             for j in range(3):
                 for k in range(4):
                     a[i, j, k].d = i * 12 + j * 4 + k
         context.run(10)
 
+        # Check multidimensional access
         for i in range(2):
             for j in range(3):
                 for k in range(4):
                     assert b[i, j, k].q == i * 12 + j * 4 + k
+
+        # Check flat iteration over the arrays
+        for i, (siga, sigb) in enumerate(zip(a, b)):
+            assert sigb.q == siga.q
+            assert sigb.q == i

@@ -44,8 +44,15 @@ def test_port_array_binding():
 
         class Mod(Module):
             def __init__(self, name):
+                super().__init__(name)
                 self.i = Input8Array("i", (2, 2))
                 self.o = Output8Array("o", (2, 2))
+
+                self.process(self.eval).always("*")
+
+            def eval(self):
+                for i in range(self.i.size):
+                    self.o.flat(i).d = self.i.flat(i).q
 
         m = Mod("m")
         m.i.bind(s)
@@ -56,7 +63,22 @@ def test_port_array_binding():
             m.i.bind(m.o)  # type: ignore
 
         ctx.elaborate()
-        m.o[1, 1] = 5
+
+        for i in range(s.size):
+            s.flat(i).d = i
 
         ctx.run(1)
-        assert m.i[1, 1].value == 5
+        for i in range(s.size):
+            assert m.o.flat(i).value == i
+
+
+def test_array_iter():
+    with Context():
+        s = Signal8Array("s", (2, 3))
+        elems = list(s)
+        assert len(elems) == 6
+        assert all(isinstance(e, Signal8) for e in elems)
+        assert elems[4] is s.flat(4)
+        assert [e.name for e in s][1] == "s[0][1]"
+        i = Input8Array("i", (2, 2))
+        assert len(list(i)) == 4

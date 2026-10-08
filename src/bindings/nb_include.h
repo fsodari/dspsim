@@ -7,3 +7,4 @@
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/function.h>
 #include <nanobind/eval.h>
+#include <nanobind/make_iterator.h>
