@@ -1,5 +1,6 @@
 import atexit
 import functools
+import inspect
 import threading
 from contextlib import contextmanager
 
@@ -220,40 +221,71 @@ class Context(_Context):
             self.release()
 
 
+def _wrap_module_init(init):
+    """
+    Wrap a Module subclass's __init__ so that the outermost call of a construction
+    builds the module:
+
+    - Opens a ModuleName scope so ports, signals, and submodules created in __init__
+      get hierarchical names, and ends it deterministically when __init__ returns or raises.
+    - Initializes the C++ Module exactly once, before any user __init__ code runs.
+    - Gives the context ownership of the module so it isn't garbage collected.
+
+    Inner calls (super().__init__ from a subclass) run the wrapped __init__ directly.
+    """
+    sig = inspect.signature(init)
+    if "name" not in sig.parameters:
+        raise TypeError(f"{init.__qualname__}() must take a 'name' argument")
+
+    @functools.wraps(init)
+    def __init__(self, *args, **kwargs):
+        if self._dspsim_constructing:
+            init(self, *args, **kwargs)
+            return
+
+        bound = sig.bind(self, *args, **kwargs)
+        bound.apply_defaults()
+        with ModuleName(bound.arguments["name"]) as module_name:
+            _Module.__init__(self, module_name)
+            self._dspsim_constructing = True
+            try:
+                init(self, *args, **kwargs)
+            finally:
+                self._dspsim_constructing = False
+        self.context.own_model(self)
+
+    return __init__
+
+
 class Module(_Module):
     """
-    Python wrapper for the C++ Module class.
+    Python base class for modules.
 
-    Initialization order:
-        - Subclass __init__ is replaced with new_init. new_init called.
-        - new_init calls _Module __init__
-        - Subclass calls Module.__init__ with super().__init__
-        - Subclass __init__ completes.
-        - new_init completes.
+    Subclasses define __init__ with a `name` argument plus any other arguments, and can
+    be subclassed further. Calling super().__init__(name) is optional: the C++ Module is
+    initialized before the outermost __init__ runs, so self.context and the other Module
+    members are usable from its first line.
 
-    This is done so the subclass doesn't deal with ModuleName directly.
+        class Adder(Module):
+            def __init__(self, name: str, width: int = 8):
+                super().__init__(name)
+                self.a = InputU8("a")
     """
 
-    def __init_subclass__(cls):
-        original_init = cls.__init__
+    # True while this instance's __init__ chain is running.
+    _dspsim_constructing: bool = False
 
-        @functools.wraps(original_init)
-        def __new_init__(self, name: str):
-            # Get a new ModuleName instance for the module.
-            _name = ModuleName(name)
-
-            # Calls _Module.__init__
-            super().__init__(_name)
-            original_init(self, name)
-            # Deleting _name is important to change the context's active module.
-            del _name
-
-        # Subclasses's init will now handle ModuleName properly.
-        cls.__init__ = __new_init__
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Subclasses without their own __init__ inherit an already wrapped one.
+        if "__init__" in cls.__dict__:
+            cls.__init__ = _wrap_module_init(cls.__dict__["__init__"])
 
     def __init__(self, name: str):
-        """Subclass must call super().__init__ so context.own_model(self) gets called."""
-        self.context.own_model(self)
+        """Construction is handled by the wrapper, so this does nothing."""
+
+
+Module.__init__ = _wrap_module_init(Module.__init__)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):

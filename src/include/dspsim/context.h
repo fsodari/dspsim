@@ -270,8 +270,8 @@ namespace dspsim
 
         // Keep track of the currently active module to build a hierarchy.
         std::vector<Module *> _active_module_stack;
-        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
-        std::vector<ModuleName *> _active_module_name_stack;
+        // Names of the ModuleName scopes being constructed. Module() takes its name from the top.
+        std::vector<std::string> _active_module_name_stack;
     };
 
     class ContextFactory
