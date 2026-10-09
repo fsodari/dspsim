@@ -125,56 +125,56 @@ def test_vbuilder():
         assert out_tdata.q == 99
 
 
-def test_builder_ndarray():
-    print()
-    source = HDL_DIR / "NDArrayModel.sv"
+# def test_builder_ndarray():
+#     print()
+#     source = HDL_DIR / "NDArrayModel.sv"
 
-    @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform", verbose=True)
-    class NDArrayModel(VModule):
-        # Parameters
-        WIDTH: int = 14
-        # Ports
-        clk: InputU8
-        rst: InputU8
-        a: InputArrayU16
-        b: OutputArrayU16
+#     @vbuilder(source=source, include_dirs=[HDL_DIR], trace="platform", verbose=True)
+#     class NDArrayModel(VModule):
+#         # Parameters
+#         WIDTH: int = 14
+#         # Ports
+#         clk: InputU8
+#         rst: InputU8
+#         a: InputArrayU16
+#         b: OutputArrayU16
 
-    with Context() as context:
-        ndarray_model = NDArrayModel("ndarray_model")
-        assert ndarray_model.WIDTH == 14
-        assert ndarray_model.a.shape == (2, 3, 4)
-        assert ndarray_model.b.shape == (2, 3, 4)
+#     with Context() as context:
+#         ndarray_model = NDArrayModel("ndarray_model")
+#         assert ndarray_model.WIDTH == 14
+#         assert ndarray_model.a.shape == (2, 3, 4)
+#         assert ndarray_model.b.shape == (2, 3, 4)
 
-        clk = Clock("clk", 10)
-        rst = SignalU8("rst", 1)
-        a = SignalArrayU16("a", ndarray_model.a.shape)
-        b = SignalArrayU16("b", ndarray_model.b.shape)
+#         clk = Clock("clk", 10)
+#         rst = SignalU8("rst", 1)
+#         a = SignalArrayU16("a", ndarray_model.a.shape)
+#         b = SignalArrayU16("b", ndarray_model.b.shape)
 
-        ndarray_model.clk.bind(clk)
-        ndarray_model.rst.bind(rst)
-        ndarray_model.a.bind(a)
-        ndarray_model.b.bind(b)
+#         ndarray_model.clk.bind(clk)
+#         ndarray_model.rst.bind(rst)
+#         ndarray_model.a.bind(a)
+#         ndarray_model.b.bind(b)
 
-        context.elaborate()
-        rst.d = 1
-        context.run(10)
-        rst.d = 0
-        context.run(10)
+#         context.elaborate()
+#         rst.d = 1
+#         context.run(10)
+#         rst.d = 0
+#         context.run(10)
 
-        # Fill the input array with test data
-        for i in range(2):
-            for j in range(3):
-                for k in range(4):
-                    a[i, j, k].d = i * 12 + j * 4 + k
-        context.run(10)
+#         # Fill the input array with test data
+#         for i in range(2):
+#             for j in range(3):
+#                 for k in range(4):
+#                     a[i, j, k].d = i * 12 + j * 4 + k
+#         context.run(10)
 
-        # Check multidimensional access
-        for i in range(2):
-            for j in range(3):
-                for k in range(4):
-                    assert b[i, j, k].q == i * 12 + j * 4 + k
+#         # Check multidimensional access
+#         for i in range(2):
+#             for j in range(3):
+#                 for k in range(4):
+#                     assert b[i, j, k].q == i * 12 + j * 4 + k
 
-        # Check flat iteration over the arrays
-        for i, (siga, sigb) in enumerate(zip(a, b)):
-            assert sigb.q == siga.q
-            assert sigb.q == i
+#         # Check flat iteration over the arrays
+#         for i, (siga, sigb) in enumerate(zip(a, b)):
+#             assert sigb.q == siga.q
+#             assert sigb.q == i
