@@ -1,17 +1,17 @@
-from dspsim.framework import Context, Input32, Module, Output32, Signal32
+from dspsim.framework import Context, InputU32, Module, OutputU32, SignalU32
 
 
 class SubAdder(Module):
-    a: Input32
-    b: Input32
-    c: Output32
+    a: InputU32
+    b: InputU32
+    c: OutputU32
 
     def __init__(self, name: str):
         super().__init__(name)
 
-        self.a = Input32("a")
-        self.b = Input32("b")
-        self.c = Output32("c")
+        self.a = InputU32("a")
+        self.b = InputU32("b")
+        self.c = OutputU32("c")
 
         self.process(self.eval, "SubAdder.eval").always("*")
 
@@ -20,18 +20,18 @@ class SubAdder(Module):
 
 
 class AdderModule(Module):
-    a: Input32
-    b: Input32
-    c: Output32
+    a: InputU32
+    b: InputU32
+    c: OutputU32
 
     sub: SubAdder
 
     def __init__(self, name: str):
         super().__init__(name)
 
-        self.a = Input32("a")
-        self.b = Input32("b")
-        self.c = Output32("c")
+        self.a = InputU32("a")
+        self.b = InputU32("b")
+        self.c = OutputU32("c")
 
         self.sub = SubAdder("sub")
         self.sub.a(self.a)
@@ -43,13 +43,13 @@ def test_adder_module():
     with Context() as ctx:
         ctx.log_level = "debug"
         with ctx.construct():
-            a = Signal32("a")
-            b = Signal32("b")
-            c = Signal32("c")
+            a = SignalU32("a")
+            b = SignalU32("b")
+            c = SignalU32("c")
 
-            d = Signal32("d")
-            e = Signal32("e")
-            f = Signal32("f")
+            d = SignalU32("d")
+            e = SignalU32("e")
+            f = SignalU32("f")
 
             adder = AdderModule("adder")
             adder2 = AdderModule("adder2")
@@ -84,24 +84,24 @@ def test_adder_module():
 class TwoAdder(Module):
     """Adder with two adder processes"""
 
-    a: Input32
-    b: Input32
-    c: Output32
+    a: InputU32
+    b: InputU32
+    c: OutputU32
 
-    d: Input32
-    e: Input32
-    f: Output32
+    d: InputU32
+    e: InputU32
+    f: OutputU32
 
     def __init__(self, name: str):
         super().__init__(name)
 
-        self.a = Input32("a")
-        self.b = Input32("b")
-        self.c = Output32("c")
+        self.a = InputU32("a")
+        self.b = InputU32("b")
+        self.c = OutputU32("c")
 
-        self.d = Input32("d")
-        self.e = Input32("e")
-        self.f = Output32("f")
+        self.d = InputU32("d")
+        self.e = InputU32("e")
+        self.f = OutputU32("f")
 
         self.process(self.eval, "SubAdder.eval").always(self.a, self.b)
 
@@ -118,13 +118,13 @@ def test_two_adder():
     with Context() as ctx:
         # ctx.log_level = "debug"
         with ctx.construct():
-            a = Signal32("a")
-            b = Signal32("b")
-            c = Signal32("c")
+            a = SignalU32("a")
+            b = SignalU32("b")
+            c = SignalU32("c")
 
-            d = Signal32("d")
-            e = Signal32("e")
-            f = Signal32("f")
+            d = SignalU32("d")
+            e = SignalU32("e")
+            f = SignalU32("f")
 
             two_adder = TwoAdder("two_adder")
             two_adder.a(a)

@@ -5,20 +5,20 @@ from dspsim.builder import VModule, build_vmodule, vbuilder
 from dspsim.framework import (
     Clock,
     Context,
-    Input8,
-    Input16,
-    Input16Array,
+    InputArrayU16,
+    InputU8,
+    InputU16,
+    OutputArrayU16,
     # Input32,
     # Input64,
     # Module,
-    Output8,
-    Output16,
-    Output16Array,
+    OutputU8,
+    OutputU16,
+    SignalArrayU16,
     # Output32,
     # Output64,
-    Signal8,
-    Signal16,
-    Signal16Array,
+    SignalU8,
+    SignalU16,
 )
 
 HDL_DIR = Path(__file__).parent.parent / "hdl"
@@ -38,14 +38,14 @@ def test_vbuilder():
         # Parameters
         DW: int = 14
         # Ports
-        clk: Input8
-        rst: Input8
-        s_axis_tdata: Input16
-        s_axis_tvalid: Input8
-        s_axis_tready: Output8
-        m_axis_tdata: Output16
-        m_axis_tvalid: Output8
-        m_axis_tready: Input8
+        clk: InputU8
+        rst: InputU8
+        s_axis_tdata: InputU16
+        s_axis_tvalid: InputU8
+        s_axis_tready: OutputU8
+        m_axis_tdata: OutputU16
+        m_axis_tvalid: OutputU8
+        m_axis_tready: InputU8
 
     Skid2 = build_vmodule(
         "Skid2",
@@ -61,17 +61,17 @@ def test_vbuilder():
         # context.log_level = "debug"
 
         clk = Clock("clk", 10)
-        rst = Signal8("rst", 1)
+        rst = SignalU8("rst", 1)
 
-        in_tdata = Signal16("in_tdata")
-        in_tvalid = Signal8("in_tvalid")
-        in_tready = Signal8("in_tready")
-        skid1_tdata = Signal16("skid1_tdata")
-        skid1_tvalid = Signal8("skid1_tvalid")
-        skid1_tready = Signal8("skid1_tready")
-        out_tdata = Signal16("out_tdata")
-        out_tvalid = Signal8("out_tvalid")
-        out_tready = Signal8("out_tready")
+        in_tdata = SignalU16("in_tdata")
+        in_tvalid = SignalU8("in_tvalid")
+        in_tready = SignalU8("in_tready")
+        skid1_tdata = SignalU16("skid1_tdata")
+        skid1_tvalid = SignalU8("skid1_tvalid")
+        skid1_tready = SignalU8("skid1_tready")
+        out_tdata = SignalU16("out_tdata")
+        out_tvalid = SignalU8("out_tvalid")
+        out_tready = SignalU8("out_tready")
 
         skid1 = Skid1("skid1")
 
@@ -134,10 +134,10 @@ def test_builder_ndarray():
         # Parameters
         WIDTH: int = 14
         # Ports
-        clk: Input8
-        rst: Input8
-        a: Input16Array
-        b: Output16Array
+        clk: InputU8
+        rst: InputU8
+        a: InputArrayU16
+        b: OutputArrayU16
 
     with Context() as context:
         ndarray_model = NDArrayModel("ndarray_model")
@@ -146,9 +146,9 @@ def test_builder_ndarray():
         assert ndarray_model.b.shape == (2, 3, 4)
 
         clk = Clock("clk", 10)
-        rst = Signal8("rst", 1)
-        a = Signal16Array("a", ndarray_model.a.shape)
-        b = Signal16Array("b", ndarray_model.b.shape)
+        rst = SignalU8("rst", 1)
+        a = SignalArrayU16("a", ndarray_model.a.shape)
+        b = SignalArrayU16("b", ndarray_model.b.shape)
 
         ndarray_model.clk.bind(clk)
         ndarray_model.rst.bind(rst)

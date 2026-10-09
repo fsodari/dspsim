@@ -13,22 +13,38 @@ import dotenv
 
 import dspsim
 from dspsim.framework import (
-    Input8,
-    Input8Array,
-    Input16,
-    Input16Array,
-    Input32,
-    Input32Array,
-    Input64,
-    Input64Array,
-    Output8,
-    Output8Array,
-    Output16,
-    Output16Array,
-    Output32,
-    Output32Array,
-    Output64,
-    Output64Array,
+    InputArrayS8,
+    InputArrayS16,
+    InputArrayS32,
+    InputArrayS64,
+    InputArrayU8,
+    InputArrayU16,
+    InputArrayU32,
+    InputArrayU64,
+    InputS8,
+    InputS16,
+    InputS32,
+    InputS64,
+    InputU8,
+    InputU16,
+    InputU32,
+    InputU64,
+    OutputArrayS8,
+    OutputArrayS16,
+    OutputArrayS32,
+    OutputArrayS64,
+    OutputArrayU8,
+    OutputArrayU16,
+    OutputArrayU32,
+    OutputArrayU64,
+    OutputS8,
+    OutputS16,
+    OutputS32,
+    OutputS64,
+    OutputU8,
+    OutputU16,
+    OutputU32,
+    OutputU64,
     _Module,
 )
 from dspsim.generate import render_template
@@ -51,27 +67,47 @@ def cache_dir() -> Path:
 
 # Modules can have these port types. If an annotation is one of these types, it must match the one in the model.
 _valid_port_types = [
-    Input8,
-    Input16,
-    Input32,
-    Input64,
-    Output8,
-    Output16,
-    Output32,
-    Output64,
-    Output8Array,
-    Output16Array,
-    Output32Array,
-    Output64Array,
-    Input8Array,
-    Input16Array,
-    Input32Array,
-    Input64Array,
+    InputS8,
+    InputS16,
+    InputS32,
+    InputS64,
+    InputU8,
+    InputU16,
+    InputU32,
+    InputU64,
+    OutputS8,
+    OutputS16,
+    OutputS32,
+    OutputS64,
+    OutputU8,
+    OutputU16,
+    OutputU32,
+    OutputU64,
+    OutputArrayU8,
+    OutputArrayU16,
+    OutputArrayU32,
+    OutputArrayU64,
+    InputArrayS8,
+    InputArrayS16,
+    InputArrayS32,
+    InputArrayS64,
+    InputArrayU8,
+    InputArrayU16,
+    InputArrayU32,
+    InputArrayU64,
+    InputArrayS8,
+    InputArrayS16,
+    InputArrayS32,
+    InputArrayS64,
+    OutputArrayS8,
+    OutputArrayS16,
+    OutputArrayS32,
+    OutputArrayS64,
 ]
 
 
 _PORT_TYPE_NAME = re.compile(
-    r"(?P<direction>Input|Output)(?P<width>\d+)(?P<array>Array)?"
+    r"(?P<direction>Input|Output)(?P<array>Array)?(?P<sign>[US])(?P<width>\d+)"
 )
 
 
@@ -136,7 +172,7 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     ports = {}
     for an, typ in annotations.items():
         if typ in _valid_port_types:
-            # Type names look like Input8 or Output32Array.
+            # Type names look like InputU8 or OutputArrayS32.
             match = _PORT_TYPE_NAME.fullmatch(typ.__name__)
             assert match is not None
             width = int(match["width"])
@@ -147,7 +183,7 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
             ports[an] = Port(
                 name=an,
                 keyword="logic",
-                signed=False,
+                signed=match["sign"] == "S",
                 width=width,
                 direction=direction,
                 shape=shape,
