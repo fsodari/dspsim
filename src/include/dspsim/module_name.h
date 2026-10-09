@@ -1,26 +1,26 @@
 #pragma once
+#include <cstddef>
+#include <memory>
 #include <string>
 
 namespace dspsim
 {
     class Context;
+
     /*
-        Helper class to facilitate calling Module::_end_construction() after the Module's constructor.
-        ModuleName should not be instantiated directly. It should be an argument for a Module subclass.
-        When the module constructor is called, ModuleName will get allocated and call its constructor, then
-        when the Module constructor finishes, the ModuleName will go out of scope and its destructor will be called, triggering the call to Module::_end_construction().
+        Scopes the construction of a Module so that submodules, ports, and signals declared as members get
+        hierarchical names.
 
-        When a ModuleName is created, it will push its name onto the active module name stack in the context.
-        If the Module base class is called without args, it retrieves the name from the stack.
+        Creating a ModuleName opens a construction scope: its name is pushed onto the context's active module name
+        stack, and the Module constructor pushes the module onto the active module stack. Ending the scope pops both,
+        which finishes the module's construction.
 
-        It generally behaves like a string otherwise.
+        A Module subclass takes ModuleName by value. The argument lives until the subclass constructor returns, so the
+        scope covers the whole member-initializer list. Copies share one scope, which ends when the last copy is
+        destroyed. A class derived from another module can therefore pass its ModuleName on by value, and the scope
+        lasts until the most-derived constructor returns.
 
-        Python constructors will need to handle this by creating a ModuleName before constructing a class, then deleting
-        the ModuleName after __init__ is called. Python has facilities to wrap this behavior around class constructors.
-
-        Problems: Nesting derived classes gets tricky. The final class must be the only one to use ModuleName directly in its constructor.
-        So it must have some way of propogating a reference through the base classes. Using a default constructor could work as the modulename
-        will be on the stack.
+        Python calls end() explicitly (through the context-manager protocol) because it has no RAII.
     */
     class ModuleName
     {
@@ -28,15 +28,19 @@ namespace dspsim
         ModuleName(const std::string &name);
         ModuleName(const char *name) : ModuleName(std::string(name)) {}
 
-        // This will call Module::_end_construction() on the active module in the context hierarchy.
-        ~ModuleName();
+        /// Copies share the construction scope.
+        ModuleName(const ModuleName &) = default;
+        ModuleName &operator=(const ModuleName &) = delete;
 
-        const std::string &name() const { return _name; }
-        operator const char *() const { return _name.c_str(); }
-        operator const std::string &() const { return _name; }
+        /// End the construction scope now, instead of when the last copy is destroyed. Calling it again does nothing.
+        void end();
+
+        const std::string &name() const;
+        operator const char *() const { return name().c_str(); }
+        operator const std::string &() const { return name(); }
 
     private:
-        Context *_context;
-        std::string _name;
+        struct Scope;
+        std::shared_ptr<Scope> scope_;
     };
 }

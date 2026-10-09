@@ -3,10 +3,8 @@ import pytest
 from dspsim.framework import (
     Context,
     InputArrayU8,
-    InputU8,
     Module,
     OutputArrayU8,
-    OutputU8,
     SignalArrayU8,
     SignalU8,
 )
@@ -94,20 +92,20 @@ def test_array_slicing():
 
     with Context() as ctx:
         s = SignalArrayU8("s", (4, 6))
-        v = s[1:4, ::2]
+        v = s[1:4, :3]
         assert isinstance(v, SignalArrayViewU8)
         assert v.shape == (3, 3)
         assert v[0, 0] is s[1, 0]
-        assert v[2, 2] is s[3, 4]
-        assert s[-1, ::-1].shape == (6,)
-        assert s[-1, ::-1][0] is s[3, 5]
+        assert v[2, 2] is s[3, 2]
+        assert s[-1, -4:].shape == (4,)
+        assert s[-1, -4:][0] is s[3, 2]
         assert s[2, :].shape == (6,)
         assert s[:, 1].shape == (4,)
         assert s[3:1].shape == (0, 6)
         assert [e.name for e in s[0, :2]] == ["s[0][0]", "s[0][1]"]
-        assert v[1:, 1:][0, 0] is s[2, 2]
+        assert v[1:, 1:][0, 0] is s[2, 1]
         # slice() always returns a view, even for int keys.
-        assert s.slice((slice(1, 4), slice(None, None, 2))).shape == (3, 3)
+        assert s.slice((slice(1, 4), slice(None, 3))).shape == (3, 3)
         assert s.slice((1, 2)).shape == ()
         assert s.slice(2).shape == (6,)
         assert s.slice().shape == (4, 6)
@@ -117,6 +115,13 @@ def test_array_slicing():
             s[4]
         with pytest.raises(IndexError):
             s[0, 0, 0]
+        # Slice steps are not supported.
+        with pytest.raises(ValueError):
+            s[:, ::2]
+        with pytest.raises(ValueError):
+            s[::-1]
+        with pytest.raises(ValueError):
+            s.slice(slice(None, None, 2))
 
         class M(Module):
             def __init__(self, name):
@@ -128,10 +133,10 @@ def test_array_slicing():
         i, o = m.i, m.o
         a = SignalArrayU8("a", (4, 6))
         b = SignalArrayU8("b", (4, 6))
-        i.bind(a[::2, ::2])
+        i.bind(a[1:3, 2:5])
         o[0:1].bind(b[3:4, 0:3])
         assert isinstance(o[0:1], OutputArrayViewU8)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             i.bind(a[:2])
         with pytest.raises(TypeError):
             i.bind(o[:])  # type: ignore
@@ -173,13 +178,13 @@ def test_array_read_write():
         # Scalar broadcast, and writes through views.
         a.value = 7
         a[1, :].write([8, 9, 10])
-        a[:, ::2].write([[11, 12], [13, 14]])
-        a[0, 1:2].write(15)
-        assert a.d.tolist() == [[11, 15, 12], [13, 9, 14]]
+        a[:, 1:].write([[11, 12], [13, 14]])
+        a[0, 0:1].write(15)
+        assert a.d.tolist() == [[15, 11, 12], [8, 13, 14]]
         ctx.run(1)
-        assert a[:, 1:].read().tolist() == [[15, 12], [9, 14]]
-        assert m.i[0, :].read().tolist() == [11, 15, 12]
-        assert m.i[:, 0:1].q.tolist() == [[11], [13]]
+        assert a[:, 1:].read().tolist() == [[11, 12], [13, 14]]
+        assert m.i[0, :].read().tolist() == [15, 11, 12]
+        assert m.i[:, 0:1].q.tolist() == [[15], [8]]
 
         m.o.write([[1, 2, 3], [4, 5, 6]])
         m.o[1, :].d = 0
@@ -189,7 +194,7 @@ def test_array_read_write():
         assert m.o[0, :].read().tolist() == [1, 2, 3]
 
         # 0-d views and shape errors.
-        assert a.slice((1, 1)).read() == 9
+        assert a.slice((1, 1)).read() == 13
         with pytest.raises(ValueError):
             a.write([1, 2, 3])
         with pytest.raises(ValueError):
@@ -225,10 +230,10 @@ def test_array_numpy():
 
         # Other dtypes are converted, views accept arrays of the view's shape, 0-d arrays broadcast.
         a.value = np.array([[9, 8, 7], [6, 5, 4]])
-        a[:, ::2].write(np.array([[1, 2], [3, 4]]))
+        a[:, :2].write(np.array([[1, 2], [3, 4]]))
         a[1, 1:].d = np.array(0)
         ctx.run(1)
-        assert a.read().tolist() == [[1, 8, 2], [3, 0, 0]]
+        assert a.read().tolist() == [[1, 2, 7], [3, 0, 0]]
         assert a.slice((0, 0)).to_numpy().shape == ()
 
         f.write(np.array([1.5, 2.5]))

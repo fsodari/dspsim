@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <string>
 #include <functional>
+#include <stdexcept>
 
 namespace spdlog
 {
@@ -22,6 +23,13 @@ namespace dspsim
     class Module;
     class ModuleName;
     class SignalBase;
+
+    /// Thrown when a new context is created while the active context has not been elaborated.
+    class ContextConstructionError : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
 
     /*
         Context contains a vector of all the models.
@@ -61,8 +69,20 @@ namespace dspsim
             Call elaborate after construction is complete.
             This will finalize all port bindings,
             and TODO: check for any netlist violations.
+            The design is then locked and the context detaches from the global context factory,
+            so a new, independent context can be created.
         */
         void elaborate();
+
+        // True once elaborate() has been called.
+        bool elaborated() const;
+
+        /*
+            Stop being the global active context, if this context is the active one.
+            Models constructed afterward are registered with a new context.
+            Does nothing if another context is active.
+        */
+        void detach();
 
         // Compute a single delta cycle.
         int eval();
@@ -88,6 +108,8 @@ namespace dspsim
         // WaitSensitivityEvent py_wait_sensitivity_event(SensitivityEvent &event, ProcessBase *process = nullptr) { return wait(event, process); }
         // wait on multiple dynamic events.
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        // wait on multiple dynamic events, given by pointer.
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
         // WaitSensitivityEvent py_wait_sensitivity_events(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr) { return wait(events, process); }
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
@@ -152,6 +174,9 @@ namespace dspsim
 
         uint32_t next_event_id() { return _next_event_id++; }
 
+        // Each model is assigned a unique id from its context on construction.
+        uint32_t next_model_id() { return _next_model_id++; }
+
         uint32_t next_process_id() { return _next_process_id++; }
         // Register a process with the context. This will create a Process object and set it as the active process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
@@ -174,7 +199,7 @@ namespace dspsim
         */
         const std::string _current_hierarchy() const;
 
-        uint64_t update_count() const { return update_count_; }
+        int64_t update_count() const { return update_count_; }
 
     private:
         void _do_initialize();
@@ -187,7 +212,7 @@ namespace dspsim
         static std::shared_ptr<Context> obtain();
         // Set the global context to nullptr. New designs will create a new context.
         static void reset();
-        // Reset the global context, then obtain a new one.
+        // Create a new global context. Throws ContextConstructionError if the active context is not elaborated.
         static std::shared_ptr<Context> create(const std::string &name = "");
         // Members
 
@@ -224,8 +249,10 @@ namespace dspsim
         // Time unit used for tracing.
         std::string _time_unit;
         bool _initialized = false;
+        // Set by elaborate(). The design is locked once elaborated.
+        bool _elaborated = false;
         // Incremented every time a delta cycle occurs. Used to handle event flags.
-        uint64_t update_count_;
+        int64_t update_count_;
 
     public:
         // All processes that need to run in the current delta cycle.
@@ -245,8 +272,8 @@ namespace dspsim
 
         // Keep track of the currently active module to build a hierarchy.
         std::vector<Module *> _active_module_stack;
-        // ModuleName is used as a way of building the module hierarchy and running cleanup when Module construction ends.
-        std::vector<ModuleName *> _active_module_name_stack;
+        // Names of the ModuleName scopes being constructed. Module() takes its name from the top.
+        std::vector<std::string> _active_module_name_stack;
     };
 
     class ContextFactory
@@ -262,7 +289,13 @@ namespace dspsim
         std::shared_ptr<Context> obtain();
         // Reset the active context.
         void reset();
-        // Reset the global context, then obtain a new one.
+        // Reset the active context only if it is the given context.
+        void detach(Context *context);
+        /*
+            Create a new context and make it the active one.
+            Throws ContextConstructionError if the active context has not been elaborated.
+            Call reset() first to discard an unelaborated context.
+        */
         std::shared_ptr<Context> create(const std::string &name = "");
     };
 

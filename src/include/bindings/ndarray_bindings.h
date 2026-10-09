@@ -11,7 +11,8 @@ namespace dspsim::bindings
 
     // Members shared by every array class. Shapes and indices are python tuples.
     // Convert a python key (int, slice, or a tuple of them) to one Range per indexed dimension.
-    // Ints become single-element ranges that drop their dimension. Returns nullopt for unsupported key types.
+    // Ints become single-element ranges that drop their dimension. Slices with a step other than 1 raise ValueError.
+    // Returns nullopt for unsupported key types.
     template <typename Array>
     static inline std::optional<std::vector<Range>> resolve_key(const Array &a, nb::handle key)
     {
@@ -25,7 +26,9 @@ namespace dspsim::bindings
             if (nb::isinstance<nb::slice>(item))
             {
                 auto [start, stop, step, count] = nb::borrow<nb::slice>(item).compute(a.extent(d));
-                ranges.push_back({static_cast<std::ptrdiff_t>(start), static_cast<std::ptrdiff_t>(step), count, false});
+                if (step != 1)
+                    throw nb::value_error("array slices do not support a step");
+                ranges.push_back({static_cast<std::ptrdiff_t>(start), count, false});
             }
             else if (nb::isinstance<nb::int_>(item))
             {

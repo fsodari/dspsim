@@ -1,13 +1,8 @@
-from ctypes import c_int32, c_uint32
-
-import dspsim
 from dspsim.framework import (
     Context,
-    Model,
     SignalS32,
     SignalU8,
     SignalU16,
-    SignalU32,
     SignalU64,
     signal,
 )

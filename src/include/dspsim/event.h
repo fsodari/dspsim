@@ -47,10 +47,10 @@ namespace dspsim
         // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
         UniqueStack<ProcessBase *> static_subscribers_;
 
-        // Processes with dynamic sensitivity. This list is cleared when the event occurs and
-        // the process will return to having static sensitivity.
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs, each process is removed
+        // from its other dynamic events, and it returns to having static sensitivity.
         UniqueStack<ProcessBase *> dynamic_subscribers_;
-        uint64_t change_time_;
+        int64_t change_time_;
     };
 
     /*

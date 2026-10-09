@@ -2,8 +2,10 @@
 #include <dspsim/coro.h>
 #include <spdlog/spdlog.h>
 #include <print>
+#include <stdexcept>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 using namespace dspsim;
 
@@ -198,4 +200,36 @@ TEST_CASE("test coro static sensitivity", "[coro]")
     ctx->run(0);
     REQUIRE(c.read() == 7);
     REQUIRE(f.read() == 11);
+}
+namespace
+{
+    // A coroutine that throws after its first wait.
+    DSPSIM_MODULE(ThrowingCoro)
+    {
+        Input<uint8_t> s{"s"};
+
+        DSPSIM_CTOR(ThrowingCoro)
+        {
+            DSPSIM_CORO(body);
+        }
+
+        Task body()
+        {
+            co_await wait(s.change());
+            throw std::runtime_error("coro boom");
+        }
+    };
+} // namespace
+
+TEST_CASE("an exception in a coroutine propagates instead of terminating", "[coro]")
+{
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    ThrowingCoro m{"m"};
+    m.s.bind(s);
+    ctx->elaborate();
+    ctx->run(1);
+
+    s.write(1);
+    REQUIRE_THROWS_WITH(ctx->run(1), "coro boom");
 }

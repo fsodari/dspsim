@@ -1,10 +1,12 @@
 import atexit
 import functools
+import inspect
 import threading
 from contextlib import contextmanager
 
 from dspsim._framework import (
     Clock,
+    ContextConstructionError,
     DffS8,
     DffS16,
     DffS32,
@@ -114,20 +116,62 @@ atexit.register(reset_global_context_factory)
 class Context(_Context):
     """
     Python wrapper for the C++ Context class.
-    In multi-threaded applications, only one thread can
-    instantiate models at a time. Threads must call release() when finished instatiating models,
-    then they can proceed to simulation/elaboration.
+
+    Only one context can be under construction at a time, because models register with the
+    global active context. Creating a Context takes a global lock that is released when the
+    context is elaborated (or released). After elaboration the design is locked, the context
+    detaches from the global context, and it can simulate independently of new contexts.
+
+    - Another thread creating a Context blocks until the current one is elaborated.
+    - The same thread creating a second Context before elaborating the first would deadlock,
+      so it raises ContextConstructionError instead.
     """
 
-    locked: bool = False
-    _global_context_lock: threading.Lock = threading.Lock()
+    _construction_lock: threading.Lock = threading.Lock()
+    # Thread ident of the lock holder. Only the holder sets it to its own ident, so a thread
+    # can read it without the lock to check whether it already holds the lock.
+    _construction_owner: int | None = None
+    # Name of the context holding the lock, for error messages.
+    _construction_holder: str = ""
+
+    def __new__(cls, name: str = ""):
+        cls._acquire_construction_lock(name)
+        try:
+            # nanobind binds the constructor with nb::new_, so at runtime _Context.__new__(cls, name)
+            # creates the C++ context. The generated stub only declares __init__, so type checkers
+            # fall back to object.__new__(cls) and reject the name argument.
+            inst = super().__new__(cls, name)  # pyright: ignore[reportCallIssue]
+        except BaseException:
+            cls._release_construction_lock()
+            raise
+        inst._holds_construction_lock = True
+        Context._construction_holder = inst.name
+        return inst
+
+    @classmethod
+    def _acquire_construction_lock(cls, name: str):
+        if Context._construction_owner == threading.get_ident():
+            raise ContextConstructionError(
+                f"Cannot create context '{name}': context '{Context._construction_holder}' is still under "
+                "construction in this thread. Call elaborate() or release() on it first."
+            )
+        Context._construction_lock.acquire()
+        Context._construction_owner = threading.get_ident()
+
+    @staticmethod
+    def _release_construction_lock():
+        Context._construction_owner = None
+        Context._construction_lock.release()
 
     @classmethod
     def obtain_lock(cls, name: str = ""):
-        Context._global_context_lock.acquire()
-        inst = cls(name)
-        inst.locked = True
-        return inst
+        """Deprecated: creating a Context takes the construction lock."""
+        return cls(name)
+
+    @property
+    def locked(self) -> bool:
+        """True while this context holds the construction lock."""
+        return getattr(self, "_holds_construction_lock", False)
 
     def __del__(self):
         self.release()
@@ -142,11 +186,22 @@ class Context(_Context):
         self.clear()
         self.release()
 
+    def elaborate(self):
+        """Finalize the design, detach from the global context, and release the construction lock."""
+        try:
+            super().elaborate()
+        finally:
+            self.release()
+
     def release(self):
-        self.reset()
-        if self.locked and Context._global_context_lock.locked():
-            self.locked = False
-            Context._global_context_lock.release()
+        """
+        Detach from the global context (only if this context is the active one)
+        and release the construction lock if this context holds it.
+        """
+        self.detach()
+        if self.locked:
+            self._holds_construction_lock = False
+            Context._release_construction_lock()
 
     @contextmanager
     def construct(self):
@@ -160,47 +215,77 @@ class Context(_Context):
             print(f"Exception occurred during context construction: {e}")
             raise
         else:
-            # Elaborate at end of construction
+            # Elaborate at end of construction. This also releases the construction lock.
             self.elaborate()
         finally:
-            # Release the global context lock after elaboration
             self.release()
+
+
+def _wrap_module_init(init):
+    """
+    Wrap a Module subclass's __init__ so that the outermost call of a construction
+    builds the module:
+
+    - Opens a ModuleName scope so ports, signals, and submodules created in __init__
+      get hierarchical names, and ends it deterministically when __init__ returns or raises.
+    - Initializes the C++ Module exactly once, before any user __init__ code runs.
+    - Gives the context ownership of the module so it isn't garbage collected.
+
+    Inner calls (super().__init__ from a subclass) run the wrapped __init__ directly.
+    """
+    sig = inspect.signature(init)
+    if "name" not in sig.parameters:
+        raise TypeError(f"{init.__qualname__}() must take a 'name' argument")
+
+    @functools.wraps(init)
+    def __init__(self, *args, **kwargs):
+        if self._dspsim_constructing:
+            init(self, *args, **kwargs)
+            return
+
+        bound = sig.bind(self, *args, **kwargs)
+        bound.apply_defaults()
+        with ModuleName(bound.arguments["name"]) as module_name:
+            _Module.__init__(self, module_name)
+            self._dspsim_constructing = True
+            try:
+                init(self, *args, **kwargs)
+            finally:
+                self._dspsim_constructing = False
+        self.context.own_model(self)
+
+    return __init__
 
 
 class Module(_Module):
     """
-    Python wrapper for the C++ Module class.
+    Python base class for modules.
 
-    Initialization order:
-        - Subclass __init__ is replaced with new_init. new_init called.
-        - new_init calls _Module __init__
-        - Subclass calls Module.__init__ with super().__init__
-        - Subclass __init__ completes.
-        - new_init completes.
+    Subclasses define __init__ with a `name` argument plus any other arguments, and can
+    be subclassed further. Calling super().__init__(name) is optional: the C++ Module is
+    initialized before the outermost __init__ runs, so self.context and the other Module
+    members are usable from its first line.
 
-    This is done so the subclass doesn't deal with ModuleName directly.
+        class Adder(Module):
+            def __init__(self, name: str, width: int = 8):
+                super().__init__(name)
+                self.a = InputU8("a")
     """
 
-    def __init_subclass__(cls):
-        original_init = cls.__init__
+    # True while this instance's __init__ chain is running.
+    _dspsim_constructing: bool = False
 
-        @functools.wraps(original_init)
-        def __new_init__(self, name: str):
-            # Get a new ModuleName instance for the module.
-            _name = ModuleName(name)
-
-            # Calls _Module.__init__
-            super().__init__(_name)
-            original_init(self, name)
-            # Deleting _name is important to change the context's active module.
-            del _name
-
-        # Subclasses's init will now handle ModuleName properly.
-        cls.__init__ = __new_init__
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Subclasses without their own __init__ inherit an already wrapped one.
+        if "__init__" in cls.__dict__:
+            cls.__init__ = _wrap_module_init(cls.__dict__["__init__"])
 
     def __init__(self, name: str):
-        """Subclass must call super().__init__ so context.own_model(self) gets called."""
-        self.context.own_model(self)
+        """Construction is handled by the wrapper, so this does nothing."""
+
+
+Module.__init__ = _wrap_module_init(Module.__init__)
 
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
@@ -225,6 +310,7 @@ def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
 __all__ = [
     "Clock",
     "Context",
+    "ContextConstructionError",
     "DffS8",
     "DffS16",
     "DffS32",
