@@ -4,6 +4,7 @@
 #include <dspsim/module.h>
 
 #include <spdlog/spdlog.h>
+#include <algorithm>
 
 namespace dspsim
 {
@@ -44,8 +45,12 @@ namespace dspsim
 
     void ProcessBase::schedule_dynamic_event(SensitivityEvent &event)
     {
-        // Implementation goes here
         event.dynamic_subscribers().push_back(this);
+        // Record each event once. The list is short, usually a single event.
+        if (std::find(dynamic_events_.begin(), dynamic_events_.end(), &event) == dynamic_events_.end())
+        {
+            dynamic_events_.push_back(&event);
+        }
         this->static_sensitivity_disabled_ = true;
     }
     void ProcessBase::schedule_dynamic_event(const std::string &event_name)
@@ -61,6 +66,20 @@ namespace dspsim
         {
             context_->logger->error("Event not found: {}", event_name);
         }
+    }
+
+    void ProcessBase::dynamic_event_triggered(SensitivityEvent &event)
+    {
+        // The triggering event removes this process from its own list. Remove it from the others.
+        for (auto *other : dynamic_events_)
+        {
+            if (other != &event)
+            {
+                other->dynamic_subscribers().erase(this);
+            }
+        }
+        dynamic_events_.clear();
+        reset_static_sensitivity();
     }
 
     Process::Process(Context *context, std::function<void()> eval, const std::string &name)

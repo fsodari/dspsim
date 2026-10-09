@@ -30,7 +30,7 @@ namespace dspsim::bindings
                  { return module.wait(time_delta, process); }, nb::arg("time_delta"), nb::arg("process") = nullptr)
             .def("wait", [](Module &module, SensitivityEvent &event, ProcessBase *process)
                  { return module.wait(event, process); }, nb::arg("event"), nb::arg("process") = nullptr)
-            .def("wait", [](Module &module, std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+            .def("wait", [](Module &module, const std::vector<SensitivityEvent *> &events, ProcessBase *process)
                  { return module.wait(events, process); }, nb::arg("events"), nb::arg("process") = nullptr)
             .def("ports", &Module::ports)
             .def("inputs", &Module::inputs)

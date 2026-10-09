@@ -78,4 +78,9 @@ namespace dspsim
         return context()->wait(events, process);
     }
 
+    WaitSensitivityEvent Module::wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    {
+        return context()->wait(events, process);
+    }
+
 } // namespace dspsim

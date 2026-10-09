@@ -42,8 +42,8 @@ namespace dspsim::bindings
     static inline auto bind_wait_sensitivity_event(nb::module_ &m, const char *name)
     {
         return nb::class_<WaitSensitivityEvent, WaitBase>(m, name)
-            .def(nb::init<std::reference_wrapper<SensitivityEvent>, ProcessBase *>(), nb::arg("event"), nb::arg("process"))
-            .def(nb::init<std::vector<std::reference_wrapper<SensitivityEvent>>, ProcessBase *>(), nb::arg("events"), nb::arg("process"))
+            .def(nb::init<SensitivityEvent &, ProcessBase *>(), nb::arg("event"), nb::arg("process"))
+            .def(nb::init<const std::vector<SensitivityEvent *> &, ProcessBase *>(), nb::arg("events"), nb::arg("process"))
             .def(nb::init<ProcessBase *>(), nb::arg("process"));
     }
 

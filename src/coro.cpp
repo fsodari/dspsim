@@ -83,24 +83,29 @@ namespace dspsim
         Sensitivity Event awaitable.
     */
     WaitSensitivityEvent::WaitSensitivityEvent(ProcessBase *process)
-        : process_(process)
     {
+        // Static sensitivity is already registered. Nothing to schedule.
+        (void)process;
     }
 
     WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process)
-        : WaitSensitivityEvent(process)
     {
-        // events_.push_back(&event);
-        dynamic_events_.push_back(&event);
+        process->schedule_dynamic_event(event);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
-        : WaitSensitivityEvent(process)
+    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process)
     {
-        for (const auto &event : events)
+        for (auto &event : events)
         {
-            dynamic_events_.push_back(&event.get());
-            // event.get().dynamic_subscribers().push_back(process_);
+            process->schedule_dynamic_event(event.get());
+        }
+    }
+
+    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    {
+        for (auto *event : events)
+        {
+            process->schedule_dynamic_event(*event);
         }
     }
 
@@ -112,12 +117,8 @@ namespace dspsim
 
     void WaitSensitivityEvent::await_suspend(std::coroutine_handle<> h) noexcept
     {
-        // Use the handle instead of a process?
+        // The constructor already scheduled the wait.
         (void)h;
-        for (auto &event : dynamic_events_)
-        {
-            event->dynamic_subscribers().push_back(process_);
-        }
     }
 
     void WaitSensitivityEvent::await_resume() noexcept {}

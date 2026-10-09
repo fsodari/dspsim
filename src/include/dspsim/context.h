@@ -108,6 +108,8 @@ namespace dspsim
         // WaitSensitivityEvent py_wait_sensitivity_event(SensitivityEvent &event, ProcessBase *process = nullptr) { return wait(event, process); }
         // wait on multiple dynamic events.
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        // wait on multiple dynamic events, given by pointer.
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
         // WaitSensitivityEvent py_wait_sensitivity_events(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr) { return wait(events, process); }
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).

@@ -7,6 +7,7 @@
 #include <functional>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace dspsim
 {
@@ -49,8 +50,20 @@ namespace dspsim
         void schedule_static_event(SensitivityEvent &event);
         void schedule_static_event(const std::string &event_name);
 
+        /*
+            Wait on a dynamic event. Static sensitivity is disabled until a dynamic event triggers the process.
+            Scheduling several dynamic events waits on any of them: the first to trigger unsubscribes the process
+            from the rest.
+        */
         void schedule_dynamic_event(SensitivityEvent &event);
+        // "*" waits on a change of any input of the parent module.
         void schedule_dynamic_event(const std::string &event_name);
+
+        /*
+            Called by a SensitivityEvent that triggered this process's dynamic sensitivity.
+            Unsubscribes from the other dynamic events and restores static sensitivity.
+        */
+        void dynamic_event_triggered(SensitivityEvent &event);
 
         // void always(SensitivityEvent *event, Process *process = nullptr) { _always.link_process(event, process); }
         template <typename... Args>
@@ -99,6 +112,9 @@ namespace dspsim
 
         // Static sensitivity will be disabled until a dynamic event occurs.
         bool static_sensitivity_disabled_ = false;
+
+        // Dynamic events this process is subscribed to. Cleared when one of them triggers.
+        std::vector<SensitivityEvent *> dynamic_events_;
     };
 
     class Process : public ProcessBase

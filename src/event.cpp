@@ -40,8 +40,8 @@ namespace dspsim
             auto process = dynamic_subscribers_.back();
             dynamic_subscribers_.pop_back();
             context_->_process_eval_stack.push_back(process);
-            // Clear the static sensitivity disabled flag for the process, as it has now been notified by a dynamic event.
-            process->reset_static_sensitivity();
+            // Unsubscribe from the process's other dynamic events and restore its static sensitivity.
+            process->dynamic_event_triggered(*this);
         }
     }
 

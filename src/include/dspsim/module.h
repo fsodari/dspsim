@@ -34,6 +34,7 @@ namespace dspsim
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
 
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }

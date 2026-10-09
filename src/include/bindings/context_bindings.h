@@ -23,7 +23,7 @@ namespace dspsim::bindings
                  { return ctx.wait(time_delta, process); }, nb::arg("time_delta"), nb::arg("process") = nullptr)
             .def("wait", [](Context &ctx, SensitivityEvent &event, ProcessBase *process)
                  { return ctx.wait(event, process); }, nb::arg("event"), nb::arg("process") = nullptr)
-            .def("wait", [](Context &ctx, std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+            .def("wait", [](Context &ctx, const std::vector<SensitivityEvent *> &events, ProcessBase *process)
                  { return ctx.wait(events, process); }, nb::arg("events"), nb::arg("process") = nullptr)
             .def("print_hierarchy", &Context::print_hierarchy, nb::arg("parent").none() = nullptr, nb::arg("depth") = 0)
             .def("children", &Context::children, nb::arg("parent").none())

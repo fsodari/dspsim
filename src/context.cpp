@@ -282,6 +282,15 @@ namespace dspsim
         return WaitSensitivityEvent{events, process};
     }
 
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return WaitSensitivityEvent{events, process};
+    }
+
     void Context::print_hierarchy(Model *parent, int depth) const
     {
         for (auto *child : children(parent))

@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <functional>
 #include <initializer_list>
 
 namespace dspsim
@@ -102,6 +103,11 @@ namespace dspsim
         ProcessBase *process_;
     };
 
+    /*
+        Awaitable for sensitivity events. Like WaitTimeEvent, the constructor schedules the wait:
+        the process subscribes to the events immediately, so construct it only to await it.
+        Waiting on several events resumes on whichever triggers first.
+    */
     class WaitSensitivityEvent : public WaitBase
     {
 
@@ -114,19 +120,13 @@ namespace dspsim
         WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process)
             : WaitSensitivityEvent(event.get(), process) {}
 
-        // Wait on multiple dynamic events, if any occur (or list);
-        WaitSensitivityEvent(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process);
+        // Wait on any of several dynamic events.
+        WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process);
+        // Wait on any of several dynamic events, given by pointer (used by the Python bindings).
+        WaitSensitivityEvent(const std::vector<SensitivityEvent *> &events, ProcessBase *process);
 
         bool await_ready() const noexcept;
         void await_suspend(std::coroutine_handle<> h) noexcept;
         void await_resume() noexcept;
-
-    private:
-        // 0 initial capacity: this is constructed fresh on every co_await in hot loops, and the
-        // common case (waiting on already-registered static sensitivity) never pushes any events,
-        // so an eager reserve() here would mean two heap allocations per resume for nothing.
-        // UniqueStack<SensitivityEvent *> events_{0};
-        std::vector<SensitivityEvent *> dynamic_events_;
-        ProcessBase *process_;
     };
 } // namespace dspsim

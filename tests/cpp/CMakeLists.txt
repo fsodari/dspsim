@@ -17,7 +17,8 @@ add_executable(tests
     test_vport.cpp
     test_context.cpp
     test_listeners.cpp
-    test_module_name.cpp)
+    test_module_name.cpp
+    test_dynamic_events.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax
