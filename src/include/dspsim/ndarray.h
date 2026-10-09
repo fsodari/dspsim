@@ -17,28 +17,26 @@ namespace dspsim
     using Shape = std::vector<std::size_t>;
     using Index = std::vector<std::size_t>;
 
-    // A resolved selection along one dimension: count elements starting at start, advancing by step.
+    // A resolved selection along one dimension: count consecutive elements starting at start.
     // If drop is set the dimension is removed from the result (it must have count == 1).
     struct Range
     {
         std::ptrdiff_t start = 0;
-        std::ptrdiff_t step = 1;
         std::size_t count = 0;
         bool drop = false;
     };
 
-    // A python-style slice of one dimension. Negative start/stop count from the end, out of range bounds
-    // are clamped, and a negative stride walks backwards. An unset start/stop means "to the end".
+    // A python-style slice of one dimension, without a step. Negative start/stop count from the end and
+    // out of range bounds are clamped. An unset start/stop means "to the end".
     struct Slice
     {
         std::optional<std::ptrdiff_t> start;
         std::optional<std::ptrdiff_t> stop;
-        std::ptrdiff_t stride = 1;
         bool drop = false;
 
         Slice() = default;
-        Slice(std::optional<std::ptrdiff_t> start, std::optional<std::ptrdiff_t> stop, std::ptrdiff_t stride = 1)
-            : start(start), stop(stop), stride(stride) {}
+        Slice(std::optional<std::ptrdiff_t> start, std::optional<std::ptrdiff_t> stop)
+            : start(start), stop(stop) {}
 
         // The whole dimension.
         static Slice all() { return {}; }
@@ -59,33 +57,17 @@ namespace dspsim
                 auto i = *start < 0 ? *start + n : *start;
                 if (i < 0 || i >= n)
                     throw std::out_of_range("array index out of range");
-                return {i, 1, 1, true};
+                return {i, 1, true};
             }
-            if (stride == 0)
-                throw std::invalid_argument("slice stride cannot be zero");
-            auto norm = [&](std::ptrdiff_t v, std::ptrdiff_t lo, std::ptrdiff_t hi)
+            auto norm = [&](std::ptrdiff_t v)
             {
                 if (v < 0)
                     v += n;
-                return std::clamp<std::ptrdiff_t>(v, lo, hi);
+                return std::clamp<std::ptrdiff_t>(v, 0, n);
             };
-            std::ptrdiff_t b, e;
-            if (stride > 0)
-            {
-                b = start ? norm(*start, 0, n) : 0;
-                e = stop ? norm(*stop, 0, n) : n;
-            }
-            else
-            {
-                b = start ? norm(*start, -1, n - 1) : n - 1;
-                e = stop ? norm(*stop, -1, n - 1) : -1;
-            }
-            std::size_t count = 0;
-            if (stride > 0 && e > b)
-                count = (e - b + stride - 1) / stride;
-            else if (stride < 0 && b > e)
-                count = (b - e + (-stride) - 1) / (-stride);
-            return {b, stride, count, false};
+            std::ptrdiff_t b = start ? norm(*start) : 0;
+            std::ptrdiff_t e = stop ? norm(*stop) : n;
+            return {b, e > b ? static_cast<std::size_t>(e - b) : 0, false};
         }
     };
     using Slices = std::vector<Slice>;
@@ -115,7 +97,7 @@ namespace dspsim
                 throw std::out_of_range("too many ranges for array dimensions");
             std::vector<Range> rs = ranges;
             for (std::size_t d = rs.size(); d < shape.size(); ++d)
-                rs.push_back({0, 1, shape[d], false});
+                rs.push_back({0, shape[d], false});
 
             std::vector<std::size_t> strides(shape.size(), 1);
             for (std::size_t d = shape.size(); d-- > 1;)
@@ -128,9 +110,8 @@ namespace dspsim
                 const auto &r = rs[d];
                 if (r.count > 0)
                 {
-                    auto last = r.start + r.step * static_cast<std::ptrdiff_t>(r.count - 1);
-                    if (r.start < 0 || last < 0 || r.start >= static_cast<std::ptrdiff_t>(shape[d]) ||
-                        last >= static_cast<std::ptrdiff_t>(shape[d]))
+                    auto last = r.start + static_cast<std::ptrdiff_t>(r.count - 1);
+                    if (r.start < 0 || last >= static_cast<std::ptrdiff_t>(shape[d]))
                         throw std::out_of_range("array index out of range");
                 }
                 if (!r.drop)
@@ -143,7 +124,7 @@ namespace dspsim
             {
                 std::ptrdiff_t f = 0;
                 for (std::size_t d = 0; d < rs.size(); ++d)
-                    f += (rs[d].start + rs[d].step * static_cast<std::ptrdiff_t>(pos[d])) * static_cast<std::ptrdiff_t>(strides[d]);
+                    f += (rs[d].start + static_cast<std::ptrdiff_t>(pos[d])) * static_cast<std::ptrdiff_t>(strides[d]);
                 sel.flat.push_back(static_cast<std::size_t>(f));
                 for (std::size_t d = rs.size(); d-- > 0;)
                 {

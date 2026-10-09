@@ -1,14 +1,8 @@
-from dspsim._framework import Wait
-
 from dspsim.framework import (
     Clock,
     Context,
-    InputU32,
     Module,
-    OutputU32,
     SignalU32,
-    # Wait,
-    WaitTimeEvent,
 )
 
 
@@ -32,8 +26,8 @@ def test_some_coro():
     with Context() as ctx:
         ctx.log_level = "debug"
         with ctx.construct():
-            clk = Clock("clk", 10)
-            m = SomeCoroModule("m")
+            _clk = Clock("clk", 10)
+            _m = SomeCoroModule("m")
 
         ctx.run(20)
 

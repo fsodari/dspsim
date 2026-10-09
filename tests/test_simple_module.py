@@ -73,7 +73,7 @@ def test_multithreaded_models():
 
 def test_cleanup():
     ctx = Context()
-    a = SomeModel("a")
+    _a = SomeModel("a")
     SomeModel("b")
 
     for _ in range(10):

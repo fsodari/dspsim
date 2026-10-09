@@ -97,26 +97,25 @@ TEST_CASE("array slicing")
     auto ctx = Context::create();
     SignalArray<int> s{"s", {4, 6}};
 
-    auto v = s.slice({Slice{1, 4}, Slice{0, std::nullopt, 2}});
+    auto v = s.slice({Slice{1, 4}, Slice{0, 3}});
     REQUIRE(v.shape() == Shape{3, 3});
     REQUIRE(&v[{0, 0}] == &s[{1, 0}]);
-    REQUIRE(&v[{2, 2}] == &s[{3, 4}]);
+    REQUIRE(&v[{2, 2}] == &s[{3, 2}]);
 
-    // Negative indices, reversed stride, clamping and dropped dimensions.
-    auto r = s.slice({Slice::at(-1), Slice{std::nullopt, std::nullopt, -1}});
-    REQUIRE(r.shape() == Shape{6});
-    REQUIRE(&r.flat(0) == &s[{3, 5}]);
-    REQUIRE(&r.flat(5) == &s[{3, 0}]);
+    // Negative indices, clamping and dropped dimensions.
+    auto r = s.slice({Slice::at(-1), Slice{-4, std::nullopt}});
+    REQUIRE(r.shape() == Shape{4});
+    REQUIRE(&r.flat(0) == &s[{3, 2}]);
+    REQUIRE(&r.flat(3) == &s[{3, 5}]);
     REQUIRE(s.slice({Slice{-2, 100}}).shape() == Shape{2, 6});
     REQUIRE(s.slice({Slice{3, 1}}).size() == 0);
     REQUIRE_THROWS(s.slice({Slice::at(4)}));
-    REQUIRE_THROWS(s.slice({Slice{0, 1, 0}}));
     REQUIRE_THROWS(s.slice({Slice::all(), Slice::all(), Slice::all()}));
 
     // Slicing a slice.
     auto vv = v.slice({Slice::all(), Slice{1, std::nullopt}});
     REQUIRE(vv.shape() == Shape{3, 2});
-    REQUIRE(&vv[{1, 0}] == &s[{2, 2}]);
+    REQUIRE(&vv[{1, 0}] == &s[{2, 1}]);
 
     // Bind port slices to signal slices.
     SliceTop slice_top{"slice_top"};
@@ -124,7 +123,7 @@ TEST_CASE("array slicing")
     auto &out = slice_top.out;
     SignalArray<int> a{"a", {4, 6}};
     SignalArray<int> b{"b", {4, 6}};
-    in.bind(a.slice({Slice{0, 4, 2}, Slice{0, 6, 2}}));
+    in.bind(a.slice({Slice{1, 3}, Slice{2, 5}}));
     out.slice({Slice{0, 1}}).bind(b.slice({Slice{3, 4}, Slice{0, 3}}));
     REQUIRE_THROWS(in.bind(a.slice({Slice{0, 2}})));
 
@@ -155,5 +154,5 @@ TEST_CASE("array bulk read and write")
     REQUIRE(top.in.read() == std::vector<int>{1, 2, 3, 9, 9, 9});
     REQUIRE(top.in.slice({Slice::at(1)}).read() == std::vector<int>{9, 9, 9});
     REQUIRE(b.read() == std::vector<int>{0, 5, 4, 7, 2, 1});
-    REQUIRE(b.slice({Slice::all(), Slice{0, 3, 2}}).read() == std::vector<int>{0, 4, 7, 1});
+    REQUIRE(b.slice({Slice::all(), Slice{1, 3}}).read() == std::vector<int>{5, 4, 2, 1});
 }
