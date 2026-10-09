@@ -75,18 +75,6 @@ _valid_port_types = [
     InputU16,
     InputU32,
     InputU64,
-    OutputS8,
-    OutputS16,
-    OutputS32,
-    OutputS64,
-    OutputU8,
-    OutputU16,
-    OutputU32,
-    OutputU64,
-    OutputArrayU8,
-    OutputArrayU16,
-    OutputArrayU32,
-    OutputArrayU64,
     InputArrayS8,
     InputArrayS16,
     InputArrayS32,
@@ -95,14 +83,22 @@ _valid_port_types = [
     InputArrayU16,
     InputArrayU32,
     InputArrayU64,
-    InputArrayS8,
-    InputArrayS16,
-    InputArrayS32,
-    InputArrayS64,
+    OutputS8,
+    OutputS16,
+    OutputS32,
+    OutputS64,
+    OutputU8,
+    OutputU16,
+    OutputU32,
+    OutputU64,
     OutputArrayS8,
     OutputArrayS16,
     OutputArrayS32,
     OutputArrayS64,
+    OutputArrayU8,
+    OutputArrayU16,
+    OutputArrayU32,
+    OutputArrayU64,
 ]
 
 
@@ -268,14 +264,14 @@ def generate_files(file_pairs: list[tuple[str, str]], output_dir: Path, **kwargs
         if existing_hash == content_hash:
             return
 
-    # Write the hash to a file in the build dir
-    with open(hash_file, "w") as f:
-        f.write(content_hash)
-
     # Write the generated files to the build dir.
     for output_file, content in rendered_content:
         with open(output_dir / output_file, "w") as f:
             f.write(content)
+
+        # Write the hash to a file in the build dir
+        with open(hash_file, "w") as f:
+            f.write(content_hash)
 
 
 def generate_module_project_files(module_info: ModuleInfo, output_dir: Path) -> None:
@@ -310,7 +306,7 @@ def build_module(source_dir: Path, build_dir: Path, verbose: bool = False):
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_PREFIX_PATH={site_packages_path}",
     ]
-    out = subprocess.run(cmake_cfg_cmd, check=True, capture_output=True)
+    out = subprocess.run(cmake_cfg_cmd, check=False, capture_output=True)
     if verbose:
         print(out.stdout.decode())
     if out.returncode != 0:

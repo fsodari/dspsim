@@ -89,7 +89,6 @@ namespace dspsim
 
     private:
         int width_;
-        int parent_id_;
     };
 
     /*

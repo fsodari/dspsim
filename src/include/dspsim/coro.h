@@ -38,7 +38,9 @@ namespace dspsim
             // This needs to clean up the context and remove any reference to the coroutine process so that it
             // doesn't get triggered again.
             void return_void() { /* Clean up context. */ }
-            void unhandled_exception() { std::terminate(); }
+            // Rethrowing leaves the coroutine suspended at its final suspend point and propagates the exception
+            // to whoever resumed it (Context::run()/eval()) instead of terminating the program.
+            void unhandled_exception() { throw; }
         };
 
         //
