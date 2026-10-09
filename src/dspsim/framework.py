@@ -205,28 +205,18 @@ class Module(_Module):
 
 def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
     if width <= 8:
-        return (
-            SignalS8(name, width, init, is_signed)
-            if is_signed
-            else SignalU8(name, width, init, is_signed)
-        )
+        return SignalS8(name, width, init) if is_signed else SignalU8(name, width, init)
     elif width <= 16:
         return (
-            SignalS16(name, width, init, is_signed)
-            if is_signed
-            else SignalU16(name, width, init, is_signed)
+            SignalS16(name, width, init) if is_signed else SignalU16(name, width, init)
         )
     elif width <= 32:
         return (
-            SignalS32(name, width, init, is_signed)
-            if is_signed
-            else SignalU32(name, width, init, is_signed)
+            SignalS32(name, width, init) if is_signed else SignalU32(name, width, init)
         )
     elif width <= 64:
         return (
-            SignalS64(name, width, init, is_signed)
-            if is_signed
-            else SignalU64(name, width, init, is_signed)
+            SignalS64(name, width, init) if is_signed else SignalU64(name, width, init)
         )
     else:
         raise ValueError("Unsupported signal width")

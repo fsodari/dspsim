@@ -154,55 +154,6 @@ NB_MODULE(_framework, m)
     bindings::bind_module_name(m, "ModuleName");
     bindings::bind_module(m, "Module");
 
-    // Bind VPorts
-    bindings::bind_vinput<uint8_t>(m, "VInputU8");
-    bindings::bind_vinput<uint16_t>(m, "VInputU16");
-    bindings::bind_vinput<uint32_t>(m, "VInputU32");
-    bindings::bind_vinput<uint64_t>(m, "VInputU64");
-
-    bindings::bind_vinput<int8_t>(m, "VInputS8");
-    bindings::bind_vinput<int16_t>(m, "VInputS16");
-    bindings::bind_vinput<int32_t>(m, "VInputS32");
-    bindings::bind_vinput<int64_t>(m, "VInputS64");
-
-    bindings::bind_vinput<double>(m, "VInputFloat");
-
-    bindings::bind_voutput<uint8_t>(m, "VOutputU8");
-    bindings::bind_voutput<uint16_t>(m, "VOutputU16");
-    bindings::bind_voutput<uint32_t>(m, "VOutputU32");
-    bindings::bind_voutput<uint64_t>(m, "VOutputU64");
-
-    bindings::bind_voutput<int8_t>(m, "VOutputS8");
-    bindings::bind_voutput<int16_t>(m, "VOutputS16");
-    bindings::bind_voutput<int32_t>(m, "VOutputS32");
-    bindings::bind_voutput<int64_t>(m, "VOutputS64");
-
-    bindings::bind_voutput<double>(m, "VOutputFloat");
-
-    bindings::bind_vinput_array<uint8_t>(m, "VInputArrayU8");
-    bindings::bind_vinput_array<uint16_t>(m, "VInputArrayU16");
-    bindings::bind_vinput_array<uint32_t>(m, "VInputArrayU32");
-    bindings::bind_vinput_array<uint64_t>(m, "VInputArrayU64");
-
-    bindings::bind_vinput_array<int8_t>(m, "VInputArrayS8");
-    bindings::bind_vinput_array<int16_t>(m, "VInputArrayS16");
-    bindings::bind_vinput_array<int32_t>(m, "VInputArrayS32");
-    bindings::bind_vinput_array<int64_t>(m, "VInputArrayS64");
-
-    bindings::bind_vinput_array<double>(m, "VInputArrayFloat");
-
-    bindings::bind_voutput_array<uint8_t>(m, "VOutputArrayU8");
-    bindings::bind_voutput_array<uint16_t>(m, "VOutputArrayU16");
-    bindings::bind_voutput_array<uint32_t>(m, "VOutputArrayU32");
-    bindings::bind_voutput_array<uint64_t>(m, "VOutputArrayU64");
-
-    bindings::bind_voutput_array<int8_t>(m, "VOutputArrayS8");
-    bindings::bind_voutput_array<int16_t>(m, "VOutputArrayS16");
-    bindings::bind_voutput_array<int32_t>(m, "VOutputArrayS32");
-    bindings::bind_voutput_array<int64_t>(m, "VOutputArrayS64");
-
-    bindings::bind_voutput_array<double>(m, "VOutputArrayFloat");
-
     // Dff
     bindings::bind_dff_class<uint8_t>(m, "DffU8");
     bindings::bind_dff_class<uint16_t>(m, "DffU16");

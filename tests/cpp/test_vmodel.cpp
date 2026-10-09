@@ -76,7 +76,8 @@ TEST_CASE("test_vmodel", "[vmodel]")
     Clock clk{"clk", 10};
     Signal<uint8_t> rst{"rst"};
 
-    Top<uint32_t, Skid> top1{"top1"};
+    // Skid uses signed ports. Skid2 uses unsigned ports on the same HDL.
+    Top<int32_t, Skid> top1{"top1"};
     Top<uint32_t, Skid2> top2{"top2"};
 
     top1.clk.bind(clk);
@@ -90,10 +91,11 @@ TEST_CASE("test_vmodel", "[vmodel]")
     ctx->elaborate();
     ctx->run(100);
 
-    // top1.send({1, 2, 3, 4, 5});
-    auto tx_data = std::initializer_list<uint32_t>{99, 81, 73, 64, 1, 55, 42, 33};
+    // Signed data includes the extremes of a 24-bit signed value to exercise sign extension.
+    auto tx_data_s = std::initializer_list<int32_t>{99, -81, 73, -1, 0, -8388608, 8388607, -33};
+    auto tx_data = std::initializer_list<uint32_t>{99, 81, 73, 64, 1, 55, 42, 0xFFFFFF};
 
-    top1.axis_tx.push_range(tx_data);
+    top1.axis_tx.push_range(tx_data_s);
     top2.axis_tx.push_range(tx_data);
     ctx->run(100);
     top1.ready(1);
@@ -106,6 +108,6 @@ TEST_CASE("test_vmodel", "[vmodel]")
     top2.ready(1);
     ctx->run(200);
 
-    REQUIRE_THAT(top1.axis_rx.fifo, Catch::Matchers::RangeEquals(tx_data));
+    REQUIRE_THAT(top1.axis_rx.fifo, Catch::Matchers::RangeEquals(tx_data_s));
     REQUIRE_THAT(top2.axis_rx.fifo, Catch::Matchers::RangeEquals(tx_data));
 }

@@ -5,7 +5,7 @@
 namespace dspsim
 {
     Clock::Clock(const std::string &name, uint64_t period)
-        : Signal<uint8_t>(name, 1, 0, false), _period(period)
+        : Signal<uint8_t>(name, 1, 0), _period(period)
     {
         this->_kind = "clock";
 

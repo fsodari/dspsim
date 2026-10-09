@@ -6,6 +6,8 @@ from typing import Literal
 
 type ParamValueT = int | float | str
 
+_INTEGRAL_KEYWORDS = ("bit", "logic", "int", "integer")
+
 
 @dataclass
 class Parameter:
@@ -74,6 +76,18 @@ class Port:
     def is_array(self) -> bool:
         """Unpacked array ports have a non-empty shape."""
         return len(self.shape) > 0
+
+    @property
+    def is_signed_int(self) -> bool:
+        """Signed integral ports map to signed stdint types (InputS8, OutputS32, ...)."""
+        return self.signed and self.keyword in _INTEGRAL_KEYWORDS
+
+    @property
+    def vmacro(self) -> str:
+        """The dspsim vport macro used to declare this port on a generated VModule."""
+        array = "_ARRAY" if self.is_array else ""
+        sign = "_S" if self.is_signed_int else ""
+        return f"DSPSIM_V{self.direction.upper()}{array}{sign}"
 
     @property
     def stdint_size(self) -> int:

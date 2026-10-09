@@ -12,11 +12,7 @@ public:
 
     // Ports
     {%-for port in model.ports.values()%}
-    {%-if port.is_array%}
-    DSPSIM_V{{port.direction.upper()}}_ARRAY({{port.name}}, {{port.width}});
-    {%-else%}
-    DSPSIM_V{{port.direction.upper()}}({{port.name}}, {{port.width}});
-    {%-endif%}
+    {{port.vmacro}}({{port.name}}, {{port.width}});
     {%-endfor%}
 
     // {{model.name}} Constructor

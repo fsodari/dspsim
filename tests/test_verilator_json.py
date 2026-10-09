@@ -27,3 +27,24 @@ def test_verilate_json():
         print(parameter)
     for port in module_info.ports.values():
         print(port)
+
+
+def test_signed_ports():
+    """Signed HDL ports are detected and select the signed vport macros."""
+    json_output, metadata = verilate_json(
+        [HDL_DIR / "HellModel.sv"], include_dirs=[HDL_DIR]
+    )
+    ports = parse_module_json(json_output, metadata).ports
+
+    expected = {
+        "a": (False, "DSPSIM_VINPUT"),
+        "b": (False, "DSPSIM_VOUTPUT"),
+        "c": (True, "DSPSIM_VINPUT_S"),
+        "d": (True, "DSPSIM_VOUTPUT_S"),
+        "e": (True, "DSPSIM_VOUTPUT_ARRAY_S"),
+        "f": (True, "DSPSIM_VOUTPUT_ARRAY_S"),
+        "g": (False, "DSPSIM_VOUTPUT_ARRAY"),
+    }
+    for name, (signed, macro) in expected.items():
+        assert ports[name].signed == signed, name
+        assert ports[name].vmacro == macro, name

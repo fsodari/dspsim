@@ -208,6 +208,12 @@ def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> Non
                 f"Width mismatch for port '{name}': "
                 f"expected {model_port.stdint_size}, got {port.stdint_size}"
             )
+        if port.signed != model_port.is_signed_int:
+            raise TypeError(
+                f"Sign mismatch for port '{name}': "
+                f"expected {'signed' if model_port.is_signed_int else 'unsigned'}, "
+                f"got {'signed' if port.signed else 'unsigned'}"
+            )
         if port.is_array != model_port.is_array:
             raise TypeError(
                 f"Array mismatch for port '{name}': "

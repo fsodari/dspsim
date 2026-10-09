@@ -51,7 +51,7 @@ namespace dspsim
     {
 
     public:
-        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false);
+        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0);
         virtual ~Signal() = default;
         Signal<T> &init(const T &value);
 
@@ -59,7 +59,6 @@ namespace dspsim
             Properties
         */
         int width() const { return width_; }
-        bool is_signed() const { return is_signed_; }
 
         virtual const std::string repr() const override { return ""; }
 
@@ -77,9 +76,9 @@ namespace dspsim
         /*
             Static Methods
         */
-        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0)
         {
-            return Model::create<Signal<T>>(name, width, init, is_signed);
+            return Model::create<Signal<T>>(name, width, init);
         }
 
         // This shouldn't be used, but it's available.
@@ -90,7 +89,6 @@ namespace dspsim
 
     private:
         int width_;
-        bool is_signed_;
         int parent_id_;
     };
 
@@ -120,9 +118,9 @@ namespace dspsim
     {
     public:
         SignalArray(const std::string &name, Shape shape,
-                    int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+                    int width = default_bitwidth<T>::value, T init = 0)
             : detail::NdArray<Signal<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
-                                         { return std::make_unique<Signal<T>>(n, width, init, is_signed); })
+                                         { return std::make_unique<Signal<T>>(n, width, init); })
         {
         }
 
@@ -134,9 +132,9 @@ namespace dspsim
         // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
         // Each element shares ownership of the array, so it lives as long as the context holds any element.
         static std::shared_ptr<SignalArray<T>> create(const std::string &name, Shape shape,
-                                                      int width = default_bitwidth<T>::value, T init = 0, bool is_signed = false)
+                                                      int width = default_bitwidth<T>::value, T init = 0)
         {
-            auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init, is_signed);
+            auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init);
             for (std::size_t i = 0; i < array->size(); ++i)
             {
                 Signal<T> &element = array->flat(i);

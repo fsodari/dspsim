@@ -13,5 +13,4 @@
 #include "port_bindings.h"
 #include "process_bindings.h"
 #include "signal_bindings.h"
-#include "vport_bindings.h"
 #include "dff_bindings.h"
