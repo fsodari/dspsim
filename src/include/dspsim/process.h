@@ -17,7 +17,8 @@ namespace dspsim
     class ProcessBase
     {
     public:
-        ProcessBase(const std::string &name = "");
+        /// Processes belong to the context that registers them, not the global active context.
+        ProcessBase(Context *context, const std::string &name = "");
         virtual ~ProcessBase() = default;
 
         Context *context() const { return context_; }
@@ -104,7 +105,7 @@ namespace dspsim
     {
 
     public:
-        Process(std::function<void()> eval, const std::string &name = "");
+        Process(Context *context, std::function<void()> eval, const std::string &name = "");
 
         void resume() override
         {
@@ -136,7 +137,7 @@ namespace dspsim
     {
 
     public:
-        CoroProcess(Task task, const std::string &name = "");
+        CoroProcess(Context *context, Task task, const std::string &name = "");
 
         bool done() const override;
         void resume() override;

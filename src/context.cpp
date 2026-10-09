@@ -46,7 +46,8 @@ namespace dspsim
         {
             _name = "context_" + std::to_string(_id);
         }
-        this->logger = spdlog::stdout_color_mt(_name);
+        // spdlog's registry needs unique names, and context names may repeat. The id makes it unique.
+        this->logger = spdlog::stdout_color_mt(std::format("{}#{}", _name, _id));
         logger->set_level(spdlog::level::warn);
         logger->set_pattern("[%^%l%$] %v");
 
@@ -91,6 +92,18 @@ namespace dspsim
         {
             model->finalize();
         }
+        _elaborated = true;
+        detach();
+    }
+
+    bool Context::elaborated() const
+    {
+        return _elaborated;
+    }
+
+    void Context::detach()
+    {
+        get_global_context_factory()->detach(this);
     }
 
     void Context::_do_initialize()
@@ -346,7 +359,6 @@ namespace dspsim
 
     void Context::_add_model(Model *model)
     {
-        model->_id = _next_model_id++;
         model->_hier_name = _current_hierarchy() + "." + model->name();
         SPDLOG_LOGGER_TRACE(logger, "Adding model: {}, hier: {}", model->name(), _current_hierarchy());
         _registered_models.push_back(model);
@@ -373,14 +385,14 @@ namespace dspsim
 
     ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<Process>(eval, name));
+        _processes.emplace_back(std::make_unique<Process>(this, eval, name));
         logger->info("Registering process: {}", name);
         return _processes.back().get();
     }
 
     ProcessBase *Context::register_coro_task(Task task, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<CoroProcess>(std::move(task), name));
+        _processes.emplace_back(std::make_unique<CoroProcess>(this, std::move(task), name));
         logger->info("Registering coroutine task: {}", name);
         return _processes.back().get();
     }
@@ -438,8 +450,23 @@ namespace dspsim
         _active_context = nullptr;
     }
 
+    void ContextFactory::detach(Context *context)
+    {
+        if (_active_context.get() == context)
+        {
+            _active_context = nullptr;
+        }
+    }
+
     std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
+        if (_active_context && !_active_context->elaborated())
+        {
+            throw ContextConstructionError(std::format(
+                "Cannot create context '{}': context '{}' has not been elaborated. "
+                "Call elaborate() or detach() on it first, or Context::reset() to discard it.",
+                name, _active_context->name()));
+        }
         _active_context = nullptr;
         _active_context = std::shared_ptr<Context>(new Context(name, _next_context_id++));
         return _active_context;

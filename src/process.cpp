@@ -7,11 +7,11 @@
 
 namespace dspsim
 {
-    ProcessBase::ProcessBase(const std::string &name)
-        : context_(Context::obtain().get()),
-          id_(context()->next_process_id()),
+    ProcessBase::ProcessBase(Context *context, const std::string &name)
+        : context_(context),
+          id_(context->next_process_id()),
           name_(name),
-          parent_module_(context()->_active_module())
+          parent_module_(context->_active_module())
     {
     }
 
@@ -63,16 +63,16 @@ namespace dspsim
         }
     }
 
-    Process::Process(std::function<void()> eval, const std::string &name)
-        : ProcessBase(name), eval_(eval)
+    Process::Process(Context *context, std::function<void()> eval, const std::string &name)
+        : ProcessBase(context, name), eval_(eval)
     {
     }
 
     /*
         Coroutine processes.
     */
-    CoroProcess::CoroProcess(Task task, const std::string &name)
-        : ProcessBase(name), task_(std::move(task))
+    CoroProcess::CoroProcess(Context *context, Task task, const std::string &name)
+        : ProcessBase(context, name), task_(std::move(task))
     {
     }
     void CoroProcess::resume()

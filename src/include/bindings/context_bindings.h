@@ -13,6 +13,7 @@ namespace dspsim::bindings
             // Methods
             .def("clear", &Context::clear)
             .def("elaborate", &Context::elaborate)
+            .def("detach", &Context::detach)
             .def("eval", &Context::eval)
             .def("run", &Context::run, nb::arg("time_inc") = 0)
             .def("schedule_time_delta_event", &Context::schedule_time_delta_event, nb::arg("time_delta"), nb::arg("process") = nullptr)
@@ -30,6 +31,7 @@ namespace dspsim::bindings
             // Properties
             .def_prop_ro("name", &Context::name)
             .def_prop_ro("id", &Context::id)
+            .def_prop_ro("elaborated", &Context::elaborated)
             .def_prop_ro("models", &Context::models)
             .def_prop_ro("owned_models", &Context::owned_models)
             .def_prop_ro("modules", &Context::modules)
@@ -57,6 +59,7 @@ namespace dspsim::bindings
 
     static inline auto bind_context_factory(nb::module_ &m, const char *name)
     {
+        nb::exception<ContextConstructionError>(m, "ContextConstructionError", PyExc_RuntimeError);
         m.def("set_global_context_factory", &set_global_context_factory, nb::arg("context_factory"));
         m.def("get_global_context_factory", &get_global_context_factory);
         m.def("reset_global_context_factory", &reset_global_context_factory);
@@ -64,6 +67,7 @@ namespace dspsim::bindings
         return nb::class_<ContextFactory>(m, name)
             .def("obtain", &ContextFactory::obtain)
             .def("reset", &ContextFactory::reset)
+            .def("detach", &ContextFactory::detach, nb::arg("context"))
             .def("create", &ContextFactory::create, nb::arg("name") = "");
     }
 } // namespace dspsim

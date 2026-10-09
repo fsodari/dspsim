@@ -52,7 +52,7 @@ def test_model_initialization():
 def test_multithreaded_models():
     def s1():
         # Locks other threads from creating a new context.
-        with Context.obtain_lock() as context:
+        with Context() as context:
             # When construct exits, the global context lock will be released.
             with context.construct():
                 models = [SomeModel(f"some_model_{i}") for i in range(30)]

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 from dspsim._framework import (
     Clock,
+    ContextConstructionError,
     DffS8,
     DffS16,
     DffS32,
@@ -114,20 +115,62 @@ atexit.register(reset_global_context_factory)
 class Context(_Context):
     """
     Python wrapper for the C++ Context class.
-    In multi-threaded applications, only one thread can
-    instantiate models at a time. Threads must call release() when finished instatiating models,
-    then they can proceed to simulation/elaboration.
+
+    Only one context can be under construction at a time, because models register with the
+    global active context. Creating a Context takes a global lock that is released when the
+    context is elaborated (or released). After elaboration the design is locked, the context
+    detaches from the global context, and it can simulate independently of new contexts.
+
+    - Another thread creating a Context blocks until the current one is elaborated.
+    - The same thread creating a second Context before elaborating the first would deadlock,
+      so it raises ContextConstructionError instead.
     """
 
-    locked: bool = False
-    _global_context_lock: threading.Lock = threading.Lock()
+    _construction_lock: threading.Lock = threading.Lock()
+    # Thread ident of the lock holder. Only the holder sets it to its own ident, so a thread
+    # can read it without the lock to check whether it already holds the lock.
+    _construction_owner: int | None = None
+    # Name of the context holding the lock, for error messages.
+    _construction_holder: str = ""
+
+    def __new__(cls, name: str = ""):
+        cls._acquire_construction_lock(name)
+        try:
+            # nanobind binds the constructor with nb::new_, so at runtime _Context.__new__(cls, name)
+            # creates the C++ context. The generated stub only declares __init__, so type checkers
+            # fall back to object.__new__(cls) and reject the name argument.
+            inst = super().__new__(cls, name)  # pyright: ignore[reportCallIssue]
+        except BaseException:
+            cls._release_construction_lock()
+            raise
+        inst._holds_construction_lock = True
+        Context._construction_holder = inst.name
+        return inst
+
+    @classmethod
+    def _acquire_construction_lock(cls, name: str):
+        if Context._construction_owner == threading.get_ident():
+            raise ContextConstructionError(
+                f"Cannot create context '{name}': context '{Context._construction_holder}' is still under "
+                "construction in this thread. Call elaborate() or release() on it first."
+            )
+        Context._construction_lock.acquire()
+        Context._construction_owner = threading.get_ident()
+
+    @staticmethod
+    def _release_construction_lock():
+        Context._construction_owner = None
+        Context._construction_lock.release()
 
     @classmethod
     def obtain_lock(cls, name: str = ""):
-        Context._global_context_lock.acquire()
-        inst = cls(name)
-        inst.locked = True
-        return inst
+        """Deprecated: creating a Context takes the construction lock."""
+        return cls(name)
+
+    @property
+    def locked(self) -> bool:
+        """True while this context holds the construction lock."""
+        return getattr(self, "_holds_construction_lock", False)
 
     def __del__(self):
         self.release()
@@ -142,11 +185,22 @@ class Context(_Context):
         self.clear()
         self.release()
 
+    def elaborate(self):
+        """Finalize the design, detach from the global context, and release the construction lock."""
+        try:
+            super().elaborate()
+        finally:
+            self.release()
+
     def release(self):
-        self.reset()
-        if self.locked and Context._global_context_lock.locked():
-            self.locked = False
-            Context._global_context_lock.release()
+        """
+        Detach from the global context (only if this context is the active one)
+        and release the construction lock if this context holds it.
+        """
+        self.detach()
+        if self.locked:
+            self._holds_construction_lock = False
+            Context._release_construction_lock()
 
     @contextmanager
     def construct(self):
@@ -160,10 +214,9 @@ class Context(_Context):
             print(f"Exception occurred during context construction: {e}")
             raise
         else:
-            # Elaborate at end of construction
+            # Elaborate at end of construction. This also releases the construction lock.
             self.elaborate()
         finally:
-            # Release the global context lock after elaboration
             self.release()
 
 
@@ -225,6 +278,7 @@ def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
 __all__ = [
     "Clock",
     "Context",
+    "ContextConstructionError",
     "DffS8",
     "DffS16",
     "DffS32",

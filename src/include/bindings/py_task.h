@@ -15,7 +15,7 @@ namespace dspsim::bindings
     class PyTask : public ProcessBase
     {
     public:
-        explicit PyTask(nb::object coro) : coro_(std::move(coro)) {}
+        PyTask(Context *context, nb::object coro) : ProcessBase(context), coro_(std::move(coro)) {}
 
         bool done() const override { return done_; }
 

@@ -10,7 +10,7 @@ namespace dspsim
     SensitivityEvent::SensitivityEvent(Context *context)
         : context_(context),
           static_subscribers_{100},
-          change_time_{1}
+          change_time_{-1}
     {
     }
 

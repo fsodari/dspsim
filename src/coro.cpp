@@ -69,7 +69,7 @@ namespace dspsim
 
     bool WaitTimeEvent::await_ready() const noexcept
     {
-        return time_delta_ <= 0; // Always false...
+        return false;
     }
 
     void WaitTimeEvent::await_suspend(std::coroutine_handle<> h) noexcept

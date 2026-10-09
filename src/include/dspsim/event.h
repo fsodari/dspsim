@@ -50,7 +50,7 @@ namespace dspsim
         // Processes with dynamic sensitivity. This list is cleared when the event occurs and
         // the process will return to having static sensitivity.
         UniqueStack<ProcessBase *> dynamic_subscribers_;
-        uint64_t change_time_;
+        int64_t change_time_;
     };
 
     /*

@@ -34,7 +34,7 @@ uv run ruff check . && uv run ruff format .
 ## Architecture
 
 ### C++ core (`src/*.cpp`, headers in `src/include/dspsim/`) → static lib `dspsim-core`
-- **`Context`** owns a simulation: registered models, the eval/update delta-cycle stacks, and a time-ordered event queue. A global `ContextFactory` tracks the active context; models self-register with it on construction. `elaborate()` finalizes all models (resolving lazy port binds) and schedules initial evaluation; `eval()` runs delta cycles until settled; `run(t)` advances simulated time by jumping event-to-event.
+- **`Context`** owns a simulation: registered models, the eval/update delta-cycle stacks, and a time-ordered event queue. A global `ContextFactory` tracks the active context; models self-register with it on construction. `elaborate()` finalizes all models (resolving lazy port binds), locks the design, and detaches the context from the global factory so a new independent context can be built. `Context::create()` throws `ContextConstructionError` while the active context is unelaborated (`Context::reset()` discards it); initial evaluation is scheduled on the first `run()`; `eval()` runs delta cycles until settled; `run(t)` advances simulated time by jumping event-to-event.
 - **Two-phase delta cycle**: `eval()` computes; `Signal::write()` only sets the pending value `_d`. `update()` commits `_d → _q` and notifies subscribers (Changed/Posedge/Negedge), which schedules more work. All evals in a round see a consistent snapshot.
 - **`Signal<T>`**, **`Input<T>`/`Output<T>`** ports (bind to a signal, or hierarchically to another port; port-to-port binds are recorded and resolved recursively at `finalize()`, so bind order doesn't matter), **`Clock`** (self-rescheduling signal).
 - **`Module`** + **`ModuleName`**: `ModuleName` is an RAII temporary that pushes the module name onto the context's active-module stack and pops it after the member-initializer list runs, so submodules/ports declared as members get hierarchical names. Subclasses take `ModuleName` **by value** (see `DSPSIM_MODULE` / `DSPSIM_CTOR` macros in `module.h`).
@@ -44,7 +44,7 @@ uv run ruff check . && uv run ruff format .
 
 ### Python bindings
 - `src/_framework.cpp` defines the module by calling `bindings::bind_*` helpers from `src/include/bindings/*.h`. Templates are instantiated per type with suffixed names: `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`, `Input*/Output*`, `Dff*`, etc. Adding a type/class means updating both the binding header and the registration in `_framework.cpp`, and usually the re-export list in `src/dspsim/framework.py`.
-- `src/dspsim/framework.py` is the public Python API: re-exports `_framework` and subclasses `Context`/`Module` (Python-side async tasks via `add_task`, `await self.wait(...)`, backed by `PyTask`).
+- `src/dspsim/framework.py` is the public Python API: re-exports `_framework` and subclasses `Context`/`Module`. Creating a Python `Context` takes a global construction lock until it is elaborated or released: other threads block, and the same thread raises `ContextConstructionError`. Also adds Python-side async tasks via `add_task`, `await self.wait(...)`, backed by `PyTask`.
 - Stubs (`_framework.pyi`) are generated at install time by `dspsim_add_stub`.
 - All extensions use `NB_DOMAIN dspsim`, and separately built model extensions must call `dspsim.link_module(module)` to share the main global `ContextFactory`, or their models register with a different context.
 
@@ -59,7 +59,7 @@ uv run ruff check . && uv run ruff format .
 - Prefer forward declarations over including headers of classes that reference each other. Put definitions in `.cpp` files, not inline in headers. Definitions follow declaration order.
 - Doxygen docstrings on header declarations. Add tests for new features.
 - `dspsim-core` builds with `-Wall -Wextra -Wpedantic -Werror`. New public headers must be added to the `FILE_SET HEADERS` list in `src/CMakeLists.txt`, and new sources to `add_library(dspsim-core ...)`.
-- **C++ tests**: all `tests/cpp/*.cpp` link into one binary, so wrap file-local helper classes in an anonymous `namespace { }` to avoid silent ODR violations. New test files must be added to `tests/cpp/CMakeLists.txt`. Verilated test models (`hdl/Skid.sv`, `NDArrayModel.sv`) are built there with `verilate(...)`.
+- **C++ tests**: all `tests/cpp/*.cpp` link into one binary, so wrap file-local helper classes in an anonymous `namespace { }` to avoid silent ODR violations. New test files must be added to `tests/cpp/CMakeLists.txt`. A Catch2 listener (`test_listeners.cpp`) resets the global context after each test case. Verilated test models (`hdl/Skid.sv`, `NDArrayModel.sv`) are built there with `verilate(...)`.
 - Python is formatted with ruff (preview format enabled).
 
 ## Docs caveat
