@@ -1,17 +1,25 @@
-from dspsim.framework import Clock, Context, Input8, Module, Output32, Signal8, Signal32
+from dspsim.framework import (
+    Clock,
+    Context,
+    InputU8,
+    Module,
+    OutputU32,
+    SignalU8,
+    SignalU32,
+)
 
 
 class Counter(Module):
-    clk: Input8
-    rst: Input8
-    count: Output32
+    clk: InputU8
+    rst: InputU8
+    count: OutputU32
 
     def __init__(self, name: str):
         super().__init__(name)
 
-        self.clk = Input8("clk")
-        self.rst = Input8("rst")
-        self.count = Output32("count")
+        self.clk = InputU8("clk")
+        self.rst = InputU8("rst")
+        self.count = OutputU32("count")
 
         self.process(self.eval, "Counter.eval").always(self.clk.pos()).initialize(False)
 
@@ -30,13 +38,13 @@ def test_counter():
     with Context() as ctx:
         with ctx.construct():
             clk = Clock("clk", 10)
-            rst = Signal8("rst")
-            count = Signal32("count")
+            rst = SignalU8("rst")
+            count = SignalU32("count")
 
             counter = Counter("counter")
 
-            counter.clk(clk)
-            counter.rst(rst)
+            counter.clk.bind(clk)
+            counter.rst.bind(rst)
             counter.count.bind(count)
 
         assert counter.count.q == 0

@@ -20,7 +20,9 @@ namespace dspsim::bindings
     {
         return nb::class_<Input<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
-            .def(nb::init<const std::string &>(), nb::arg("name"))
+            .def(nb::init<const std::string &, int>(),
+                 nb::arg("name"),
+                 nb::arg("width") = default_bitwidth<T>::value)
             // Methods
             .def("bind", &Input<T>::bind_signal, nb::arg("signal"))
             .def("bind", &Input<T>::bind_port, nb::arg("input"))
@@ -36,7 +38,9 @@ namespace dspsim::bindings
     {
         return nb::class_<Output<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
-            .def(nb::init<const std::string &>(), nb::arg("name"))
+            .def(nb::init<const std::string &, int>(),
+                 nb::arg("name"),
+                 nb::arg("width") = default_bitwidth<T>::value)
             // Methods
             .def("bind", &Output<T>::bind_signal, nb::arg("signal"))
             .def("bind", &Output<T>::bind_port, nb::arg("output"))

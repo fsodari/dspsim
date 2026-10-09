@@ -21,14 +21,14 @@ namespace dspsim::bindings
             .def(nb::new_(&Signal<T>::create),
                  nb::arg("name"),
                  nb::arg("width") = default_bitwidth<T>::value,
-                 nb::arg("init") = 0,
-                 nb::arg("is_signed") = false)
+                 nb::arg("init") = 0)
             // Methods
             .def("write", &Signal<T>::write, nb::arg("value"))
             .def("read", &Signal<T>::read)
             // Properties
             .def_prop_ro("width", &Signal<T>::width)
-            .def_prop_ro("is_signed", &Signal<T>::is_signed)
+            .def_prop_ro("is_signed", [](const Signal<T> &)
+                         { return std::is_signed_v<T>; })
             .def_prop_rw("value", &Signal<T>::read, &Signal<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Signal<T>::read_d_, &Signal<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Signal<T>::read);
@@ -54,8 +54,7 @@ namespace dspsim::bindings
                             nb::arg("name"),
                             nb::arg("shape"),
                             nb::arg("width") = default_bitwidth<T>::value,
-                            nb::arg("init") = 0,
-                            nb::arg("is_signed") = false)
+                            nb::arg("init") = 0)
                        .def("__setitem__", [](Array &a, const Index &idx, const T &value)
                             { a.at(idx).write(value); }, nb::arg("index"), nb::arg("value"));
         bind_ndarray_common<Array>(cls, name);

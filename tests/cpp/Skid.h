@@ -9,10 +9,10 @@ public:
     // Ports.
     DSPSIM_VINPUT(clk, 1);
     DSPSIM_VINPUT(rst, 1);
-    DSPSIM_VINPUT(s_axis_tdata, 24);
+    DSPSIM_VINPUT_S(s_axis_tdata, 24);
     DSPSIM_VINPUT(s_axis_tvalid, 1);
     DSPSIM_VOUTPUT(s_axis_tready, 1);
-    DSPSIM_VOUTPUT(m_axis_tdata, 24);
+    DSPSIM_VOUTPUT_S(m_axis_tdata, 24);
     DSPSIM_VOUTPUT(m_axis_tvalid, 1);
     DSPSIM_VINPUT(m_axis_tready, 1);
 

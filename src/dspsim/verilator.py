@@ -265,7 +265,7 @@ def _parse_dtype(type_entry: dict, type_table: dict):
     _child_type = _find_child_type(type_entry)
     keyword = _child_type["keyword"]
     match keyword:
-        case "int" | "logic" | "bit":
+        case "int" | "integer" | "logic" | "bit":
             width = _range_to_int(_child_type.get("range", "[0:0]"))
         case _:
             width = -1

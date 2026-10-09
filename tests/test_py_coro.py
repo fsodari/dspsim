@@ -3,10 +3,10 @@ from dspsim._framework import Wait
 from dspsim.framework import (
     Clock,
     Context,
-    Input32,
+    InputU32,
     Module,
-    Output32,
-    Signal32,
+    OutputU32,
+    SignalU32,
     # Wait,
     WaitTimeEvent,
 )

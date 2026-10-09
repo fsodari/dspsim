@@ -37,26 +37,18 @@ namespace dspsim::bindings
         return ranges;
     }
 
-    // Python type names for an array or view class, from its registered name ("Input16Array" or "InputArrayView16").
+    // Python type names for an array or view class, from its registered name ("InputArrayU16" or "InputArrayViewU16").
     struct ArrayNames
     {
         std::string element, view;
 
         explicit ArrayNames(const std::string &name)
         {
-            std::string kind, suffix;
-            if (auto pos = name.find("ArrayView"); pos != std::string::npos)
-            {
-                kind = name.substr(0, pos);
-                suffix = name.substr(pos + 9);
-            }
-            else
-            {
-                auto base = name.substr(0, name.size() - 5); // "Array"
-                auto cut = base.find_first_of("0123456789F");
-                kind = base.substr(0, cut);
-                suffix = base.substr(cut);
-            }
+            auto pos = name.find("Array");
+            auto kind = name.substr(0, pos);
+            auto suffix = name.substr(pos + 5);
+            if (suffix.rfind("View", 0) == 0)
+                suffix = suffix.substr(4);
             element = kind + suffix;
             view = kind + "ArrayView" + suffix;
         }
@@ -133,8 +125,7 @@ namespace dspsim::bindings
                     { return to_numpy<V>(a); })
                 // Lets np.asarray(array) work. dtype and copy are handled by numpy after conversion.
                 .def("__array__", [](const Array &a, nb::handle, nb::handle)
-                     { return to_numpy<V>(a); },
-                     nb::arg("dtype") = nb::none(), nb::arg("copy") = nb::none())
+                     { return to_numpy<V>(a); }, nb::arg("dtype") = nb::none(), nb::arg("copy") = nb::none())
                 .def("read", read)
                 .def_prop_ro("value", read, nb::rv_policy::move)
                 .def_prop_ro("q", read, nb::rv_policy::move);
@@ -185,7 +176,8 @@ namespace dspsim::bindings
             if constexpr (requires(const Elem &e) { e.read_d_(); })
                 cls.def_prop_rw(
                     "d", [](const Array &a)
-                    { return to_numpy<V>(a, [](const auto &e) { return e.read_d_(); }); },
+                    { return to_numpy<V>(a, [](const auto &e)
+                                         { return e.read_d_(); }); },
                     write, nb::rv_policy::move, nb::arg("value"));
         }
     }
@@ -211,20 +203,19 @@ namespace dspsim::bindings
         cls.def_prop_ro("shape", [](const Array &a)
                         { return nb::tuple(nb::cast(a.shape())); })
             .def_prop_ro("ndim", [](const Array &a)
-                        { return a.ndim(); })
+                         { return a.ndim(); })
             .def("extent", [](const Array &a, std::size_t dim)
                  { return a.extent(dim); }, nb::arg("dim"))
             .def("__len__", [](const Array &a)
                  { return a.size(); })
             .def_prop_ro("size", [](const Array &a)
-                        { return a.size(); })
+                         { return a.size(); })
             .def("flat", [](Array &a, std::size_t i) -> auto &
                  { return a.flat(i); }, nb::arg("index"), nb::rv_policy::reference_internal)
             .def("at", [](Array &a, const Index &idx) -> auto &
                  { return a.at(idx); }, nb::arg("index"), nb::rv_policy::reference_internal)
             .def("__iter__", [](Array &a)
-                 { return nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end()); },
-                 nb::keep_alive<0, 1>())
+                 { return nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end()); }, nb::keep_alive<0, 1>())
             // Keys made only of ints are matched by type (no exceptions are used for dispatch, which would be slow).
             // A full-rank key returns the element. A partial key falls back to a view with those dimensions dropped.
             .def("__getitem__", [](Array &a, const std::variant<std::ptrdiff_t, std::vector<std::ptrdiff_t>> &key) -> nb::object
@@ -246,14 +237,10 @@ namespace dspsim::bindings
                      Index idx;
                      for (auto &r : ranges)
                          idx.push_back(static_cast<std::size_t>(r.start));
-                     return nb::cast(&a.at(idx), nb::rv_policy::reference); },
-                 nb::arg("key"), nb::keep_alive<0, 1>(),
-                 nb::sig(elem_sig->c_str()))
-            .def("__getitem__", get_view, nb::arg("key"), nb::keep_alive<0, 1>(),
-                 nb::sig(view_sig->c_str()))
+                     return nb::cast(&a.at(idx), nb::rv_policy::reference); }, nb::arg("key"), nb::keep_alive<0, 1>(), nb::sig(elem_sig->c_str()))
+            .def("__getitem__", get_view, nb::arg("key"), nb::keep_alive<0, 1>(), nb::sig(view_sig->c_str()))
             // Always returns a view, so it skips the int-key overload above. An empty key views the whole array.
-            .def("slice", get_view, nb::arg("key") = nb::tuple(), nb::keep_alive<0, 1>(),
-                 nb::sig(slice_sig->c_str()));
+            .def("slice", get_view, nb::arg("key") = nb::tuple(), nb::keep_alive<0, 1>(), nb::sig(slice_sig->c_str()));
     }
 
 } // namespace dspsim::bindings

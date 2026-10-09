@@ -22,8 +22,8 @@ namespace dspsim
     }
 
     template <typename T>
-    Signal<T>::Signal(const std::string &name, int width, T init, bool is_signed)
-        : SignalBase(name), width_(width), is_signed_(is_signed)
+    Signal<T>::Signal(const std::string &name, int width, T init)
+        : SignalBase(name), width_(width)
     {
         d_ = init;
         q_ = init;
@@ -91,7 +91,6 @@ namespace dspsim
     template class Signal<int16_t>;
     template class Signal<int32_t>;
     template class Signal<int64_t>;
-    // template class Signal<int>;
     template class Signal<float>;
     template class Signal<double>;
 }

@@ -18,7 +18,8 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         .def_ro_static("{{param.name}}", &{{model.name}}::{{param.name}})
         {%-endfor%}
         {%-for port in model.ports.values()%}
-        .def_ro("{{port.name}}", &{{model.name}}::{{port.name}})
+        .def_prop_ro("{{port.name}}", []({{model.name}} &self) -> auto & { return ::dspsim::vport_base(self.{{port.name}}); },
+            nanobind::rv_policy::reference_internal)
         {%-endfor%}
         .def("open_trace", &{{model.name}}::open_trace,
             nanobind::arg("trace_path"),
