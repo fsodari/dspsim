@@ -22,7 +22,7 @@ namespace
             DSPSIM_CORO(eval);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

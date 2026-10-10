@@ -19,7 +19,7 @@ namespace
             o.bind(s3);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

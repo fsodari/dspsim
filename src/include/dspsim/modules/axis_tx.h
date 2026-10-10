@@ -1,13 +1,21 @@
 #pragma once
 #include <dspsim/module.h>
+#include <dspsim/coro.h>
+#include <dspsim/event.h>
 #include <ranges>
 #include <concepts>
 #include <algorithm>
 #include <queue>
-#include <spdlog/spdlog.h>
+#include <vector>
 
 namespace dspsim
 {
+    /*
+        AXI-Stream source. Presents the front of `fifo` on the bus and pops it when the sink accepts it.
+
+        Asynchronous use: `co_await axis_tx.send(data, timeout)` queues the data and resumes once the sink has
+        accepted all of it (true), or when the timeout elapses first (false).
+    */
     template <typename T>
     DSPSIM_MODULE(AxisTx)
     {
@@ -28,7 +36,7 @@ namespace dspsim
                 ->always(clk.pos());
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {
@@ -40,6 +48,7 @@ namespace dspsim
                     // Clear the valid signal as the transaction has been accepted.
                     m_axis_tvalid.write(1);
                     fifo.pop_front();
+                    sent_.notify();
                 }
 
                 // Bus is waiting for downstream to be ready.
@@ -63,6 +72,45 @@ namespace dspsim
                     m_axis_tvalid.write(0);
                 }
             }
+        }
+
+        // Triggers after every beat accepted by the sink.
+        SensitivityEvent &sent() { return sent_; }
+
+        /*
+            Queue the data and wait until the sink has accepted everything queued. Returns true when the fifo
+            drained, false if the timeout (> 0) elapsed first, leaving the rest queued.
+        */
+        Task<bool> send(std::vector<T> data, uint64_t timeout = 0)
+        {
+            push_range(data);
+            co_return co_await drain(timeout);
+        }
+
+        // Wait until the fifo is empty. Returns false if the timeout (> 0) elapsed first.
+        Task<bool> drain(uint64_t timeout = 0)
+        {
+            const uint64_t deadline = context()->time() + timeout;
+            while (!fifo.empty())
+            {
+                if (timeout == 0)
+                {
+                    co_await wait(sent_);
+                }
+                else
+                {
+                    const uint64_t now = context()->time();
+                    if (now >= deadline)
+                    {
+                        break;
+                    }
+                    if ((co_await wait(sent_, deadline - now)) == WaitResult::Timeout)
+                    {
+                        break;
+                    }
+                }
+            }
+            co_return fifo.empty();
         }
 
         // Supports queue-like operations.
@@ -105,5 +153,8 @@ namespace dspsim
         {
             fifo.clear();
         }
+
+    private:
+        SensitivityEvent sent_{context()};
     };
 }

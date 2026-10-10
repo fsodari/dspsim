@@ -2,6 +2,7 @@
 #include <dspsim/model.h>
 #include <dspsim/module_name.h>
 #include <dspsim/port.h>
+#include <dspsim/coro.h>
 #include <vector>
 
 namespace dspsim
@@ -29,12 +30,16 @@ namespace dspsim
         // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
         void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
 
-        // Coroutine awaitables
-        Wait wait();
+        // Coroutine awaitables. See Context::wait().
+        Wait wait(ProcessBase *process = nullptr);
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
+        // With a timeout (> 0): the result tells whether an event triggered or the timeout elapsed.
+        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process = nullptr);
 
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }

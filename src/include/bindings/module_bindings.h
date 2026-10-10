@@ -12,7 +12,8 @@ namespace dspsim::bindings
     }
     static inline auto _module_coro_helper(Module *module, nb::object task)
     {
-        module->context()->_processes.push_back(std::make_unique<PyTask>(module->context(), std::move(task)));
+        std::string name = module->hier_name() + "." + nb::cast<std::string>(nb::str(nb::getattr(task, "__name__", nb::str("task"))));
+        module->context()->_processes.push_back(std::make_unique<PyTask>(module->context(), std::move(task), name));
         return module->context()->_processes.back().get();
     }
 
@@ -24,14 +25,18 @@ namespace dspsim::bindings
             .def("finalize", &Module::finalize)
             .def("process", &_module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
             .def("add_task", &_module_coro_helper, nb::arg("task"), nb::rv_policy::reference)
-            .def("wait", [](Module &module)
-                 { return module.wait(); })
+            .def("wait", [](Module &module, ProcessBase *process)
+                 { return module.wait(process); }, nb::arg("process") = nullptr)
             .def("wait", [](Module &module, uint64_t time_delta, ProcessBase *process)
                  { return module.wait(time_delta, process); }, nb::arg("time_delta"), nb::arg("process") = nullptr)
             .def("wait", [](Module &module, SensitivityEvent &event, ProcessBase *process)
                  { return module.wait(event, process); }, nb::arg("event"), nb::arg("process") = nullptr)
             .def("wait", [](Module &module, const std::vector<SensitivityEvent *> &events, ProcessBase *process)
                  { return module.wait(events, process); }, nb::arg("events"), nb::arg("process") = nullptr)
+            .def("wait", [](Module &module, SensitivityEvent &event, uint64_t timeout, ProcessBase *process)
+                 { return module.wait(event, timeout, process); }, nb::arg("event"), nb::arg("timeout"), nb::arg("process") = nullptr)
+            .def("wait", [](Module &module, const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process)
+                 { return module.wait(events, timeout, process); }, nb::arg("events"), nb::arg("timeout"), nb::arg("process") = nullptr)
             .def("ports", &Module::ports)
             .def("inputs", &Module::inputs)
             .def("outputs", &Module::outputs)

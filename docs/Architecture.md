@@ -1,10 +1,10 @@
 # dspsim Architecture Overview
 
 `dspsim` is a C++ discrete-event (delta-cycle) simulation engine, exposed to Python via
-nanobind, used to simulate hardware designs, either hand-written C++ models or
+nanobind, used to simulate hardware designs, either hand-written C++/Python models or
 Verilator-generated models of Verilog/SystemVerilog RTL. This document describes how the core
-pieces fit together. For the simulation scheduling algorithm itself, see
-[DeltaCycle.md](DeltaCycle.md).
+pieces fit together. Related documents: [Coro.md](Coro.md) (coroutine processes and
+awaitables) and [BitSlicing.md](BitSlicing.md) (bit slicing and packing).
 
 ## Component map
 
@@ -15,26 +15,34 @@ classDiagram
     Model <|-- Module
     SignalBase <|-- Signal~T~
     Signal~T~ <|-- Clock
-    PortBase <|-- InputBase
-    InputBase <|-- Input~T~
+    PortBase <|-- Input~T~
     PortBase <|-- Output~T~
     Module <|-- Dff~T~
-    Module <|-- VModel~V~
+    Module <|-- VModule~V, Derived~
+    ProcessBase <|-- Process
+    ProcessBase <|-- MethodProcess
+    ProcessBase <|-- CoroProcess
 
     class Model {
         +Context context()
-        +eval()
-        +update()
         +finalize()
+        +dump_trace()
     }
     class Context {
         +elaborate()
         +eval()
         +run(time_inc)
+        +run_until(task, timeout)
+    }
+    class SignalBase {
+        +update()
+        +change() SensitivityEvent
+        +pos() SensitivityEvent
+        +neg() SensitivityEvent
     }
     class Signal~T~ {
-        -T _d
-        -T _q
+        -T d_
+        -T q_
         +write(value)
         +read() T
     }
@@ -49,220 +57,287 @@ classDiagram
         +write(value)
     }
     class Module {
-        +SensitivityList always
+        +next_trigger(...)
+        +wait(...)
     }
-    Context --> Model : owns/registers
+    class ProcessBase {
+        +always(events...)
+        +initialize(bool)
+        +resume()
+    }
+    Context --> Model : registers
+    Context --> ProcessBase : owns
+    SensitivityEvent --> ProcessBase : schedules
 ```
 
-## Core classes (`src/dspsim/framework/include/dspsim/`)
+## Core classes (`src/include/dspsim/`, sources in `src/`)
 
-### `Model` ([model.h](../src/dspsim/framework/include/dspsim/model.h))
-Base class for everything that participates in simulation (signals, ports, modules).
-On construction it self-registers with the currently active `Context`. Exposes the
-three lifecycle hooks every subclass can override:
-- `finalize()` — called once by `Context::elaborate()`, after the whole design is built.
-- `eval()` — compute next-state values (may call `Signal::write`, which only sets a
-  pending value).
-- `update()` — commit pending values and notify anything watching them.
+### `Model` ([model.h](../src/include/dspsim/model.h) / [model.cpp](../src/model.cpp))
+Base class for everything that is part of a design (signals, ports, modules). On
+construction it self-registers with the context under construction (`Context::obtain()`),
+gets a unique id, and records the module being constructed as its parent, which gives it
+a hierarchical name (`hier_name()`). It has two virtual hooks:
+- `finalize()`: called once by `Context::elaborate()`, after the whole design is built.
+- `dump_trace()`: called at the end of a delta cycle on models that requested tracing.
 
-### `Context` ([context.h](../src/dspsim/framework/include/dspsim/context.h) / [context.cpp](../src/context.cpp))
-Owns a simulation: the list of registered models, the delta-cycle scheduling stacks
-(`_eval_stack`, `_update_stack`), and a time-ordered `_time_event_stack` for scheduled
-future events (clock edges, etc.). A global `ContextFactory` tracks the "active"
-context; `Context::create()`/`obtain()`/`reset()` manage it.
+Models do not evaluate themselves. Evaluation belongs to processes, and committing values
+belongs to signals (see below).
+
+### `Context` ([context.h](../src/include/dspsim/context.h) / [context.cpp](../src/context.cpp))
+Owns a simulation: the registered models, the processes, the delta-cycle scheduling
+stacks (`_process_eval_stack`, `_signal_update_stack`, `_derived_update_stack`,
+`_sensitivity_event_stack`), and a time-ordered `_time_event_stack` for scheduled future
+events (clock edges, time waits).
+
+A global `ContextFactory` tracks the context under construction. `Context::create()`
+takes a construction lock: another thread calling `create()` blocks until the context is
+elaborated or `release()`d, and the same thread calling it again gets
+`ContextConstructionError` (`Context::reset()` discards the active context).
+`Context::obtain()` never creates a context. It throws unless the calling thread has one
+under construction, so models can only be built between `create()` and `elaborate()`.
 
 Key methods:
-- `elaborate()` — calls `finalize()` on every registered model (this is what
-  triggers lazy port-binding resolution, see below), then schedules every `Module`
-  for one initial evaluation so combinational logic settles from its default signal
-  values before the first explicit `eval()`. A module can opt out of this initial
-  pass by calling `dont_initialize()` in its constructor.
-- `eval()` — runs delta cycles until the eval stack is empty (see
-  [DeltaCycle.md](DeltaCycle.md)).
-- `run(time_inc)` — runs a delta cycle, then advances simulated time through the
-  scheduled time-event stack, running a delta cycle at each time step.
+- `elaborate()`: calls `finalize()` on every registered model (this is what triggers lazy
+  port-binding resolution, see below), locks the design, and releases the context from
+  the global factory so a new, independent context can be created.
+- `eval()`: runs delta cycles until nothing is left to evaluate or update (see
+  [Delta-cycle execution model](#delta-cycle-execution-model)).
+- `run(time_inc)`: runs a delta cycle, then advances simulated time through the scheduled
+  time events, running a delta cycle at each time step. The first `run()` also schedules
+  the initial evaluation: every process is evaluated once so that combinational logic
+  settles from the initial signal values. A process opts out with `initialize(false)`,
+  which chains with `always(...)`.
+- `run_until(task, timeout)` / `run_until(event, timeout)`: run the simulation until a
+  coroutine task completes (returning its value) or an event triggers. See
+  [Coro.md](Coro.md).
 
-### `Signal<T>` ([signal.h](../src/dspsim/framework/include/dspsim/signal.h) / [signal.cpp](../src/signal.cpp))
-Holds a committed value `_q` and a pending value `_d`.
-- `write(value)` sets `_d` and schedules the signal for evaluation.
-- `read()` returns `_q` (the last committed value).
-- `update()` commits `_d` → `_q` (only if it actually changed), computes an
-  `EventType` (`Changed`/`Posedge`/`Negedge`), and notifies:
-  - every subscribed `PortBase*` (`_subscribers`, populated by `Input`/`Output` binds), and
-  - any `Module` sensitized directly to the signal via `always << signal;` /
-    `always << signal.pos();` / `always << signal.neg();` (`_changed_subscribers` /
-    `_posedge_subscribers` / `_negedge_subscribers`, pushed straight onto the eval stack).
+### `Signal<T>` ([signal.h](../src/include/dspsim/signal.h) / [signal.cpp](../src/signal.cpp))
+Holds a committed value `q_` and a pending value `d_`. `SignalBase` owns three
+`SensitivityEvent`s: `change()`, `pos()`, and `neg()`.
+- `write(value)` sets `d_` and, if it differs from `q_`, pushes the signal onto the
+  context's `_signal_update_stack`.
+- `read()` returns `q_` (the last committed value).
+- `update()` runs in the update phase. If the value actually changed, it notifies
+  `pos()` or `neg()` (for a rising or falling value) and `change()`, then commits
+  `d_` → `q_`.
 
-  The second mechanism lets a module react to an internal `Signal` member it reads
-  directly, without needing an intermediate `Port`.
+A signal can also be sliced and packed (`sig[{hi, lo}]`, `pack(a, b)`). Signals derived
+from such a selection are recomputed in a second pass of the update phase. See
+[BitSlicing.md](BitSlicing.md).
 
-### `Port` (`Input<T>` / `Output<T>`, [port.h](../src/dspsim/framework/include/dspsim/port.h) / [port.cpp](../src/port.cpp))
+### `SensitivityEvent` / `TimeEvent` ([event.h](../src/include/dspsim/event.h) / [event.cpp](../src/event.cpp))
+A `SensitivityEvent` holds the processes that are sensitive to it, in two lists: static
+subscribers (scheduled every time the event occurs) and dynamic subscribers (scheduled
+once, on the next occurrence). The lists are allocated on first subscription, so an event
+nobody subscribed to costs a null check in `notify()`.
+
+`notify()` queues the event on the context's `_sensitivity_event_stack`. Once all signals
+of the round have updated, the context calls `trigger()` on each queued event, which
+pushes the subscribed processes onto `_process_eval_stack`.
+
+A `TimeEvent` is a `{time, process, wake_count}` entry in the context's time-event queue.
+
+### Processes ([process.h](../src/include/dspsim/process.h), [coro.h](../src/include/dspsim/coro.h))
+A process is the unit of evaluation. Modules register them in their constructor and the
+context owns them:
+- `DSPSIM_METHOD(eval)` registers a member function as a `MethodProcess`. The function is
+  bound at compile time and called through a plain function pointer.
+- `DSPSIM_CORO(task)` registers a C++20 coroutine (`Task<>`) as a `CoroProcess`.
+- `Context::register_process_func()` registers any `std::function<void()>`.
+
+Sensitivity is either static or dynamic:
+- Static: `process->always(clk.pos(), some_signal, ...)` subscribes the process to those
+  events for the whole simulation. Each argument can be a signal or a port (its change
+  event), `.pos()`/`.neg()` of either, or an array of them. `always("*")` means every
+  input of the enclosing module.
+- Dynamic: `next_trigger(event)` or `next_trigger(time_delta)` from a method process, and
+  `co_await wait(...)` on a time delta, an event, or an event with a timeout from a
+  coroutine. While a process waits on a dynamic event, its static sensitivity is paused.
+
+```cpp
+DSPSIM_CTOR(Adder)
+{
+    DSPSIM_METHOD(eval)
+        ->always(a, b);
+}
+```
+
+See [Coro.md](Coro.md) for the coroutine awaitables and composable `Task<T>`s.
+
+### `Port` (`Input<T>` / `Output<T>`, [port.h](../src/include/dspsim/port.h) / [port.cpp](../src/port.cpp))
 Connect a `Module`'s I/O to a `Signal`, or hierarchically to another port of the
-same direction (e.g. a submodule's `Input` bound to its parent's `Input`).
+same direction (e.g. a submodule's `Input` bound to its parent's `Input`). Ports must be
+declared inside a module.
 
-- `bind(Signal<T>&)` binds directly to a signal (subscribes/drives immediately).
+- `bind(Signal<T>&)` binds directly to a signal.
 - `bind(Input<T>&)` / `bind(Output<T>&)` only *records* the relationship
-  (`_bound_ports`); nothing is resolved yet, so ports can be bound in any order,
-  even before the ultimate `Signal` exists.
-- `finalize()` calls `resolve()`, which recursively walks `_bound_ports` down to
-  wherever a real `Signal` was bound, caches it as `_bound_tsignal`, and (for
-  `Input`) subscribes to it. This is what makes the binding "lazy": nothing needs
-  to be wired in a particular construction order as long as everything is bound by
-  the time `Context::elaborate()` runs.
-- `notify(EventType)` (on `Input`) pushes any `Module` sensitized to this port
-  (via `always << port;` / `.pos()` / `.neg()`) onto the context's eval stack.
+  (`bound_ports_`); nothing is resolved yet, so ports can be bound in any order,
+  even before the ultimate `Signal` is bound.
+- `bind(const BitSel&)` binds to a slice or pack of signals of the same width
+  (integral ports only).
+- `finalize()` calls `resolve()`, which recursively walks `bound_ports_` down to
+  wherever a real `Signal` was bound and caches it as `bound_signal_`. This is what
+  makes the binding "lazy": nothing needs to be wired in a particular construction
+  order as long as everything is bound by the time `Context::elaborate()` runs.
 
-### `Module` / `ModuleName` ([module.h](../src/dspsim/framework/include/dspsim/module.h), [module_name.h](../src/dspsim/framework/include/dspsim/module_name.h))
-A `Model` with a `SensitivityList always`. Submodules and ports can be declared as
-ordinary class members in any order — `ModuleName` uses an RAII trick: its
-constructor pushes the module's name onto the context's active-module stack, and
-when the temporary `ModuleName` argument is destroyed (i.e. right after the
-`Module`'s member-initializer list runs, before the constructor body), it pops the
-stack. This is why every `Module` subclass takes a `ModuleName name` constructor
-parameter by value.
+A port is not involved in scheduling at run time. During construction it exposes its own
+`change()`/`pos()`/`neg()` events so that processes can be made sensitive to a port that
+is not bound yet. At `finalize()` the port hands those static subscribers to the bound
+signal's events and from then on returns the signal's events directly, so a signal update
+schedules the processes without going through the port.
 
-`dont_initialize()` lets a module opt out of `Context::elaborate()`'s automatic
-initial evaluation pass (useful for modules whose `eval()` isn't safe/meaningful
-to run before real stimulus is applied).
+### `Module` / `ModuleName` ([module.h](../src/include/dspsim/module.h), [module_name.h](../src/include/dspsim/module_name.h))
+A `Model` that contains ports, submodules, and processes. It provides `next_trigger(...)`
+and `wait(...)` for its processes, and lists its ports (`ports()`, `inputs()`,
+`outputs()`).
 
-### `SensitivityList` ([sensitivity_list.h](../src/dspsim/framework/include/dspsim/sensitivity_list.h))
-Implements the `always << x` syntax. `x` can be a `Port` or a `Signal` (or
-`.pos()`/`.neg()` of either) — anything convertible to `SensitivityEvent`
-(`std::vector<Module*>`). It just appends the enclosing module to that event's
-subscriber list.
+Submodules and ports can be declared as ordinary class members. `ModuleName` is an RAII
+construction scope: creating one pushes the module's name onto the context's
+active-module-name stack, and the `Module` constructor pushes the module onto the
+active-module stack. Members constructed while the scope is open get the module as their
+parent. The scope ends when the last copy of the `ModuleName` is destroyed, i.e. when the
+most-derived constructor returns. This is why every `Module` subclass takes a
+`ModuleName` constructor parameter by value (the `DSPSIM_MODULE` / `DSPSIM_CTOR` macros
+do this), and why a module derived from another module passes its `ModuleName` on by
+value.
 
-### `Clock` ([clock.h](../src/dspsim/framework/include/dspsim/clock.h) / [clock.cpp](../src/clock.cpp))
-A `Signal<uint8_t>` that toggles itself and reschedules via the context's
-time-event stack every half period.
+### `Clock` ([clock.h](../src/include/dspsim/clock.h) / [clock.cpp](../src/clock.cpp))
+A `Signal<uint8_t>` with a method process that toggles the signal and reschedules itself
+on the context's time-event queue every half period.
 
-### `Dff<T>` ([dff.h](../src/dspsim/framework/include/dspsim/dff.h) / [dff.cpp](../src/dff.cpp))
-Minimal flip-flop module: `q.write(d.read())` on the rising edge of `clk`. Used as
-a basic building block and in tests.
+### `Dff<T>` ([modules/dff.h](../src/include/dspsim/modules/dff.h))
+Minimal flip-flop module: a coroutine process that waits for `clk.pos()` and does
+`q.write(d.read())`. Used as a basic building block and in tests. The same directory has
+the AXI-Stream helpers `AxisRx` / `AxisTx`.
 
-### `VModel<V, TraceType>` ([vmodel.h](../src/dspsim/framework/include/dspsim/vmodel.h))
-Wraps a Verilator-generated model class `V` as a `dspsim::Module`, forwarding
-`eval()`/`update()` to `top->eval_step()`/`top->eval_end_step()` and optionally
-dumping a trace (VCD/FST) each update. This is the bridge between hand-written
-`dspsim` code and Verilated SystemVerilog.
+### `VModule<V, Derived>` ([vmodule/vmodule.h](../src/include/dspsim/vmodule/vmodule.h), [vmodule/vport.h](../src/include/dspsim/vmodule/vport.h))
+Wraps a Verilator-generated model class `V` as a `dspsim::Module`. Its `eval()` copies
+the `VPort` inputs into the verilated model, calls `top->eval()`, and copies the outputs
+back. The generated subclass registers it with `DSPSIM_METHOD(eval)->always("*")`, so the
+model is evaluated whenever one of its inputs changes. `open_trace()` asks the context to
+call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
+the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
 
 ## Delta-cycle execution model
 
-See [DeltaCycle.md](DeltaCycle.md) for the full description; in short,
-`Context::eval()` is two-phase per round:
-1. Pop everything currently in `_eval_stack` and call `eval()` on each — this may
-   call `Signal::write()`, which only sets the pending value and reschedules the
-   signal (deferred, not committed yet).
-2. Pop everything that was just evaluated (now in `_update_stack`) and call
-   `update()` — this is where `Signal` values actually commit and subscribers get
-   notified, which may schedule *more* models for the next round.
+`Context::eval()` repeats the following round until both `_process_eval_stack` and
+`_signal_update_stack` are empty:
+1. **Evaluate.** Resume every process in `_process_eval_stack`. A process may call
+   `Signal::write()`, which only sets the pending value and schedules the signal for
+   update (deferred, not committed yet).
+2. **Update.** Call `update()` on every signal in `_signal_update_stack`. This is where
+   values commit and the signals' events are notified. Then recompute the derived signals
+   (slices and packs) of the signals that changed.
+3. **Trigger.** Call `trigger()` on every notified event, which schedules the subscribed
+   processes for the next round.
 
-This repeats until `_eval_stack` is empty. Because commits only happen in the
-update phase, all modules evaluated in the same round see a consistent snapshot of
-signal values — but a module is only re-scheduled in a later round if it (or one
-of its ports) is actually sensitized to whatever changed. This is why combinational
-logic needs `always <<` sensitivity for every signal it reads, whether through a
-`Port` or a raw `Signal` member.
+Because commits only happen in the update phase, all processes evaluated in the same
+round see a consistent snapshot of signal values. A process is only scheduled in a later
+round if it is sensitive to an event that occurred. This is why a combinational process
+needs static sensitivity (`always(...)`) to every signal it reads, whether through a
+port or a `Signal` member.
+
+After the last round, models that requested tracing dump their traces.
 
 ## `Context::run()` and time-event scheduling
 
-`eval()` alone only advances *delta cycles* — it never moves simulated time
-forward. `run(time_inc)` is what drives the clock:
+`eval()` alone only advances *delta cycles*. It never moves simulated time forward.
+`run(time_inc)` is what drives time:
 
-```cpp
-void Context::run(uint64_t time_inc)
-{
-    eval();
-    while (!_time_event_stack.empty() and time_inc > 0)
-    {
-        uint64_t next_time_step = _time_event_stack.top().time_update - _time;
-        _time += next_time_step;
-        time_inc -= next_time_step;
-        do
-        {
-            auto event = _time_event_stack.pop();
-            _eval_stack.push(event.subscriber);
-        } while (!_time_event_stack.empty() && _time_event_stack.top().time_update == _time);
-        eval();
-    }
-}
-```
+1. On the first call, it commits pending signal writes and schedules every process whose
+   `initialize()` flag is set (the default).
+2. It runs a delta cycle (`eval()`), settling anything already pending at the current
+   time.
+3. While `time_inc` is not used up, it jumps straight to the timestamp of the *nearest*
+   scheduled time event, rather than stepping one unit at a time. The jump is capped at
+   the remaining `time_inc`, and with no events scheduled it just advances time by the
+   remainder.
+4. It pops every event scheduled for that exact timestamp (there can be more than one,
+   e.g. several clocks with the same period) and pushes each event's process onto
+   `_process_eval_stack`.
+5. It runs another delta cycle so those processes, and anything they trigger
+   transitively, settle before time advances again. The exception is the step that uses
+   up `time_inc`: its processes stay queued and are evaluated by the delta cycle at the
+   start of the next `run()` (or `eval()`).
 
-1. It first runs a normal delta cycle (`eval()`), settling anything already
-   pending at the current time.
-2. Then, while there are scheduled time events left and simulated time hasn't
-   used up the requested `time_inc`, it jumps straight to the timestamp of the
-   *nearest* scheduled event (`_time_event_stack.top()`), advancing `_time` by
-   that gap rather than stepping one unit at a time.
-3. It pops every event scheduled for that exact timestamp (there can be more
-   than one, e.g. several clocks with the same period) and pushes each event's
-   subscriber onto `_eval_stack`.
-4. It runs another delta cycle (`eval()`) so those models — and anything they
-   trigger transitively — settle before time advances again.
-5. This repeats until `time_inc` is exhausted or there are no more scheduled
-   events.
+### The time-event queue
+`_time_event_stack` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
+returns the soonest-scheduled event, independent of push order. Events are added by
+`Module::next_trigger(time_delta)` / `Context::schedule_time_delta_event()`, by a
+coroutine's `co_await wait(time_delta)`, and by `Clock`.
 
-### The time-event stack
-`_time_event_stack` is a `SortedStack<TimeEvent>` — a `std::priority_queue`
-ordered with `std::greater`, so `top()`/`pop()` always return the
-soonest-scheduled `TimeEvent` (a `{Model *subscriber, uint64_t time_update}`
-pair), independent of push order. `_push_time_event_stack(event)` is the only
-way to add to it, called via `context()->_push_time_event_stack(...)`.
+A time event from a coroutine wait is tagged with the process's `wake_count`. If
+something else resumed the process in the meantime (the event side of an event-or-timeout
+wait), the time event is stale and is dropped when it comes due.
 
 ### How a `Clock` uses it
-`Clock` is a `Signal<uint8_t>` that schedules itself the moment it's
-constructed (`context()->_push_eval_stack(this)`), and its `eval()` is where the
-self-rescheduling loop lives:
+`Clock` registers its `tick()` method as a process in its constructor:
 
 ```cpp
-void Clock::eval()
+void Clock::tick()
 {
-    this->_d = !this->_q;
-    context()->_push_time_event_stack(TimeEvent(this, context()->time() + _half_period));
+    this->write(!this->read());
+    context()->_time_event_stack.emplace(context()->time() + _half_period, _process);
 }
 ```
 
-Each time the clock evaluates, it flips its pending value and schedules a
-`TimeEvent` for itself one half-period in the future. `Context::run()` picks that
-event up when simulated time reaches it, pushes the `Clock` back onto
-`_eval_stack`, and the whole cycle (flip, commit via `update()`, notify
-posedge/negedge subscribers, schedule the next flip) repeats indefinitely —
-this is what makes a `Clock` free-running once it's part of an elaborated
-design, without any code needing to re-arm it manually.
+The initial evaluation on the first `run()` calls `tick()` once. Each call flips the
+pending value and schedules a `TimeEvent` for the process one half-period in the future.
+`Context::run()` picks that event up when simulated time reaches it and queues the
+process again, and the whole cycle (flip, commit via `update()`, notify posedge/negedge
+subscribers, schedule the next flip) repeats indefinitely. This is what makes a `Clock`
+free-running once it's part of an elaborated design, without any code needing to re-arm
+it manually.
 
 ## Python bindings and code generation
 
-- `_framework.cpp` uses [nanobind](https://github.com/wjakob/nanobind) to expose
-  `Context`, `Model`, `Signal8/16/32/64`, `Clock`, `Dff8/16/32/64` to Python as the
-  `dspsim._framework` extension module. (Note: as of this writing this file
-  references `eval_step()`/`eval_end_step()`, which predate the current
-  `eval()`/`update()` API on `Model` — treat it as due for a refresh if you're
-  working on the Python bindings.)
-- `src/dspsim/framework/verilator.py` wraps the `verilator` executable
-  (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated C++
-  model and to introspect a module's ports/parameters via `verilator --json-only`.
-- `cmake/dspsim-utils.cmake`'s `dspsim_add_module()` is the CMake entry point:
-  it runs `python -m dspsim.framework.generate` against a `pyproject.toml` to
-  Verilate `.sv` sources and generate a nanobind-wrapped `<name>.cpp` /
-  `<name>_include.cmake`, builds it as a nanobind extension linked against
-  `dspsim::dspsim-core`, and generates `.pyi` stubs.
+- [`src/_framework.cpp`](../src/_framework.cpp) uses
+  [nanobind](https://github.com/wjakob/nanobind) to define the `dspsim._framework`
+  extension module by calling the `bindings::bind_*` helpers in
+  `src/include/bindings/*.h`. Templates are instantiated per type with suffixed names:
+  `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`, `Input*`/`Output*`,
+  `Dff*`, and so on.
+- [`src/dspsim/framework.py`](../src/dspsim/framework.py) is the public Python API. It
+  re-exports `_framework`, subclasses `Context` and `Module`. A Python `Module` subclass takes a `name` argument in `__init__`;
+  `Module.__init_subclass__` wraps `__init__` to open and close the `ModuleName` scope,
+  since Python has no RAII.
+- [`src/dspsim/verilator.py`](../src/dspsim/verilator.py) wraps the `verilator`
+  executable (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated
+  C++ model and to introspect a module's ports/parameters via `verilator --json-only`.
+- `cmake/dspsim-utils.cmake`'s `dspsim_add_module()` is the CMake entry point for a
+  library build: it runs `python -m dspsim.generate` against a `pyproject.toml`
+  (`[tool.dspsim]`) to Verilate `.sv` sources and generate nanobind wrapper C++ plus a
+  CMake include, builds it as a nanobind extension linked against `dspsim::dspsim-core`,
+  and generates `.pyi` stubs. See `examples/some_example/`.
+- [`src/dspsim/builder.py`](../src/dspsim/builder.py) is the JIT path: the
+  `vbuilder(source)` class decorator / `build_vmodule()` generates a per-model CMake
+  project from the same templates, builds it under `.dspsim_cache/`, imports it, and
+  calls `link_module`.
+- Separately built model extensions must call `dspsim.link_module(module)` so they share
+  the main global `ContextFactory`. Otherwise their models register with a different
+  context.
 
-## Relationship to `dspsim-library`
+## Downstream projects
 
-`dspsim` (this repo) is the simulation engine plus the build/codegen tooling.
-`dspsim-library` is a *consumer*: a curated set of reusable HDL modules (`Skid.sv`,
-`SimpleModel.sv`, ...) packaged as a Python library. Its `CMakeLists.txt` locates
-an **installed** `dspsim` (`python -m dspsim.framework --cmake_dir`), calls
-`find_package(dspsim)`, then `dspsim_add_module(_library ...)` to Verilate its
-`.sv` sources into a compiled `_library` extension module usable from Python.
+`dspsim` (this repo) is the simulation engine plus the build/codegen tooling. A library
+of HDL modules is a *consumer*: its `CMakeLists.txt` calls `find_package(dspsim)` to
+locate an **installed** `dspsim`, then `dspsim_add_module(...)` to Verilate its `.sv`
+sources into a compiled extension module usable from Python. `dspsim --cmake_dir` and
+`dspsim --include_dir` print the installed package's CMake and include directories for
+builds that need to pass them explicitly. `examples/some_example/` is a minimal project
+of this kind.
 
 ## Testing
 
 - C++ tests live in `tests/cpp/` and are all compiled into one Catch2 executable,
   `tests` (see `tests/cpp/CMakeLists.txt`). **Each test file must wrap its
-  file-local helper classes in an anonymous `namespace { ... }`** — since every
+  file-local helper classes in an anonymous `namespace { ... }`**: since every
   test `.cpp` links into the same binary, two files declaring the same class name
   at global scope is an ODR violation that silently corrupts objects at runtime
-  (the linker merges the symbols across translation units).
-  Run with `./scripts/cpptest.sh [catch2 tag filter]`.
+  (the linker merges the symbols across translation units). A Catch2 listener
+  (`test_listeners.cpp`) resets the global context after each test case.
+  Run with `uv run scripts/cpptest.py [catch2 tag filter]` (add `--configure` on the
+  first run).
 - Python tests (`tests/test_*.py`) exercise the Python-facing API (`Context`,
-  signals, project/verilator integration).
+  signals, modules, async tasks, project/verilator integration). Run with
+  `uv run pytest tests`.

@@ -6,7 +6,7 @@ namespace dspsim::bindings
 {
     namespace nb = nanobind;
     // Drives a native Python coroutine object (e.g. from `async def`) one step at
-    // a time, matching CppTask's resume-until-suspend behavior. Uses the raw
+    // a time, matching CoroProcess's resume-until-suspend behavior. Uses the raw
     // PyIter_Send() C API instead of calling the `.send()` method and catching
     // StopIteration: for a genuine coroutine object this dispatches straight to
     // CPython's internal generator-send routine, which reports both "yielded"
@@ -15,9 +15,13 @@ namespace dspsim::bindings
     class PyTask : public ProcessBase
     {
     public:
-        PyTask(Context *context, nb::object coro) : ProcessBase(context), coro_(std::move(coro)) {}
+        PyTask(Context *context, nb::object coro, const std::string &name = "")
+            : ProcessBase(context, name), coro_(std::move(coro)) {}
 
         bool done() const override { return done_; }
+
+        // The coroutine's return value, once done.
+        const nb::object &result() const { return result_; }
 
         void resume() override
         {
@@ -31,7 +35,10 @@ namespace dspsim::bindings
                 Py_XDECREF(result);
                 break;
             case PYGEN_RETURN:
-                Py_XDECREF(result);
+                if (result != nullptr)
+                {
+                    result_ = nb::steal(result);
+                }
                 done_ = true;
                 break;
             case PYGEN_ERROR:
@@ -43,6 +50,7 @@ namespace dspsim::bindings
 
     private:
         nb::object coro_;
+        nb::object result_ = nb::none();
         bool done_ = false;
     };
     static inline auto bind_py_task(nb::module_ &m, const char *name)

@@ -21,7 +21,7 @@ namespace
                 ->always(clk.pos());
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {
@@ -52,7 +52,7 @@ namespace
                 ->always(clk.pos());
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

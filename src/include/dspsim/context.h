@@ -2,6 +2,7 @@
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/process.h>
+#include <dspsim/coro.h>
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
@@ -30,6 +31,13 @@ namespace dspsim
 
     /// Thrown when a new context is created while the active context has not been elaborated.
     class ContextConstructionError : public std::runtime_error
+    {
+    public:
+        using std::runtime_error::runtime_error;
+    };
+
+    /// Thrown by Context::run_until() when the task does not complete within its timeout.
+    class TimeoutError : public std::runtime_error
     {
     public:
         using std::runtime_error::runtime_error;
@@ -100,24 +108,49 @@ namespace dspsim
         */
         void run(uint64_t time_inc = 0);
 
+        /*
+            Run the simulation until the task completes and return its value. The task is registered as a
+            one-shot process, scheduled immediately, and removed once done. Time advances event-to-event, like run().
+            Throws TimeoutError if the task is not done after `timeout` time units (0 = no timeout), with the
+            simulation left at the deadline, and std::runtime_error if the simulation stalls (no pending time
+            events) before the task completes. An exception thrown by the task propagates.
+
+            This is the entry point for asynchronous test code from ordinary (non-coroutine) code:
+
+                auto rx = ctx->run_until(axis_rx.receive(16, 1000));
+        */
+        template <typename T>
+        T run_until(Task<T> task, uint64_t timeout = 0);
+
+        // Run the simulation until the event triggers. Returns false if the timeout (0 = none) elapsed first.
+        bool run_until(SensitivityEvent &event, uint64_t timeout = 0);
+
         // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
         void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
 
+        /*
+            Coroutine awaitables. The process defaults to the one currently being evaluated, so inside a
+            coroutine process these can be awaited directly: `co_await ctx->wait(10);`.
+        */
         // wait on all events in the static sensitivity list.
-        Wait wait();
-        // Wait py_wait() { return wait(); }
+        Wait wait(ProcessBase *process = nullptr);
         // Wait on a time event.
         WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
-        // WaitTimeEvent py_wait_time_event(uint64_t time_delta, ProcessBase *process = nullptr) { return wait(time_delta, process); }
 
         // wait on a dynamic event.
         WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
-        // WaitSensitivityEvent py_wait_sensitivity_event(SensitivityEvent &event, ProcessBase *process = nullptr) { return wait(event, process); }
         // wait on multiple dynamic events.
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
         // wait on multiple dynamic events, given by pointer.
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
-        // WaitSensitivityEvent py_wait_sensitivity_events(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr) { return wait(events, process); }
+
+        /*
+            Wait on dynamic events with a timeout (> 0). The result says whether an event triggered or the
+            timeout elapsed. A literal 0 timeout is ambiguous with the process argument: use the overloads above.
+        */
+        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process = nullptr);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
@@ -188,13 +221,43 @@ namespace dspsim
         // Register a process with the context. This will create a Process object and set it as the active process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
 
+        // Register a member function bound at run time (goes through std::function).
         template <typename MemberFunc, typename ClassType>
         ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
         {
             return register_process_func(method_to_function(mem_ptr, instance), name);
         }
 
-        ProcessBase *register_coro_task(Task task, const std::string &name = "");
+        /*
+            Register a member function bound at compile time: register_method<&MyModule::eval>(this).
+            This is what DSPSIM_METHOD uses. The call is a plain function pointer call with no allocation.
+        */
+        template <auto Method, typename ClassType>
+        ProcessBase *register_method(ClassType *instance, const std::string &name = "")
+        {
+            return _register_method(
+                instance, [](void *p)
+                { (static_cast<ClassType *>(p)->*Method)(); },
+                name);
+        }
+        ProcessBase *_register_method(void *instance, MethodProcess::Trampoline call, const std::string &name);
+
+        // Register a coroutine task as a process. The process owns the coroutine frame.
+        template <typename T>
+        ProcessBase *register_coro_task(Task<T> task, const std::string &name = "")
+        {
+            return _register_coro(task.release(), name);
+        }
+        ProcessBase *_register_coro(std::coroutine_handle<> root, const std::string &name);
+
+        /*
+            Run the simulation until the (already registered) process is done. See run_until().
+            The process is scheduled immediately; the caller removes it afterwards with _remove_process().
+        */
+        void _run_until_done(ProcessBase *process, uint64_t timeout = 0);
+
+        // Unregister a process: unsubscribe it from its dynamic events, drop its pending time events, destroy it.
+        void _remove_process(ProcessBase *process);
 
         /*
             The current hierarchal module being constructed.
@@ -212,6 +275,8 @@ namespace dspsim
         void _do_initialize();
         // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed.
         void _update_signals();
+        // Queue the process of a due time event, unless the event is a stale coroutine time wait.
+        void _schedule_time_event(const TimeEvent &event);
 
     public:
         /*
@@ -333,4 +398,22 @@ namespace dspsim
     std::shared_ptr<ContextFactory> get_global_context_factory();
     void set_global_context_factory(std::shared_ptr<ContextFactory> factory);
     void reset_global_context_factory();
+
+    template <typename T>
+    T Context::run_until(Task<T> task, uint64_t timeout)
+    {
+        // The process takes ownership of the frame. Keep the typed handle to read the result once done.
+        auto handle = task.handle;
+        ProcessBase *process = register_coro_task(std::move(task), "run_until");
+        // Remove the process however _run_until_done() exits. The frame is destroyed with the process.
+        struct Cleanup
+        {
+            Context *context;
+            ProcessBase *process;
+            ~Cleanup() { context->_remove_process(process); }
+        } cleanup{this, process};
+
+        _run_until_done(process, timeout);
+        return handle.promise().result();
+    }
 }

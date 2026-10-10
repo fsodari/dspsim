@@ -26,7 +26,7 @@ public:
         _clocked_task_process = DSPSIM_CORO(clocked_task);
     }
 
-    Task some_task()
+    Task<> some_task()
     {
         context()->logger->info("Starting some_task, t={}", context()->time());
         while (true)
@@ -39,7 +39,7 @@ public:
         context()->logger->info("Exiting some_task loop, t={}", context()->time());
     }
 
-    Task one_shot()
+    Task<> one_shot()
     {
         // Tasks will be run at t=0 by default unless initialize(false) is called.
         context()->logger->info("Starting one_shot");
@@ -56,7 +56,7 @@ public:
         co_return;
     }
 
-    Task clocked_task()
+    Task<> clocked_task()
     {
         context()->logger->info("Starting clocked_task");
         while (true)
@@ -95,7 +95,7 @@ public:
         DSPSIM_CORO(add2);
     }
 
-    Task add()
+    Task<> add()
     {
         while (true)
         {
@@ -103,7 +103,7 @@ public:
             c = a + b;
         }
     }
-    Task add2()
+    Task<> add2()
     {
         while (true)
         {
@@ -126,7 +126,7 @@ public:
         DSPSIM_CORO(add);
     }
 
-    Task add()
+    Task<> add()
     {
         while (true)
         {
@@ -213,7 +213,7 @@ namespace
             DSPSIM_CORO(body);
         }
 
-        Task body()
+        Task<> body()
         {
             co_await wait(s.change());
             throw std::runtime_error("coro boom");

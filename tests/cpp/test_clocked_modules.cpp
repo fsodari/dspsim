@@ -21,7 +21,7 @@ namespace
                 ->initialize(false);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {
@@ -56,7 +56,7 @@ namespace
                 ->always(clk1.pos(), clk2.pos());
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

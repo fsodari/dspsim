@@ -33,7 +33,7 @@ namespace benchmarks
         }
 
 #if USE_COROUTINES
-        dspsim::Task eval()
+        dspsim::Task<> eval()
         {
             while (true)
             {

@@ -27,7 +27,7 @@ namespace
                 ->always(i, internal);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {
@@ -50,7 +50,7 @@ namespace
                 ->always(i);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

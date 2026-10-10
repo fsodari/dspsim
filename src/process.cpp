@@ -23,7 +23,7 @@ namespace dspsim
 
     void ProcessBase::schedule_static_event(SensitivityEvent &event)
     {
-        event.static_subscribers().push_back(this);
+        event.subscribe_static(this);
     }
 
     void ProcessBase::schedule_static_event(const std::string &event_name)
@@ -45,7 +45,7 @@ namespace dspsim
 
     void ProcessBase::schedule_dynamic_event(SensitivityEvent &event)
     {
-        event.dynamic_subscribers().push_back(this);
+        event.subscribe_dynamic(this);
         // Record each event once. The list is short, usually a single event.
         if (std::find(dynamic_events_.begin(), dynamic_events_.end(), &event) == dynamic_events_.end())
         {
@@ -75,10 +75,32 @@ namespace dspsim
         {
             if (other != &event)
             {
-                other->dynamic_subscribers().erase(this);
+                other->unsubscribe_dynamic(this);
             }
         }
         dynamic_events_.clear();
+        reset_static_sensitivity();
+    }
+
+    void ProcessBase::cancel_dynamic_events()
+    {
+        for (auto *event : dynamic_events_)
+        {
+            event->unsubscribe_dynamic(this);
+        }
+        dynamic_events_.clear();
+    }
+
+    void ProcessBase::schedule_time_wait(uint64_t time_delta)
+    {
+        // Tagged with the wake count: if anything else resumes the process first, the wakeup is stale.
+        context_->_time_event_stack.emplace(context_->time() + time_delta, this, wake_count_);
+        static_sensitivity_disabled_ = true;
+    }
+
+    void ProcessBase::time_wait_triggered()
+    {
+        cancel_dynamic_events();
         reset_static_sensitivity();
     }
 
@@ -87,18 +109,33 @@ namespace dspsim
     {
     }
 
+    MethodProcess::MethodProcess(Context *context, void *instance, Trampoline call, const std::string &name)
+        : ProcessBase(context, name), instance_(instance), call_(call)
+    {
+    }
+
     /*
         Coroutine processes.
     */
-    CoroProcess::CoroProcess(Context *context, Task task, const std::string &name)
-        : ProcessBase(context, name), task_(std::move(task))
+    CoroProcess::CoroProcess(Context *context, std::coroutine_handle<> root, const std::string &name)
+        : ProcessBase(context, name), root_(root)
     {
+        set_resume_point(root_);
     }
+
+    CoroProcess::~CoroProcess()
+    {
+        if (root_)
+        {
+            root_.destroy();
+        }
+    }
+
     void CoroProcess::resume()
     {
-        if (!task_.handle.done()) [[likely]]
+        if (!root_.done()) [[likely]]
         {
-            task_.handle.resume();
+            resume_point().resume();
         }
         else
         {
@@ -108,6 +145,6 @@ namespace dspsim
     }
     bool CoroProcess::done() const
     {
-        return !task_.handle || task_.handle.done();
+        return !root_ || root_.done();
     }
 }
