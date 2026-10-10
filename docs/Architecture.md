@@ -30,7 +30,6 @@ classDiagram
     }
     class Context {
         +elaborate()
-        +eval()
         +run(time_inc)
         +run_until(task, timeout)
     }
@@ -100,13 +99,17 @@ Key methods:
 - `elaborate()`: calls `finalize()` on every registered model (this is what triggers lazy
   port-binding resolution, see below), locks the design, and releases the context from
   the global factory so a new, independent context can be created.
-- `eval()`: runs delta cycles until nothing is left to evaluate or update (see
-  [Delta-cycle execution model](#delta-cycle-execution-model)).
-- `run(time_inc)`: runs a delta cycle, then advances simulated time through the scheduled
-  time events, running a delta cycle at each time step. The first `run()` also schedules
-  the initial evaluation: every process is evaluated once so that combinational logic
-  settles from the initial signal values. A process opts out with `initialize(false)`,
-  which chains with `always(...)`.
+- `run(time_inc)`: runs delta cycles until nothing is left to evaluate or update (see
+  [Delta-cycle execution model](#delta-cycle-execution-model)), then advances simulated
+  time through the scheduled time events, settling the design at each time step.
+  `run(0)` settles the design without advancing time. The delta-cycle loop itself,
+  `eval()`, is private.
+- Registering a process schedules it, so every process is evaluated once in the next
+  delta cycle: at the start of the simulation, where it lets combinational logic settle
+  from the initial signal values, or when the simulation continues if the process was
+  registered later (between `run()` calls, or by a running process, which starts it in
+  the same delta cycle). A process opts out with `initialize(false)`, which takes it
+  off the evaluation stack and chains with `always(...)`.
 - `run_until(task, timeout)` / `run_until(event, timeout)`: run the simulation until a
   coroutine task completes (returning its value) or an event triggers. See
   [Coro.md](Coro.md).
@@ -222,9 +225,10 @@ the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
 
 `Context::eval()` repeats the following round until both `_process_eval_stack` and
 `_signal_update_stack` are empty:
-1. **Evaluate.** Resume every process in `_process_eval_stack`. A process may call
-   `Signal::write()`, which only sets the pending value and schedules the signal for
-   update (deferred, not committed yet).
+1. **Evaluate.** Pop and resume processes until `_process_eval_stack` is empty, last
+   scheduled first. A process may call `Signal::write()`, which only sets the pending
+   value and schedules the signal for update (deferred, not committed yet). A process
+   that registers another process pushes it onto the stack, so it runs in this round.
 2. **Update.** Call `update()` on every signal in `_signal_update_stack`. This is where
    values commit and the signals' events are notified. Then recompute the derived signals
    (slices and packs) of the signals that changed.
@@ -244,8 +248,8 @@ After the last round, models that requested tracing dump their traces.
 `eval()` alone only advances *delta cycles*. It never moves simulated time forward.
 `run(time_inc)` is what drives time:
 
-1. On the first call, it commits pending signal writes and schedules every process whose
-   `initialize()` flag is set (the default).
+1. On the first call, it commits the initial signal values. The processes were already
+   scheduled when they were registered, unless `initialize(false)` was called on them.
 2. It runs a delta cycle (`eval()`), settling anything already pending at the current
    time.
 3. While `time_inc` is not used up, it jumps straight to the timestamp of the *nearest*
@@ -258,7 +262,7 @@ After the last round, models that requested tracing dump their traces.
 5. It runs another delta cycle so those processes, and anything they trigger
    transitively, settle before time advances again. The exception is the step that uses
    up `time_inc`: its processes stay queued and are evaluated by the delta cycle at the
-   start of the next `run()` (or `eval()`).
+   start of the next `run()`.
 
 ### The time-event queue
 `_time_event_stack` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always

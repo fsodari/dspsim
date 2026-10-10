@@ -77,7 +77,7 @@ Task<std::vector<T>> receive(size_t n, uint64_t timeout = 0)
 
 - Awaiting a task starts it (symmetric transfer) and resumes the awaiter when it `co_return`s, with its value.
   An exception thrown by a nested task is rethrown in the awaiter; one thrown by a root task propagates out
-  of `Context::run()`/`eval()`.
+  of `Context::run()`.
 - A task runs in whichever process awaits it. That is what lets `axis_rx.receive()` be awaited from a module's
   coroutine, from a `run_until` task in `main()`, or from a Python coroutine.
 - Keep a task alive until it is done. `co_await module.receive(...)` on a temporary is fine: the temporary lives

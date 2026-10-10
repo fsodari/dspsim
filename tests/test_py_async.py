@@ -207,3 +207,47 @@ def test_module_task_awaits_cpp_task():
         loop.tx.push(4)
         ctx.run(100)
         assert m.received == [1, 2, 3, 4]
+
+
+def test_task_added_after_a_run_starts_when_the_simulation_continues():
+    with Context() as ctx:
+        with ctx.construct():
+            clk = Clock("clk", 10)
+            m = Module("m")
+        ctx.run(42)
+
+        log: list[int] = []
+
+        async def edges():
+            log.append(ctx.time)
+            while True:
+                await m.wait(clk.pos())
+                log.append(ctx.time)
+
+        m.add_task(edges())
+        assert log == []
+        ctx.run(30)
+        assert log == [42, 50, 60, 70]
+
+
+def test_task_added_from_a_running_task():
+    with Context() as ctx:
+        with ctx.construct():
+            clk = Clock("clk", 10)
+            m = Module("m")
+
+        log: list[tuple[str, int]] = []
+
+        async def child():
+            log.append(("child", ctx.time))
+            await m.wait(clk.pos())
+            log.append(("child", ctx.time))
+
+        async def parent():
+            await ctx.wait(25)
+            m.add_task(child())
+            log.append(("parent", ctx.time))
+
+        ctx.run_until(parent())
+        ctx.run(10)
+        assert log == [("parent", 25), ("child", 25), ("child", 30)]

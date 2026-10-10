@@ -99,12 +99,9 @@ namespace dspsim
         // True while this context is the active context under construction.
         bool constructing() const;
 
-        // Compute a single delta cycle.
-        int eval();
-
         /*
             Run the simulation for the given time increment.
-            If time_inc is 0, it will run a delta cycle without advancing time.
+            If time_inc is 0, it runs delta cycles until the design settles without advancing time.
         */
         void run(uint64_t time_inc = 0);
 
@@ -221,7 +218,15 @@ namespace dspsim
         uint32_t next_model_id() { return _next_model_id++; }
 
         uint32_t next_process_id() { return _next_process_id++; }
-        // Register a process with the context. This will create a Process object and set it as the active process.
+
+        /*
+            Take ownership of a process and schedule it for evaluation in the next delta cycle
+            (see ProcessBase::initialize()). Processes can be registered at any time: during construction,
+            between run() calls, or from a running process.
+        */
+        ProcessBase *_add_process(std::unique_ptr<ProcessBase> process);
+
+        // Register a function as a process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
 
         // Register a member function bound at run time (goes through std::function).
@@ -255,7 +260,7 @@ namespace dspsim
 
         /*
             Run the simulation until the (already registered) process is done. See run_until().
-            The process is scheduled immediately; the caller removes it afterwards with _remove_process().
+            Registering the process scheduled it; the caller removes it afterwards with _remove_process().
         */
         void _run_until_done(ProcessBase *process, uint64_t timeout = 0);
 
@@ -275,6 +280,9 @@ namespace dspsim
         int64_t update_count() const { return update_count_; }
 
     private:
+        // Run delta cycles until no process or signal is scheduled. Returns the number of delta cycles.
+        int eval();
+        // Commit the initial signal values before the first evaluation.
         void _do_initialize();
         // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed.
         void _update_signals();

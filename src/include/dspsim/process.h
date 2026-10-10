@@ -26,19 +26,21 @@ namespace dspsim
         const std::string &name() const { return name_; }
         bool &scheduled_flag() { return scheduled_; }
 
-        // If initialize is true(default), the process will be queued for evaluation at the start of simulation
-        // regardless if any events have occurred.
-        // Accessor for the initialization flag.
-        bool &initialize() { return initialize_; }
-        // Set the initialization flag. Can be chained with always() calls.
-        ProcessBase *initialize(bool init)
-        {
-            initialize_ = init;
-            return this;
-        }
+        /*
+            A process is scheduled for evaluation as soon as it is registered, so by default it is evaluated
+            in the next delta cycle regardless of any events: at the start of the simulation, or when the
+            simulation continues if it was registered later.
+        */
+        // True if the process is evaluated once after registration without waiting for an event.
+        bool initialize() const { return initialize_; }
+        /*
+            initialize(false) takes the process off the evaluation stack, so it is first evaluated when one of
+            its events occurs. initialize(true) schedules it again. Can be chained with always() calls.
+        */
+        ProcessBase *initialize(bool init);
 
         // Python/nanobind will need getter/setters with different names.
-        bool &_get_initialize() { return initialize(); }
+        bool _get_initialize() const { return initialize(); }
         ProcessBase *_set_initialize(bool init) { return initialize(init); }
 
         //

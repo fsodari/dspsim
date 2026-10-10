@@ -69,9 +69,12 @@ namespace dspsim
 
     void Context::clear()
     {
-        // Clearing these will cause a segfault if signals go out of scope first.
-        // _process_eval_stack.clear();
-        // _signal_update_stack.clear();
+        // Drop everything that is scheduled. The underlying vectors are cleared directly: FlaggedStack::clear()
+        // resets the flag of each element, and signals may have gone out of scope already.
+        _process_eval_stack.stack().clear();
+        _signal_update_stack.stack().clear();
+        _derived_update_stack.stack().clear();
+        _current_process = nullptr;
 
         _registered_models.clear();
         _modules.clear();
@@ -125,19 +128,9 @@ namespace dspsim
         if (_initialized) [[likely]]
             return;
         _initialized = true;
-        // Update all signals
+        // Commit the initial signal values. Every process was scheduled when it was registered, unless
+        // initialize(false) was called on it, so the first eval() settles the design from these values.
         _update_signals();
-
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto &process : _processes)
-        {
-            logger->debug("Processing initialization for process: {}, init={}", process->name(), process->initialize());
-            if (process->initialize())
-            {
-                _process_eval_stack.push_back(process.get());
-            }
-        }
     }
 
     void Context::_update_signals()
@@ -173,17 +166,17 @@ namespace dspsim
             ++n_iter;
 
             // run eval cycle on all models that were scheduled to be evaluated.
-            // The scheduled flag is cleared while the process is hot in cache, instead of a second pass
-            // over all of them afterwards. Nothing pushes onto the eval stack while a process is resumed.
-            for (const auto &process : _process_eval_stack)
+            // A process is popped before it is resumed: a process that registers another process pushes
+            // it onto the stack, and it is evaluated in this same delta cycle.
+            while (!_process_eval_stack.empty())
             {
+                ProcessBase *process = _process_eval_stack.back();
+                _process_eval_stack.pop_back();
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
-                process->scheduled_flag() = false;
                 _current_process = process;
                 process->mark_woken();
                 process->resume();
             }
-            _process_eval_stack.stack().clear();
             if (any_model_updated)
             {
                 // Increment the update count for this delta cycle.
@@ -291,7 +284,6 @@ namespace dspsim
             _do_initialize();
         }
         const uint64_t deadline = _time + timeout;
-        _process_eval_stack.push_back(process);
         eval();
         while (!process->done())
         {
@@ -500,25 +492,30 @@ namespace dspsim
         _owned_models.push_back(model);
     }
 
+    ProcessBase *Context::_add_process(std::unique_ptr<ProcessBase> process)
+    {
+        _processes.push_back(std::move(process));
+        ProcessBase *p = _processes.back().get();
+        _process_eval_stack.push_back(p);
+        return p;
+    }
+
     ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<Process>(this, eval, name));
         logger->info("Registering process: {}", name);
-        return _processes.back().get();
+        return _add_process(std::make_unique<Process>(this, eval, name));
     }
 
     ProcessBase *Context::_register_method(void *instance, MethodProcess::Trampoline call, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<MethodProcess>(this, instance, call, name));
         logger->info("Registering process: {}", name);
-        return _processes.back().get();
+        return _add_process(std::make_unique<MethodProcess>(this, instance, call, name));
     }
 
     ProcessBase *Context::_register_coro(std::coroutine_handle<> root, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<CoroProcess>(this, root, name));
         logger->info("Registering coroutine task: {}", name);
-        return _processes.back().get();
+        return _add_process(std::make_unique<CoroProcess>(this, root, name));
     }
 
     Module *Context::_active_module() const

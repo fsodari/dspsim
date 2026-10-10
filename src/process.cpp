@@ -16,6 +16,20 @@ namespace dspsim
     {
     }
 
+    ProcessBase *ProcessBase::initialize(bool init)
+    {
+        initialize_ = init;
+        if (init)
+        {
+            context_->_process_eval_stack.push_back(this);
+        }
+        else
+        {
+            context_->_process_eval_stack.erase(this);
+        }
+        return this;
+    }
+
     void ProcessBase::reset_static_sensitivity()
     {
         static_sensitivity_disabled_ = false;

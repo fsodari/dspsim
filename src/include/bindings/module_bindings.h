@@ -13,8 +13,7 @@ namespace dspsim::bindings
      static inline auto _module_coro_helper(Module *module, nb::object task)
      {
           std::string name = module->hier_name() + "." + nb::cast<std::string>(nb::str(nb::getattr(task, "__name__", nb::str("task"))));
-          module->context()->_processes.push_back(std::make_unique<PyTask>(module->context(), std::move(task), name));
-          return module->context()->_processes.back().get();
+          return module->context()->_add_process(std::make_unique<PyTask>(module->context(), std::move(task), name));
      }
 
      static inline auto bind_module(nb::module_ &m, const char *name)

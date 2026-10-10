@@ -57,14 +57,16 @@ namespace dspsim
         }
 
         // Fast rejection via the flag; falls back to a linear scan only when the element
-        // is actually present (same worst case as UniqueStack::find).
+        // is actually present (same worst case as UniqueStack::find). The scan starts at the back:
+        // the usual lookup is for an element that was just pushed (e.g. ProcessBase::initialize(false)).
         iterator find(const T &element)
         {
             if (!element->scheduled_flag())
             {
                 return _stack.end();
             }
-            return std::find(_stack.begin(), _stack.end(), element);
+            auto it = std::find(_stack.rbegin(), _stack.rend(), element);
+            return it == _stack.rend() ? _stack.end() : std::next(it).base();
         }
 
         iterator erase(iterator it)

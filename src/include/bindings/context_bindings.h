@@ -16,7 +16,7 @@ namespace dspsim::bindings
           nb::object coro = run_awaitable(awaitable);
           auto task = std::make_unique<PyTask>(&ctx, std::move(coro), "run_until");
           PyTask *process = task.get();
-          ctx._processes.push_back(std::move(task));
+          ctx._add_process(std::move(task));
           // Remove the process however _run_until_done() exits.
           struct Cleanup
           {
@@ -48,7 +48,6 @@ namespace dspsim::bindings
               .def("clear", &Context::clear)
               .def("elaborate", &Context::elaborate)
               .def("release", &Context::release)
-              .def("eval", &Context::eval)
               .def("run", &Context::run, nb::arg("time_inc") = 0)
               // Run until the event triggers. False if the timeout (> 0) elapsed first.
               .def("run_until", [](Context &ctx, SensitivityEvent &event, uint64_t timeout)
