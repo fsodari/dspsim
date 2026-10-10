@@ -28,10 +28,23 @@ NB_MODULE(_framework, m)
     bindings::bind_py_task(m, "PyTask");
 
     // Awaitable bindings
+    bindings::bind_wait_result(m, "WaitResult");
     bindings::bind_wait_base(m, "WaitBase");
     bindings::bind_wait(m, "Wait");
     bindings::bind_wait_time_event(m, "WaitTimeEvent");
     bindings::bind_wait_sensitivity_event(m, "WaitSensitivityEvent");
+
+    // C++ tasks awaitable from Python, one per result type.
+    bindings::bind_task<void>(m, "Task", "None");
+    bindings::bind_task<bool>(m, "TaskBool", "bool");
+    bindings::bind_task<std::vector<uint8_t>>(m, "TaskListU8", "list[int]");
+    bindings::bind_task<std::vector<uint16_t>>(m, "TaskListU16", "list[int]");
+    bindings::bind_task<std::vector<uint32_t>>(m, "TaskListU32", "list[int]");
+    bindings::bind_task<std::vector<uint64_t>>(m, "TaskListU64", "list[int]");
+    bindings::bind_task<std::vector<int8_t>>(m, "TaskListS8", "list[int]");
+    bindings::bind_task<std::vector<int16_t>>(m, "TaskListS16", "list[int]");
+    bindings::bind_task<std::vector<int32_t>>(m, "TaskListS32", "list[int]");
+    bindings::bind_task<std::vector<int64_t>>(m, "TaskListS64", "list[int]");
 
     // Bind Signals
     bindings::bind_signal_base(m, "SignalBase");
@@ -178,6 +191,25 @@ NB_MODULE(_framework, m)
     bindings::bind_dff_class<int16_t>(m, "DffS16");
     bindings::bind_dff_class<int32_t>(m, "DffS32");
     bindings::bind_dff_class<int64_t>(m, "DffS64");
+
+    // AXI-Stream source/sink
+    bindings::bind_axis_rx<uint8_t>(m, "AxisRxU8");
+    bindings::bind_axis_rx<uint16_t>(m, "AxisRxU16");
+    bindings::bind_axis_rx<uint32_t>(m, "AxisRxU32");
+    bindings::bind_axis_rx<uint64_t>(m, "AxisRxU64");
+    bindings::bind_axis_rx<int8_t>(m, "AxisRxS8");
+    bindings::bind_axis_rx<int16_t>(m, "AxisRxS16");
+    bindings::bind_axis_rx<int32_t>(m, "AxisRxS32");
+    bindings::bind_axis_rx<int64_t>(m, "AxisRxS64");
+
+    bindings::bind_axis_tx<uint8_t>(m, "AxisTxU8");
+    bindings::bind_axis_tx<uint16_t>(m, "AxisTxU16");
+    bindings::bind_axis_tx<uint32_t>(m, "AxisTxU32");
+    bindings::bind_axis_tx<uint64_t>(m, "AxisTxU64");
+    bindings::bind_axis_tx<int8_t>(m, "AxisTxS8");
+    bindings::bind_axis_tx<int16_t>(m, "AxisTxS16");
+    bindings::bind_axis_tx<int32_t>(m, "AxisTxS32");
+    bindings::bind_axis_tx<int64_t>(m, "AxisTxS64");
 }
 
 double sc_time_stamp(void)

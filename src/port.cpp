@@ -111,9 +111,9 @@ namespace dspsim
         // This is an error condition, but it should fail gracefully at the end of elaboration.
         if (bound_signal_)
         {
-            bound_signal_->pos().static_subscribers().push_range(static_posedge_event_.static_subscribers());
-            bound_signal_->neg().static_subscribers().push_range(static_negedge_event_.static_subscribers());
-            bound_signal_->change().static_subscribers().push_range(static_change_event_.static_subscribers());
+            bound_signal_->pos().merge_static_subscribers(static_posedge_event_);
+            bound_signal_->neg().merge_static_subscribers(static_negedge_event_);
+            bound_signal_->change().merge_static_subscribers(static_change_event_);
 
             // Set dynamic sensitivity to the signal's dynamic events.
             change_event_ = &bound_signal_->change();

@@ -20,7 +20,7 @@ namespace
                 ->always(i);
         }
 
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {
@@ -72,7 +72,7 @@ namespace
             parent2.i.bind(i);
             parent2.o.bind(p2_internal);
         }
-        Task eval()
+        Task<> eval()
         {
             while (true)
             {

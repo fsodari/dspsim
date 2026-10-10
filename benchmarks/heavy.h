@@ -22,7 +22,7 @@ namespace benchmarks
                 ->always(clk.pos());
         }
 
-        dspsim::Task eval()
+        dspsim::Task<> eval()
         {
             while (true)
             {
@@ -50,7 +50,7 @@ namespace benchmarks
                 ->always("*");
         }
 
-        dspsim::Task eval()
+        dspsim::Task<> eval()
         {
             while (true)
             {

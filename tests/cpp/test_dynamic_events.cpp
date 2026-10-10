@@ -19,7 +19,7 @@ namespace
             DSPSIM_CORO(body);
         }
 
-        Task body()
+        Task<> body()
         {
             co_await wait({a.change(), b.change()});
             ++wakeups;
@@ -67,7 +67,7 @@ namespace
             DSPSIM_CORO(body)->always(s.change());
         }
 
-        Task body()
+        Task<> body()
         {
             while (true)
             {

@@ -16,9 +16,9 @@ namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name, int width)
         : Model(name, "signal"),
-          scheduled_(false),
-          dependents_(),
           width_(width),
+          dependents_(),
+          scheduled_(false),
           change_event_(context()),
           posedge_event_(context()),
           negedge_event_(context())
@@ -36,6 +36,7 @@ namespace dspsim
         if (std::find(dependents_.begin(), dependents_.end(), dependent) == dependents_.end())
         {
             dependents_.push_back(dependent);
+            has_dependents_ = true;
         }
     }
 
@@ -131,7 +132,7 @@ namespace dspsim
 
         this->q_ = this->d_;
 
-        if (!dependents_.empty()) [[unlikely]]
+        if (has_dependents_) [[unlikely]]
         {
             schedule_dependents();
         }

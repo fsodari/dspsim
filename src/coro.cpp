@@ -4,122 +4,70 @@
 
 namespace dspsim
 {
-    // Task Task::promise_type::get_return_object()
-    // {
-    //     return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
-    // }
-    // std::suspend_always Task::promise_type::initial_suspend() noexcept
-    // {
-    //     return {};
-    // }
-
-    // std::suspend_always Task::promise_type::final_suspend() noexcept
-    // {
-    //     return {};
-    // }
-
-    // void Task::promise_type::return_void()
-    // {
-    //     // Clean up context.
-    // }
-
-    // void Task::promise_type::unhandled_exception()
-    // {
-    //     std::terminate();
-    // }
-
-    Task::Task(std::coroutine_handle<promise_type> coroutine_handle) noexcept
-        : handle(coroutine_handle)
-    {
-    }
-
-    Task::Task(Task &&other) noexcept
-        : handle(std::exchange(other.handle, {}))
-    {
-    }
-
-    Task &Task::operator=(Task &&other) noexcept
-    {
-        if (this != &other)
-        {
-            if (handle)
-                handle.destroy();
-            handle = std::exchange(other.handle, {});
-        }
-        return *this;
-    }
-
-    Task::~Task()
-    {
-        if (handle)
-        {
-            handle.destroy();
-        }
-    }
-
     /*
         Time Event awaitable.
     */
     WaitTimeEvent::WaitTimeEvent(uint64_t time_delta, ProcessBase *process)
-        : time_delta_(time_delta),
-          process_(process)
+        : WaitBase(process)
     {
-        process_->context()->schedule_time_delta_event(time_delta_, process_);
+        process->schedule_time_wait(time_delta);
     }
-
-    bool WaitTimeEvent::await_ready() const noexcept
-    {
-        return false;
-    }
-
-    void WaitTimeEvent::await_suspend(std::coroutine_handle<> h) noexcept
-    {
-        (void)h;
-    }
-
-    void WaitTimeEvent::await_resume() noexcept {}
 
     /*
         Sensitivity Event awaitable.
     */
     WaitSensitivityEvent::WaitSensitivityEvent(ProcessBase *process)
+        : WaitBase(process)
     {
         // Static sensitivity is already registered. Nothing to schedule.
-        (void)process;
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process, uint64_t timeout)
+        : WaitBase(process)
     {
         process->schedule_dynamic_event(event);
+        schedule_timeout(timeout);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process, uint64_t timeout)
+        : WaitBase(process)
     {
         for (auto &event : events)
         {
             process->schedule_dynamic_event(event.get());
         }
+        schedule_timeout(timeout);
     }
 
-    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<SensitivityEvent *> &events, ProcessBase *process, uint64_t timeout)
+        : WaitBase(process)
     {
         for (auto *event : events)
         {
             process->schedule_dynamic_event(*event);
         }
+        schedule_timeout(timeout);
     }
 
-    bool WaitSensitivityEvent::await_ready() const noexcept
+    void WaitSensitivityEvent::schedule_timeout(uint64_t timeout)
     {
-        // Must wait until the event occurs in the notification phase and the task is explicitly resumed.
-        return false;
+        if (timeout == 0)
+        {
+            return;
+        }
+        has_timeout_ = true;
+        deadline_ = process()->context()->time() + timeout;
+        process()->schedule_time_wait(timeout);
     }
 
-    void WaitSensitivityEvent::await_suspend(std::coroutine_handle<> h) noexcept
+    WaitResult WaitSensitivityEvent::await_resume() const noexcept
     {
-        // The constructor already scheduled the wait.
-        (void)h;
+        // The timeout is processed before any event of the same time step, and cancels the events, so the
+        // process reaches the deadline only through the timeout.
+        if (has_timeout_ && process()->context()->time() >= deadline_)
+        {
+            return WaitResult::Timeout;
+        }
+        return WaitResult::Triggered;
     }
-
-    void WaitSensitivityEvent::await_resume() noexcept {}
 } // namespace dspsim

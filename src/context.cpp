@@ -173,13 +173,17 @@ namespace dspsim
             ++n_iter;
 
             // run eval cycle on all models that were scheduled to be evaluated.
+            // The scheduled flag is cleared while the process is hot in cache, instead of a second pass
+            // over all of them afterwards. Nothing pushes onto the eval stack while a process is resumed.
             for (const auto &process : _process_eval_stack)
             {
                 SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
+                process->scheduled_flag() = false;
                 _current_process = process;
+                process->mark_woken();
                 process->resume();
             }
-            _process_eval_stack.clear();
+            _process_eval_stack.stack().clear();
             if (any_model_updated)
             {
                 // Increment the update count for this delta cycle.
@@ -252,7 +256,7 @@ namespace dspsim
                 auto event = _time_event_stack.top();
                 _time_event_stack.pop();
                 SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process()->name());
-                _process_eval_stack.push_back(event.process());
+                _schedule_time_event(event);
             }
             // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
             // Models with the time update will still be queued for the next delta cycle.
@@ -264,6 +268,95 @@ namespace dspsim
         }
     }
 
+    void Context::_schedule_time_event(const TimeEvent &event)
+    {
+        ProcessBase *process = event.process();
+        if (event.sticky())
+        {
+            _process_eval_stack.push_back(process);
+        }
+        else if (event.wake_count() == process->wake_count())
+        {
+            // A coroutine time wait: the process stops waiting on anything else.
+            process->time_wait_triggered();
+            _process_eval_stack.push_back(process);
+        }
+        // Otherwise the process was resumed since the wait was scheduled, so the wakeup is stale.
+    }
+
+    void Context::_run_until_done(ProcessBase *process, uint64_t timeout)
+    {
+        if (!_initialized) [[unlikely]]
+        {
+            _do_initialize();
+        }
+        const uint64_t deadline = _time + timeout;
+        _process_eval_stack.push_back(process);
+        eval();
+        while (!process->done())
+        {
+            if (_time_event_stack.empty())
+            {
+                throw std::runtime_error(std::format(
+                    "run_until: the simulation stalled at t={} with no pending time events, so '{}' can never complete.",
+                    _time, process->name()));
+            }
+            uint64_t next_time = _time_event_stack.top().time_update();
+            if (timeout != 0 && next_time > deadline)
+            {
+                run(deadline - _time);
+                throw TimeoutError(std::format("run_until: '{}' did not complete within {} time units (t={}).",
+                                               process->name(), timeout, _time));
+            }
+            // Advance to the next time step and evaluate it.
+            run(next_time - _time);
+            eval();
+        }
+    }
+
+    void Context::_remove_process(ProcessBase *process)
+    {
+        process->cancel_dynamic_events();
+
+        // Drop its pending time events. std::priority_queue has no erase, so rebuild it.
+        std::vector<TimeEvent> kept;
+        while (!_time_event_stack.empty())
+        {
+            if (_time_event_stack.top().process() != process)
+            {
+                kept.push_back(_time_event_stack.top());
+            }
+            _time_event_stack.pop();
+        }
+        _time_event_stack = PriorityQueue<TimeEvent>(std::greater<TimeEvent>(), std::move(kept));
+
+        _process_eval_stack.erase(process);
+        if (_current_process == process)
+        {
+            _current_process = nullptr;
+        }
+        std::erase_if(_processes, [process](const std::unique_ptr<ProcessBase> &p)
+                      { return p.get() == process; });
+    }
+
+    namespace
+    {
+        Task<bool> wait_event_task(Context *context, SensitivityEvent *event, uint64_t timeout)
+        {
+            if (timeout == 0)
+            {
+                co_await context->wait(*event);
+                co_return true;
+            }
+            co_return (co_await context->wait(*event, timeout)) == WaitResult::Triggered;
+        }
+    } // namespace
+
+    bool Context::run_until(SensitivityEvent &event, uint64_t timeout)
+    {
+        return run_until(wait_event_task(this, &event, timeout));
+    }
+
     void Context::schedule_time_delta_event(uint64_t time_delta, ProcessBase *process)
     {
         if (process == nullptr)
@@ -273,9 +366,13 @@ namespace dspsim
         _time_event_stack.emplace(_time + time_delta, process);
     }
 
-    Wait Context::wait()
+    Wait Context::wait(ProcessBase *process)
     {
-        return Wait{};
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return Wait{process};
     }
 
     WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
@@ -311,6 +408,31 @@ namespace dspsim
             process = _current_process;
         }
         return WaitSensitivityEvent{events, process};
+    }
+
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return WaitSensitivityEvent{event, process, timeout};
+    }
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return WaitSensitivityEvent{events, process, timeout};
+    }
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process)
+    {
+        if (process == nullptr)
+        {
+            process = _current_process;
+        }
+        return WaitSensitivityEvent{events, process, timeout};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const
@@ -421,9 +543,16 @@ namespace dspsim
         return _processes.back().get();
     }
 
-    ProcessBase *Context::register_coro_task(Task task, const std::string &name)
+    ProcessBase *Context::_register_method(void *instance, MethodProcess::Trampoline call, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<CoroProcess>(this, std::move(task), name));
+        _processes.emplace_back(std::make_unique<MethodProcess>(this, instance, call, name));
+        logger->info("Registering process: {}", name);
+        return _processes.back().get();
+    }
+
+    ProcessBase *Context::_register_coro(std::coroutine_handle<> root, const std::string &name)
+    {
+        _processes.emplace_back(std::make_unique<CoroProcess>(this, root, name));
         logger->info("Registering coroutine task: {}", name);
         return _processes.back().get();
     }

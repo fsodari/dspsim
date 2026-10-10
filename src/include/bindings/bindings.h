@@ -15,3 +15,4 @@
 #include "process_bindings.h"
 #include "signal_bindings.h"
 #include "dff_bindings.h"
+#include "axis_bindings.h"

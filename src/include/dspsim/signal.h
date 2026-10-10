@@ -68,16 +68,24 @@ namespace dspsim
         // Recompute the derived signals immediately after this signal has been initialized.
         void refresh_dependents();
 
+    private:
+        int width_;
+        // Derived signals computed from this signal's bits.
+        std::vector<DerivedSignalBase *> dependents_;
+
+        /*
+            Everything below is read by write()/update() on every cycle. It is declared last so that it shares
+            cache lines with the value fields (d_, q_) of Signal<T>, which follow in memory.
+        */
     protected:
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
         bool scheduled_;
-        // Derived signals computed from this signal's bits.
-        std::vector<DerivedSignalBase *> dependents_;
+        // True once dependents_ is non-empty (saves reading the vector in update()).
+        bool has_dependents_ = false;
         // Set by DerivedSignal: the selection this signal is a view of. Checked on the write path.
         const BitSel *source_selection_ = nullptr;
 
     private:
-        int width_;
         SensitivityEvent change_event_;
         SensitivityEvent posedge_event_;
         SensitivityEvent negedge_event_;

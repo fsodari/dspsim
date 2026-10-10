@@ -25,7 +25,7 @@ class Args:
         parser.add_argument(
             "--build-dir", type=Path, default=Path("build"), dest="build_dir"
         )
-        parser.add_argument("--config", type=str, default="Debug", dest="config")
+        parser.add_argument("--config", type=str, default="Release", dest="config")
         parser.add_argument(
             "--target", type=str, action="append", default=["tests"], dest="target"
         )
