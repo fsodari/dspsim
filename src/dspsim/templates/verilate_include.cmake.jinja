@@ -12,6 +12,7 @@ TRACE_VCD
 TRACE_FST
 {%endif-%}
 VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
-
+{%if model.trace == "fst"%}dspsim_target_fst_deps({{model.name}})
+{%endif%}
 target_link_libraries({{config.name}} PUBLIC {{model.name}})
 {% endfor %}

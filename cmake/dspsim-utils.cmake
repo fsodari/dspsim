@@ -26,6 +26,30 @@ function(dspsim_add_nanobind_module name source_file)
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
 endfunction()
 
+# Check for the lz4 development files that Verilator's FST tracing needs, and add their
+# search paths to a verilated target. Verilator links -llz4 without a search path. That
+# works when lz4 is in a compiler default location (Linux system packages), but not for
+# Homebrew on Apple Silicon (/opt/homebrew) or other prefixes on CMAKE_PREFIX_PATH.
+function(dspsim_target_fst_deps target)
+    find_path(DSPSIM_LZ4_INCLUDE_DIR lz4.h)
+    find_library(DSPSIM_LZ4_LIBRARY lz4)
+    if(NOT DSPSIM_LZ4_INCLUDE_DIR OR NOT DSPSIM_LZ4_LIBRARY)
+        message(FATAL_ERROR
+            "lz4 development files not found. FST tracing of ${target} needs them: "
+            "apt install liblz4-dev, dnf install lz4-devel or brew install lz4. "
+            "Set CMAKE_PREFIX_PATH if lz4 is installed in a custom location.")
+    endif()
+
+    # Leave compiler default directories alone. They are searched anyway.
+    if(NOT DSPSIM_LZ4_INCLUDE_DIR IN_LIST CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES)
+        target_include_directories(${target} SYSTEM PUBLIC ${DSPSIM_LZ4_INCLUDE_DIR})
+    endif()
+    cmake_path(GET DSPSIM_LZ4_LIBRARY PARENT_PATH lz4_library_dir)
+    if(NOT lz4_library_dir IN_LIST CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES)
+        target_link_directories(${target} PUBLIC ${lz4_library_dir})
+    endif()
+endfunction()
+
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.

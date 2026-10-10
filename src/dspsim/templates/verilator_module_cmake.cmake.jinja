@@ -22,7 +22,8 @@ TRACE_VCD
 TRACE_FST
 {%endif-%}
 VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
-
+{%if model.trace == "fst"%}dspsim_target_fst_deps({{model.name}})
+{%endif%}
 # Create the main nanobind module
 dspsim_add_nanobind_module(_{{model.name}} {{model.name}}_module.cpp)
 # Link to the dspsim module

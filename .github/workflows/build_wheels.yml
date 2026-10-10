@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - release/*
+  pull_request:
 
 jobs:
   build_sdist:
@@ -73,9 +74,36 @@ jobs:
           name: cibw-wheels-windows
           path: ./dist/*.whl
 
+  build_macos_wheels:
+    name: Python cibuildwheel macOS (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is arm64, macos-15-intel is x86_64.
+        os: [macos-latest, macos-15-intel]
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.0
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Build macOS wheels
+        run: uvx cibuildwheel --output-dir ./dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-wheels-${{ matrix.os }}
+          path: ./dist/*.whl
+
   upload_pypi:
     if: startsWith(github.event.ref, 'refs/tags/v')
-    needs: [build_sdist, build_linux_wheels, build_windows_wheels, ]
+    needs: [build_sdist, build_linux_wheels, build_windows_wheels, build_macos_wheels]
     runs-on: ubuntu-latest
     environment:
       name: pypi
