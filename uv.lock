@@ -130,7 +130,7 @@ requires-dist = [
     { name = "nanobind", specifier = ">=3.1.0" },
     { name = "nanobind-backend", specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=2.5.2" },
-    { name = "verilator-dspsim", marker = "extra == 'verilator'", specifier = ">=5.52.0" },
+    { name = "verilator-dspsim", marker = "extra == 'verilator'", specifier = ">=5.52.2" },
 ]
 provides-extras = ["verilator"]
 
@@ -142,7 +142,7 @@ dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.5" },
     { name = "scikit-build-core", specifier = ">=1.0.3" },
-    { name = "verilator-dspsim", specifier = ">=5.52.0" },
+    { name = "verilator-dspsim", specifier = ">=5.52.2" },
 ]
 
 [[package]]
@@ -421,10 +421,12 @@ wheels = [
 
 [[package]]
 name = "verilator-dspsim"
-version = "5.52.0"
+version = "5.52.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/51/3a/2aeb6a78827a52dee99698441e4397efb0270d799eaf2129874abda59895/verilator_dspsim-5.52.0.tar.gz", hash = "sha256:270342533dc18142a56b9341db631b1b7d020f00aa62ed51172e071b706e8462", size = 15155, upload-time = "2026-09-12T22:21:45.793Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/99/3b9f9ff991233cd2b1a3b49f00aaa948ed3e0af8477b37a2e81b5d6667ba/verilator_dspsim-5.52.2.tar.gz", hash = "sha256:91403033211b35d9457aae4ff1309e96b78eb7821898aaba7cba71bf52dcb74b", size = 21997, upload-time = "2026-10-10T06:22:23.146Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/e9/518c4bf96fd1bf0bfe7cb2f8121b6d651e5aae2c65bd2816abdd560c6e92/verilator_dspsim-5.52.0-cp312-abi3-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:28c314e1f5ae06fa5a60ffccfc4c0889880de9f241f71858b84e79494cbca6dc", size = 5836268, upload-time = "2026-09-12T22:21:42.116Z" },
-    { url = "https://files.pythonhosted.org/packages/11/31/6d48fb561c7f48a1d5cadcaac4f6fa42474a69dc95226f47ea5980d2a3cd/verilator_dspsim-5.52.0-cp312-abi3-win_amd64.whl", hash = "sha256:2188dc2eb0df07c74cdf40b029fc8155a0a099a793abc7d51a26ab09aabb9a28", size = 5108430, upload-time = "2026-09-12T22:21:44.277Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/3d/e0fbbb5c0ffe4e3d853c5d506367d54a1f800dfc14dc1f331ba09e164a02/verilator_dspsim-5.52.2-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:45f7aae808484a288fb2febd2957a2934cc98f04ed2bdc0e6cf954a33bf6c26e", size = 5069809, upload-time = "2026-10-10T06:22:15.797Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/f9/48f5608aa398dee6f8fbce22d42ba147e933331941d188805f9eed298271/verilator_dspsim-5.52.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:f423a9abaa548bf3b7508bfe3fd4954231f334ae34d0f7d4ceeb128b9d82d27d", size = 4766972, upload-time = "2026-10-10T06:22:17.986Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/a8/dd20d01bb0e80948468fc4be14a948db4270f5054850c222dfeffe016d3f/verilator_dspsim-5.52.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:924272470e44a8e5583e9ddfb527b30555cd4be5cdd15cfb060b9be1f5348fb7", size = 7360874, upload-time = "2026-10-10T06:22:19.821Z" },
+    { url = "https://files.pythonhosted.org/packages/58/c2/9786867ef119992fb036ab7cac7d9d5e80ab59d732c2cb9e4e724810c423/verilator_dspsim-5.52.2-py3-none-win_amd64.whl", hash = "sha256:061dc28b9be1fed5b4f078ed9adf36e6b7e76e58677836cc72c6007bce73121b", size = 5108741, upload-time = "2026-10-10T06:22:21.52Z" },
 ]
