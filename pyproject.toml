@@ -89,6 +89,8 @@ before-all = "yum install -y lz4-devel"
 
 [tool.cibuildwheel.macos]
 before-all = "brew install lz4"
+# libc++ only provides the floating point std::to_chars used by std::format from macOS 13.3.
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.0" }
 
 ###
 ###
