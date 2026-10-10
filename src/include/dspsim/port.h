@@ -3,6 +3,7 @@
 #include <dspsim/event.h>
 #include <dspsim/ndarray.h>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace dspsim
@@ -94,6 +95,10 @@ namespace dspsim
         void bind(Signal<T> &signal) { bind_base(signal); }
         // Bind the input port to another input port.
         void bind(Input<T> &port) { bind_base(port); }
+        /// Bind the input port to a bit selection (a slice or pack of signals) of the same width.
+        /// The selected bits are zero or sign extended to T. Must be called before elaboration.
+        void bind(const BitSel &selection)
+            requires std::is_integral_v<T>;
 
         // Read the value of the port (bound signal).
         const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
@@ -116,6 +121,12 @@ namespace dspsim
         void bind(Signal<T> &signal) { bind_base(signal); }
         // Bind the output port to another output port.
         void bind(Output<T> &port) { bind_base(port); }
+        /// Bind the output port to a bit selection (a slice or pack of signals) of the same width.
+        /// Writes are truncated to the selection's width and passed through to the selected bits of the
+        /// source signals at write time, so they combine with other writes to those signals in the same cycle
+        /// (last write wins per bit). Must be called before elaboration.
+        void bind(const BitSel &selection)
+            requires std::is_integral_v<T>;
 
         // Read the value of the bound signal.
         const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }

@@ -2,6 +2,7 @@
 #include <dspsim/signal.h>
 #include "nb_include.h"
 #include "ndarray_bindings.h"
+#include "bitsel_bindings.h"
 
 namespace dspsim::bindings
 {
@@ -11,7 +12,14 @@ namespace dspsim::bindings
         return nb::class_<SignalBase, Model>(m, name)
             .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
             .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal);
+            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
+            .def_prop_ro("width", &SignalBase::width)
+            // Bit selections. sig[hi:lo] is inclusive, as in SystemVerilog. Selections are unsigned.
+            .def("slice", &SignalBase::slice, nb::arg("hi"), nb::arg("lo"))
+            .def("__getitem__", [](SignalBase &s, nb::handle key)
+                 {
+                     auto range = resolve_bit_key(key, s.width());
+                     return s.slice(range.hi, range.lo); }, nb::arg("key"), nb::sig("def __getitem__(self, key: int | slice, /) -> BitSel"));
     }
 
     template <typename T>

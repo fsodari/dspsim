@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/port.h>
+#include <dspsim/bits.h>
 #include <climits>
 #include <type_traits>
 
@@ -12,33 +13,13 @@ namespace dspsim
         template <typename T>
         using vl_storage_t = typename std::conditional_t<std::is_integral_v<T>, std::make_unsigned<T>, std::type_identity<T>>::type;
 
-        /// Mask selecting the lower W bits of the integral type U.
-        template <typename U, int W>
-        constexpr U vl_mask()
-        {
-            if constexpr (W >= static_cast<int>(sizeof(U) * CHAR_BIT))
-            {
-                return static_cast<U>(~U{0});
-            }
-            else
-            {
-                return static_cast<U>((U{1} << W) - 1);
-            }
-        }
-
-        /// Convert a W-bit value held in a verilated port into T. Signed types are sign extended from bit W-1
-        /// with a bitfield, so the shift amounts are resolved at compile time.
+        /// Convert a W-bit value held in a verilated port into T. Signed types are sign extended from bit W-1.
         template <typename T, int W>
         constexpr T vl_extend(vl_storage_t<T> value)
         {
-            if constexpr (std::is_integral_v<T> && std::is_signed_v<T> && W < static_cast<int>(sizeof(T) * CHAR_BIT))
+            if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
             {
-                struct
-                {
-                    T v : W;
-                } field{};
-                field.v = static_cast<T>(value);
-                return field.v;
+                return sext<W>(value);
             }
             else
             {
@@ -53,7 +34,7 @@ namespace dspsim
             using U = vl_storage_t<T>;
             if constexpr (std::is_integral_v<T>)
             {
-                return static_cast<U>(value) & vl_mask<U, W>();
+                return static_cast<U>(value) & mask<W, U>();
             }
             else
             {

@@ -3,6 +3,7 @@
 */
 #pragma once
 
+#include "bitsel_bindings.h"
 #include "context_bindings.h"
 #include "clock_bindings.h"
 #include "coro_bindings.h"

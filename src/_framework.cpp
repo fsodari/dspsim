@@ -72,6 +72,20 @@ NB_MODULE(_framework, m)
 
     bindings::bind_signal_array_view<double>(m, "SignalArrayViewFloat");
 
+    // Bit selections
+    bindings::bind_bitsel(m, "BitSel");
+    bindings::bind_bit_functions(m);
+
+    bindings::bind_derived_signal<uint8_t>(m, "DerivedSignalU8");
+    bindings::bind_derived_signal<uint16_t>(m, "DerivedSignalU16");
+    bindings::bind_derived_signal<uint32_t>(m, "DerivedSignalU32");
+    bindings::bind_derived_signal<uint64_t>(m, "DerivedSignalU64");
+
+    bindings::bind_derived_signal<int8_t>(m, "DerivedSignalS8");
+    bindings::bind_derived_signal<int16_t>(m, "DerivedSignalS16");
+    bindings::bind_derived_signal<int32_t>(m, "DerivedSignalS32");
+    bindings::bind_derived_signal<int64_t>(m, "DerivedSignalS64");
+
     // Clock
     bindings::bind_clock(m, "Clock");
 

@@ -9,8 +9,11 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
 #include <stdexcept>
+#include <thread>
 
 namespace spdlog
 {
@@ -23,6 +26,7 @@ namespace dspsim
     class Module;
     class ModuleName;
     class SignalBase;
+    class DerivedSignalBase;
 
     /// Thrown when a new context is created while the active context has not been elaborated.
     class ContextConstructionError : public std::runtime_error
@@ -36,9 +40,11 @@ namespace dspsim
         Responsible for elaboration, simulation, and management of models.
 
         Context states:
-        - Design setup. Models can be added to the context. Models will self-register with the global context, so this
-          must be locked to prevent other threads from adding models to the context while it is being set up.
-        - Detached. Once elaboration is complete, the context is detached from the global context.
+        - Design setup. Models can be added to the context. Models self-register with the global active context, so
+          only one context can be under construction at a time. Context::create() takes a construction lock: another
+          thread calling create() blocks until the context is elaborated or released, and the same thread calling
+          create() again throws ContextConstructionError, since waiting would deadlock.
+        - Released. Once elaboration is complete, the context is released from the global factory.
           The context can be used for simulation, but no new models can be added to it.
           New contexts can be created with new parameters so that they can run in parallel.
     */
@@ -47,7 +53,7 @@ namespace dspsim
         friend class ContextFactory;
 
     private:
-        // Can't create context directly. Must use obtain() to get global context, or create() to make a new global context.
+        // Can't create context directly. Use create() to make a new global context, and obtain() to get the active one.
         Context(const std::string &name, int id);
 
     public:
@@ -69,8 +75,8 @@ namespace dspsim
             Call elaborate after construction is complete.
             This will finalize all port bindings,
             and TODO: check for any netlist violations.
-            The design is then locked and the context detaches from the global context factory,
-            so a new, independent context can be created.
+            The design is then locked and the context is released from the global context factory,
+            so a new, independent context can be created. The context is released even if elaboration fails.
         */
         void elaborate();
 
@@ -78,11 +84,12 @@ namespace dspsim
         bool elaborated() const;
 
         /*
-            Stop being the global active context, if this context is the active one.
-            Models constructed afterward are registered with a new context.
+            Stop being the global active context and release the construction lock, if this context is the active one.
             Does nothing if another context is active.
         */
-        void detach();
+        void release();
+        // True while this context is the active context under construction.
+        bool constructing() const;
 
         // Compute a single delta cycle.
         int eval();
@@ -203,14 +210,16 @@ namespace dspsim
 
     private:
         void _do_initialize();
+        // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed.
+        void _update_signals();
 
     public:
         /*
             Static Methods
         */
-        // Obtain the global context.
+        // Obtain the active global context. Throws ContextConstructionError if there is none.
         static std::shared_ptr<Context> obtain();
-        // Set the global context to nullptr. New designs will create a new context.
+        // Set the global context to nullptr. New designs must call create().
         static void reset();
         // Create a new global context. Throws ContextConstructionError if the active context is not elaborated.
         static std::shared_ptr<Context> create(const std::string &name = "");
@@ -261,6 +270,8 @@ namespace dspsim
 
         // All signals that need to be updated in the current delta cycle.
         FlaggedStack<SignalBase *> _signal_update_stack;
+        // Derived signals to recompute after the signal updates in the current delta cycle.
+        FlaggedStack<DerivedSignalBase *> _derived_update_stack;
         // Scheduled sensitivity events.
         std::vector<SensitivityEvent *> _sensitivity_event_stack;
         // Scheduled time events.
@@ -276,27 +287,46 @@ namespace dspsim
         std::vector<std::string> _active_module_name_stack;
     };
 
+    /*
+        Tracks the active context, the one under construction that new models register with.
+        Only one context can be under construction at a time, and only by the thread that created it.
+    */
     class ContextFactory
     {
-    private:
-        int _next_context_id;
-        std::shared_ptr<Context> _active_context;
-
     public:
         ContextFactory();
 
-        // Obtain the current active context
-        std::shared_ptr<Context> obtain();
-        // Reset the active context.
-        void reset();
-        // Reset the active context only if it is the given context.
-        void detach(Context *context);
         /*
-            Create a new context and make it the active one.
-            Throws ContextConstructionError if the active context has not been elaborated.
-            Call reset() first to discard an unelaborated context.
+            Obtain the active context. Throws ContextConstructionError if this thread has no context under construction:
+            create() must be called first, and the context is no longer active once it has been elaborated or released.
+        */
+        std::shared_ptr<Context> obtain();
+        // Discard the active context and release the construction lock, from any thread.
+        void reset();
+        // Release the construction lock, if the given context is the active one.
+        void release(const Context *context);
+        // True if the given context is the active one.
+        bool is_active(const Context *context);
+        /*
+            Create a new context and make it the active one. Blocks while another thread has a context under construction.
+            Throws ContextConstructionError if this thread already has one: elaborate or release it first,
+            or call reset() to discard it.
         */
         std::shared_ptr<Context> create(const std::string &name = "");
+
+    private:
+        // Release the active context (and its construction lock) if the predicate accepts it.
+        void release_active(const std::function<bool(const Context *)> &if_active);
+
+    private:
+        int _next_context_id;
+        std::shared_ptr<Context> _active_context;
+        // The thread constructing the active context.
+        std::thread::id _owner;
+        // Guards the active context and its owner. Never held while calling into models or contexts.
+        std::mutex _mutex;
+        // Notified when the active context is released.
+        std::condition_variable _released;
     };
 
     using ContextFactoryPtr = std::shared_ptr<ContextFactory>;

@@ -5,6 +5,8 @@ def test_context_obtain():
     context = Context("some_context")
     assert context is not None
     assert isinstance(context, Context)
+    assert context.constructing
+    assert Context.obtain().id == context.id
 
     # Reset the context and check if a new instance is created
     context.release()
@@ -36,13 +38,32 @@ def test_elaborate_detaches_and_allows_new_context():
         sa = SignalU8("sa")
         a.elaborate()
         assert a.elaborated
-        assert not a.locked
+        assert not a.constructing
 
         with Context("elab_b") as b:
             sb = SignalU8("sb")
             assert sa.context.id == a.id
             assert sb.context.id == b.id
             b.elaborate()
+
+
+def test_models_after_elaboration_raise():
+    import pytest
+
+    from dspsim.framework import ContextConstructionError, SignalU8
+
+    with Context("elab_raise") as ctx:
+        sa = SignalU8("sa")
+        ctx.elaborate()
+        with pytest.raises(ContextConstructionError):
+            SignalU8("late")
+        assert len(ctx.models) == 1
+        assert sa.context.id == ctx.id
+
+    # A new context can still be created.
+    with Context("after_raise") as ctx:
+        SignalU8("sb")
+        ctx.elaborate()
 
 
 def test_releasing_inactive_context_keeps_active_context():
@@ -93,19 +114,15 @@ def test_contexts_with_same_name_coexist():
             b.elaborate()
 
 
-def test_create_refuses_unelaborated_implicit_context():
+def test_models_require_a_context():
     import pytest
-    from dspsim._framework import Context as _Context
 
     from dspsim.framework import ContextConstructionError, SignalU8
 
-    # A model created without a Context gets an implicit, unelaborated context.
-    s = SignalU8("implicit")
-    try:
-        with pytest.raises(ContextConstructionError, match="has not been elaborated"):
-            Context("blocked")
-        # The construction lock was released after the failed create.
-        assert not Context._construction_lock.locked()
-    finally:
-        assert s.context is not None
-        _Context.reset()
+    # There is no implicit context: models can only be constructed in an active context.
+    with pytest.raises(ContextConstructionError, match="no active context"):
+        SignalU8("orphan")
+
+    with Context("after_orphan") as ctx:
+        SignalU8("s")
+        ctx.elaborate()
