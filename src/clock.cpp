@@ -13,10 +13,13 @@ namespace dspsim
         // Needed to handle odd periods.
         remainder_ = period_ - half_period_;
 
-        DSPSIM_CORO(tick);
+        // next_delta_time_ = half_period_;
+
+        DSPSIM_CORO(tick_coro);
+        // DSPSIM_METHOD(tick_method);
     }
 
-    Task<> Clock::tick()
+    Task<> Clock::tick_coro()
     {
         while (true)
         {
@@ -26,6 +29,13 @@ namespace dspsim
             co_await context()->wait(remainder_);
         }
     }
+
+    // void Clock::tick_method()
+    // {
+    //     this->write(!this->read());
+    //     next_delta_time_ = (next_delta_time_ == half_period_) ? remainder_ : half_period_;
+    //     context()->schedule_time_delta_event(next_delta_time_);
+    // }
 
     uint64_t Clock::period() const
     {
