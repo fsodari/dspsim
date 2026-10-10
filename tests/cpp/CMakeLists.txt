@@ -56,6 +56,12 @@ add_library(NDArrayModel NDArrayModel.cpp)
 target_link_libraries(NDArrayModel PUBLIC dspsim::dspsim-core)
 target_link_libraries(tests PRIVATE NDArrayModel)
 
+if (TRACE_TYPE STREQUAL "TRACE_FST")
+    foreach(model Skid Skid2 NDArrayModel)
+        dspsim_target_fst_deps(${model})
+    endforeach()
+endif()
+
 # Verilating. Skip verilating if tests were excluded
 if(${verilator_FOUND})
     # Verilate test modules

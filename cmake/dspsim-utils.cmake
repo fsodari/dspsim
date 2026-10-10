@@ -26,6 +26,24 @@ function(dspsim_add_nanobind_module name source_file)
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
 endfunction()
 
+# Add the lz4 search paths needed by Verilator's FST tracing to a verilated target.
+# Verilator links -llz4 without a search path, and Homebrew on Apple Silicon installs
+# to /opt/homebrew, which is not on the compiler's default search path.
+function(dspsim_target_fst_deps target)
+    if(NOT APPLE)
+        return()
+    endif()
+    find_path(DSPSIM_LZ4_INCLUDE_DIR lz4.h)
+    find_library(DSPSIM_LZ4_LIBRARY lz4)
+    if(NOT DSPSIM_LZ4_INCLUDE_DIR OR NOT DSPSIM_LZ4_LIBRARY)
+        message(WARNING "lz4 not found. FST tracing needs it: brew install lz4")
+        return()
+    endif()
+    cmake_path(GET DSPSIM_LZ4_LIBRARY PARENT_PATH lz4_library_dir)
+    target_include_directories(${target} SYSTEM PUBLIC ${DSPSIM_LZ4_INCLUDE_DIR})
+    target_link_directories(${target} PUBLIC ${lz4_library_dir})
+endfunction()
+
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.

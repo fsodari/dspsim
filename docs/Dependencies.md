@@ -20,3 +20,7 @@ Unit testing framework.
 ## liblz4-dev
 fst tracing on linux. Dev/user dependency. Main project doesn't need it to build.
 Projects using dspsim will need it to build models that use fst tracing.
+
+## lz4 (macOS)
+fst tracing on macOS: `brew install lz4`. Verilated targets need `dspsim_target_fst_deps(target)` (the generated
+CMake calls it) so that the Homebrew prefix (`/opt/homebrew` on Apple Silicon) is on the search path.
