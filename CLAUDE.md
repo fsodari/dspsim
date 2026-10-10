@@ -27,7 +27,7 @@ uv run ruff check . && uv run ruff format .
 ```
 
 - `cpptest.py` passes `CMAKE_PREFIX_PATH` = the venv site-packages so CMake finds nanobind and verilator (from the `verilator-dspsim` wheel). Run it via the venv.
-- On first configure, if `.deps/install` is missing, CMake runs `scripts/install_deps.sh` (or `install_dev_deps.sh` with `-DINSTALL_DEV_DEPS=ON`) to build spdlog / Catch2 / SystemC locally. Linux FST tracing needs `liblz4-dev`; macOS needs `brew install lz4` (`dspsim_target_fst_deps()` in `cmake/dspsim-utils.cmake` adds the Homebrew search paths to a verilated target).
+- On first configure, if `.deps/install` is missing, CMake runs `scripts/install_deps.sh` (or `install_dev_deps.sh` with `-DINSTALL_DEV_DEPS=ON`) to build spdlog / Catch2 / SystemC locally. FST tracing needs the lz4 development files (`liblz4-dev` / `lz4-devel` on Linux, `brew install lz4` on macOS); `dspsim_target_fst_deps()` in `cmake/dspsim-utils.cmake` checks for them at configure time and adds non-default search paths (Homebrew) to a verilated target.
 - Benchmarks (`benchmarks/`, some compare against SystemC) are `EXCLUDE_FROM_ALL` targets; `scripts/benchmarks.py` drives them.
 - Wheels: `uvx cibuildwheel` (CI in `.github/workflows/build_wheels.yml`, publishes to PyPI on `v*` tags).
 
