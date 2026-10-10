@@ -1,7 +1,10 @@
 #pragma once
+#include <dspsim/bits.h>
+#include <dspsim/bitsel.h>
 #include <dspsim/clock.h>
 #include <dspsim/context.h>
 #include <dspsim/coro.h>
+#include <dspsim/derived_signal.h>
 #include <dspsim/event.h>
 #include <dspsim/model.h>
 #include <dspsim/module_name.h>

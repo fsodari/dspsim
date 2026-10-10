@@ -1,11 +1,29 @@
 #include <dspsim/port.h>
 #include <dspsim/context.h>
 #include <dspsim/module.h>
+#include <dspsim/derived_signal.h>
 
 #include <spdlog/spdlog.h>
 
+#include <stdexcept>
+
 namespace dspsim
 {
+    namespace
+    {
+        // Create the derived signal that a port binds to in place of a bit selection.
+        template <typename T>
+        DerivedSignal<T> &make_derived_signal(const PortBase &port, const BitSel &selection)
+        {
+            if (selection.width() != port.width())
+            {
+                throw std::invalid_argument("Port " + port.hier_name() + " of width " + std::to_string(port.width()) +
+                                            " cannot bind to a selection of width " + std::to_string(selection.width()));
+            }
+            return selection.signal<T>(port.name() + "_bitsel");
+        }
+    } // namespace
+
     PortBase::PortBase(const std::string &name, int width, const std::string &kind)
         : Model(name, kind),
           width_(width),
@@ -115,12 +133,26 @@ namespace dspsim
     }
 
     template <typename T>
+    void Input<T>::bind(const BitSel &selection)
+        requires std::is_integral_v<T>
+    {
+        bind_base(make_derived_signal<T>(*this, selection));
+    }
+
+    template <typename T>
     Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
     {
         if (context()->_active_module())
         {
             context()->_active_module()->outputs().push_back(this);
         }
+    }
+
+    template <typename T>
+    void Output<T>::bind(const BitSel &selection)
+        requires std::is_integral_v<T>
+    {
+        bind_base(make_derived_signal<T>(*this, selection));
     }
 
     template class Input<uint8_t>;

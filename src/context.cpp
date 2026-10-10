@@ -3,6 +3,7 @@
 #include <dspsim/module.h>
 #include <dspsim/event.h>
 #include <dspsim/signal.h>
+#include <dspsim/derived_signal.h>
 
 #include "timestrings.h"
 #include <format>
@@ -88,12 +89,20 @@ namespace dspsim
 
     void Context::elaborate()
     {
-        for (auto model : _registered_models)
+        try
         {
-            model->finalize();
+            for (auto model : _registered_models)
+            {
+                model->finalize();
+            }
+        }
+        catch (...)
+        {
+            release();
+            throw;
         }
         _elaborated = true;
-        detach();
+        release();
     }
 
     bool Context::elaborated() const
@@ -101,9 +110,14 @@ namespace dspsim
         return _elaborated;
     }
 
-    void Context::detach()
+    void Context::release()
     {
-        get_global_context_factory()->detach(this);
+        get_global_context_factory()->release(this);
+    }
+
+    bool Context::constructing() const
+    {
+        return get_global_context_factory()->is_active(this);
     }
 
     void Context::_do_initialize()
@@ -112,13 +126,7 @@ namespace dspsim
             return;
         _initialized = true;
         // Update all signals
-        while (!_signal_update_stack.empty())
-        {
-            SignalBase *signal = _signal_update_stack.back();
-            _signal_update_stack.pop_back();
-            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
-            signal->update();
-        }
+        _update_signals();
 
         // Force an initial settle: schedule every module for evaluation once so that
         // combinational logic propagates from initial signal values before the first eval().
@@ -129,6 +137,25 @@ namespace dspsim
             {
                 _process_eval_stack.push_back(process.get());
             }
+        }
+    }
+
+    void Context::_update_signals()
+    {
+        while (!_signal_update_stack.empty())
+        {
+            SignalBase *signal = _signal_update_stack.back();
+            _signal_update_stack.pop_back();
+            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            signal->update();
+        }
+
+        // Derived signals are recomputed once all of their sources have committed.
+        while (!_derived_update_stack.empty())
+        {
+            DerivedSignalBase *derived = _derived_update_stack.back();
+            _derived_update_stack.pop_back();
+            derived->pull();
         }
     }
 
@@ -160,12 +187,7 @@ namespace dspsim
             }
 
             // run update cycle on all signals that were scheduled to be updated.
-            for (const auto &signal : _signal_update_stack)
-            {
-                SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
-                signal->update();
-            }
-            _signal_update_stack.clear();
+            _update_signals();
 
             // Trigger all sensitivity events that were notified.
             for (const auto &event : _sensitivity_event_stack)
@@ -446,45 +468,79 @@ namespace dspsim
 
     std::shared_ptr<Context> ContextFactory::obtain()
     {
-        if (_active_context == nullptr)
+        std::lock_guard lock(_mutex);
+        if (_active_context == nullptr || _owner != std::this_thread::get_id())
         {
-            // If there is no active context, create one with default name.
-            _active_context = std::shared_ptr<Context>(new Context("", _next_context_id++));
+            throw ContextConstructionError(
+                "There is no active context in this thread. Call Context::create() before constructing models. "
+                "A context is no longer active once it has been elaborated or released.");
         }
         return _active_context;
     }
 
     void ContextFactory::reset()
     {
-        _active_context = nullptr;
+        release_active([](const Context *) { return true; });
     }
 
-    void ContextFactory::detach(Context *context)
+    void ContextFactory::release(const Context *context)
     {
-        if (_active_context.get() == context)
+        release_active([context](const Context *active) { return active == context; });
+    }
+
+    void ContextFactory::release_active(const std::function<bool(const Context *)> &if_active)
+    {
+        // The context may be destroyed when released. Do that outside of the lock.
+        std::shared_ptr<Context> released;
         {
-            _active_context = nullptr;
+            std::lock_guard lock(_mutex);
+            if (!if_active(_active_context.get()))
+            {
+                return;
+            }
+            released = std::move(_active_context);
+            _owner = {};
         }
+        _released.notify_all();
+    }
+
+    bool ContextFactory::is_active(const Context *context)
+    {
+        std::lock_guard lock(_mutex);
+        return _active_context.get() == context;
     }
 
     std::shared_ptr<Context> ContextFactory::create(const std::string &name)
     {
-        if (_active_context && !_active_context->elaborated())
+        std::unique_lock lock(_mutex);
+        // Waiting on a context this thread is constructing would deadlock.
+        if (_active_context && _owner == std::this_thread::get_id())
         {
             throw ContextConstructionError(std::format(
-                "Cannot create context '{}': context '{}' has not been elaborated. "
-                "Call elaborate() or detach() on it first, or Context::reset() to discard it.",
+                "Cannot create context '{}': context '{}' is still under construction in this thread. "
+                "Call elaborate() or release() on it first, or Context::reset() to discard it.",
                 name, _active_context->name()));
         }
-        _active_context = nullptr;
+        _released.wait(lock, [this]
+                       { return _active_context == nullptr; });
         _active_context = std::shared_ptr<Context>(new Context(name, _next_context_id++));
+        _owner = std::this_thread::get_id();
         return _active_context;
     }
 
     static std::shared_ptr<ContextFactory> _global_context_factory = nullptr;
 
+    // Guards _global_context_factory. Threads may create their first context concurrently, and must all get the same factory.
+    // A function-local static, so it is usable from other translation units' static initializers.
+    static std::mutex &global_context_factory_mutex()
+    {
+        static std::mutex mutex;
+        return mutex;
+    }
+
     std::shared_ptr<ContextFactory> get_global_context_factory()
     {
+        std::lock_guard lock(global_context_factory_mutex());
         if (!_global_context_factory)
         {
             _global_context_factory = std::make_shared<ContextFactory>();
@@ -494,10 +550,16 @@ namespace dspsim
 
     void set_global_context_factory(std::shared_ptr<ContextFactory> factory)
     {
+        std::lock_guard lock(global_context_factory_mutex());
         _global_context_factory = factory;
     }
+
     void reset_global_context_factory()
     {
+        // The factory may be destroyed here. Do that outside of the lock.
+        std::shared_ptr<ContextFactory> factory;
+        std::lock_guard lock(global_context_factory_mutex());
+        factory = std::move(_global_context_factory);
         _global_context_factory = nullptr;
     }
 }

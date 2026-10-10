@@ -4,14 +4,18 @@
 #include <dspsim/event.h>
 #include <dspsim/utils/unique_stack.h>
 #include <dspsim/ndarray.h>
+#include <dspsim/bitsel.h>
 
-#include <vector>
+#include <cstdint>
 #include <memory>
+#include <type_traits>
+#include <vector>
 
 namespace dspsim
 {
     class SensitivityEvent;
     class PortBase;
+    class DerivedSignalBase;
 
     template <typename T>
     struct default_bitwidth
@@ -22,10 +26,32 @@ namespace dspsim
     class SignalBase : public Model
     {
     public:
-        SignalBase(const std::string &name = "");
+        SignalBase(const std::string &name, int width);
+
+        /// Width of the signal in bits.
+        int width() const { return width_; }
 
         // Called during the update phase to commit pending changes to the signal.
         virtual void update() = 0;
+
+        /// True if the signal holds an integral value, so its bits can be selected with slice() or pack().
+        virtual bool is_integral() const = 0;
+        /// The committed value as raw bits, masked to width(). Only called on integral signals (BitSel checks).
+        virtual uint64_t read_bits() const = 0;
+        /// Replace the bits of the pending value selected by mask with the bits of value, and schedule an update.
+        /// Only called on integral signals (BitSel checks).
+        virtual void write_bits(uint64_t value, uint64_t mask) = 0;
+
+        /// Select bits [hi:lo] of the signal. Slices are unsigned, as in SystemVerilog.
+        BitSel slice(int hi, int lo);
+        BitSel operator[](BitRange range) { return slice(range.hi, range.lo); }
+        BitSel operator[](int bit) { return slice(bit, bit); }
+
+        /// The selection a derived signal is computed from, or nullptr for an ordinary signal.
+        /// Selections of a derived signal refer to its sources instead, and writes to it go through to them.
+        const BitSel *source_selection() const { return source_selection_; }
+        /// Register a derived signal that is recomputed whenever this signal changes.
+        void add_dependent(DerivedSignalBase *dependent);
 
         // Access the sensitivity events for this signal.
         SensitivityEvent &change() { return change_event_; }
@@ -37,10 +63,21 @@ namespace dspsim
         bool &scheduled_flag() { return scheduled_; }
 
     protected:
+        // Schedule the derived signals for recomputation after this signal has updated.
+        void schedule_dependents();
+        // Recompute the derived signals immediately after this signal has been initialized.
+        void refresh_dependents();
+
+    protected:
         // Set while this signal sits in Context::_signal_update_stack; used by FlaggedStack.
         bool scheduled_;
+        // Derived signals computed from this signal's bits.
+        std::vector<DerivedSignalBase *> dependents_;
+        // Set by DerivedSignal: the selection this signal is a view of. Checked on the write path.
+        const BitSel *source_selection_ = nullptr;
 
     private:
+        int width_;
         SensitivityEvent change_event_;
         SensitivityEvent posedge_event_;
         SensitivityEvent negedge_event_;
@@ -53,18 +90,17 @@ namespace dspsim
     public:
         Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0);
         virtual ~Signal() = default;
+        /// Set the committed and pending value without notifying events. Derived signals have no value of
+        /// their own, so init() throws std::logic_error for them; init the source signals instead.
         Signal<T> &init(const T &value);
-
-        /*
-            Properties
-        */
-        int width() const { return width_; }
 
         virtual const std::string repr() const override { return ""; }
 
         const T &read() const { return q_; }
         const T &operator()() const { return read(); }
 
+        /// Set the pending value and schedule an update. For a derived signal, the bits are written through to
+        /// the source signals instead, so writes to a slice and to the whole signal combine (last write wins per bit).
         void write(const T &value);
         const T &operator=(const T &value)
         {
@@ -73,6 +109,11 @@ namespace dspsim
         }
 
         void update() override;
+
+        bool is_integral() const override { return std::is_integral_v<T>; }
+        uint64_t read_bits() const override;
+        void write_bits(uint64_t value, uint64_t mask) override;
+
         /*
             Static Methods
         */
@@ -86,9 +127,6 @@ namespace dspsim
 
     protected:
         T d_, q_;
-
-    private:
-        int width_;
     };
 
     /*

@@ -9,11 +9,12 @@ namespace dspsim::bindings
     {
         // Bind the Context class
         return nb::class_<Context>(m, name)
-            .def(nb::new_(&Context::create), nb::arg("name") = "")
+            // create() blocks while another thread is constructing a context, so it must not hold the GIL.
+            .def(nb::new_(&Context::create), nb::arg("name") = "", nb::call_guard<nb::gil_scoped_release>())
             // Methods
             .def("clear", &Context::clear)
             .def("elaborate", &Context::elaborate)
-            .def("detach", &Context::detach)
+            .def("release", &Context::release)
             .def("eval", &Context::eval)
             .def("run", &Context::run, nb::arg("time_inc") = 0)
             .def("schedule_time_delta_event", &Context::schedule_time_delta_event, nb::arg("time_delta"), nb::arg("process") = nullptr)
@@ -32,6 +33,7 @@ namespace dspsim::bindings
             .def_prop_ro("name", &Context::name)
             .def_prop_ro("id", &Context::id)
             .def_prop_ro("elaborated", &Context::elaborated)
+            .def_prop_ro("constructing", &Context::constructing)
             .def_prop_ro("models", &Context::models)
             .def_prop_ro("owned_models", &Context::owned_models)
             .def_prop_ro("modules", &Context::modules)
@@ -54,7 +56,7 @@ namespace dspsim::bindings
             // Static Methods
             .def_static("obtain", &Context::obtain)
             .def_static("reset", &Context::reset)
-            .def_static("create", &Context::create, nb::arg("name") = "");
+            .def_static("create", &Context::create, nb::arg("name") = "", nb::call_guard<nb::gil_scoped_release>());
     }
 
     static inline auto bind_context_factory(nb::module_ &m, const char *name)
@@ -67,7 +69,8 @@ namespace dspsim::bindings
         return nb::class_<ContextFactory>(m, name)
             .def("obtain", &ContextFactory::obtain)
             .def("reset", &ContextFactory::reset)
-            .def("detach", &ContextFactory::detach, nb::arg("context"))
-            .def("create", &ContextFactory::create, nb::arg("name") = "");
+            .def("release", &ContextFactory::release, nb::arg("context"))
+            .def("is_active", &ContextFactory::is_active, nb::arg("context"))
+            .def("create", &ContextFactory::create, nb::arg("name") = "", nb::call_guard<nb::gil_scoped_release>());
     }
 } // namespace dspsim

@@ -18,7 +18,7 @@ namespace dspsim::bindings
     template <typename T>
     static inline auto bind_input(nb::module_ &m, const char *name)
     {
-        return nb::class_<Input<T>, PortBase>(m, name)
+        auto cls = nb::class_<Input<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &, int>(),
                  nb::arg("name"),
@@ -31,12 +31,19 @@ namespace dspsim::bindings
             .def("read", &Input<T>::read)
             .def_prop_ro("value", &Input<T>::read)
             .def_prop_ro("q", &Input<T>::read);
+        if constexpr (std::is_integral_v<T>)
+        {
+            // Bind to a slice or pack of signals of the same width.
+            cls.def("bind", nb::overload_cast<const BitSel &>(&Input<T>::bind), nb::arg("selection"))
+                .def("__call__", nb::overload_cast<const BitSel &>(&Input<T>::bind), nb::arg("selection"));
+        }
+        return cls;
     }
 
     template <typename T>
     static inline auto bind_output(nb::module_ &m, const char *name)
     {
-        return nb::class_<Output<T>, PortBase>(m, name)
+        auto cls = nb::class_<Output<T>, PortBase>(m, name)
             // Don't need to "create". Ports will always exist inside a module.
             .def(nb::init<const std::string &, int>(),
                  nb::arg("name"),
@@ -51,6 +58,13 @@ namespace dspsim::bindings
             .def_prop_rw("value", &Output<T>::read, &Output<T>::write, nb::arg("value"))
             .def_prop_rw("d", &Output<T>::read_d_, &Output<T>::write, nb::arg("value"))
             .def_prop_ro("q", &Output<T>::read);
+        if constexpr (std::is_integral_v<T>)
+        {
+            // Bind to a slice or pack of signals of the same width.
+            cls.def("bind", nb::overload_cast<const BitSel &>(&Output<T>::bind), nb::arg("selection"))
+                .def("__call__", nb::overload_cast<const BitSel &>(&Output<T>::bind), nb::arg("selection"));
+        }
+        return cls;
     }
 
     template <typename T>
