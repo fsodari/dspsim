@@ -22,24 +22,24 @@ namespace dspsim
 
         // Schedule a process to be evaluated after the given time delta relative to the current simulation time.
         // If this is ever used multithreaded, process must be explicitly provided since active_process may not be reliable.
-        void next_trigger(uint64_t time_delta, ProcessBase *process = nullptr);
+        void next_trigger(uint64_t time_delta);
 
         // Schedule to be sensitive to an event on the next trigger.
-        void next_trigger(SensitivityEvent &event, ProcessBase *process = nullptr);
+        void next_trigger(SensitivityEvent &event);
 
         // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
-        void next_trigger(const std::string &event_name, ProcessBase *process = nullptr);
+        void next_trigger(const std::string &event_name);
 
         // Coroutine awaitables. See Context::wait().
-        Wait wait(ProcessBase *process = nullptr);
-        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
+        Wait wait();
+        WaitTimeEvent wait(uint64_t time_delta);
+        WaitSensitivityEvent wait(SensitivityEvent &event);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events);
         // With a timeout (> 0): the result tells whether an event triggered or the timeout elapsed.
-        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // Information about a module's ports.
         std::vector<PortBase *> &ports() { return _ports; }

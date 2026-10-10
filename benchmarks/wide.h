@@ -7,7 +7,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-#define USE_COROUTINES false
+#define USE_COROUTINES true
 
 namespace benchmarks
 {

@@ -17,12 +17,11 @@ namespace dspsim
 
     private:
         // Toggles the clock signal and schedules the next time event.
-        void tick();
+        Task<> tick();
 
     private:
-        uint64_t _period;
-        uint64_t _half_period;
-        uint64_t _remainder;
-        ProcessBase *_process;
+        uint64_t period_;
+        uint64_t half_period_;
+        uint64_t remainder_;
     };
 } // namespace dspsim

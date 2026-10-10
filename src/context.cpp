@@ -357,82 +357,46 @@ namespace dspsim
         return run_until(wait_event_task(this, &event, timeout));
     }
 
-    void Context::schedule_time_delta_event(uint64_t time_delta, ProcessBase *process)
+    void Context::schedule_time_delta_event(uint64_t time_delta)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        _time_event_stack.emplace(_time + time_delta, process);
+        _time_event_stack.emplace(_time + time_delta, _current_process);
     }
 
-    Wait Context::wait(ProcessBase *process)
+    Wait Context::wait()
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return Wait{process};
+        return Wait{_current_process};
     }
 
-    WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
+    WaitTimeEvent Context::wait(uint64_t time_delta)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitTimeEvent{time_delta, process};
+        return WaitTimeEvent{time_delta, _current_process};
     }
 
-    WaitSensitivityEvent Context::wait(SensitivityEvent &event, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{event, process};
+        return WaitSensitivityEvent{event, _current_process};
     }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process};
+        return WaitSensitivityEvent{events, _current_process};
     }
 
-    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process};
+        return WaitSensitivityEvent{events, _current_process};
     }
 
-    WaitSensitivityEvent Context::wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{event, process, timeout};
+        return WaitSensitivityEvent{event, _current_process, timeout};
     }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process, timeout};
+        return WaitSensitivityEvent{events, _current_process, timeout};
     }
-    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process, timeout};
+        return WaitSensitivityEvent{events, _current_process, timeout};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const
@@ -609,12 +573,14 @@ namespace dspsim
 
     void ContextFactory::reset()
     {
-        release_active([](const Context *) { return true; });
+        release_active([](const Context *)
+                       { return true; });
     }
 
     void ContextFactory::release(const Context *context)
     {
-        release_active([context](const Context *active) { return active == context; });
+        release_active([context](const Context *active)
+                       { return active == context; });
     }
 
     void ContextFactory::release_active(const std::function<bool(const Context *)> &if_active)

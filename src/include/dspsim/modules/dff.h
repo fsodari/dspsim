@@ -14,8 +14,6 @@ namespace dspsim
 
         DSPSIM_CTOR(Dff)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always(clk.pos());
             DSPSIM_CORO(eval);
         }
 

@@ -108,6 +108,9 @@ namespace dspsim
         */
         void run(uint64_t time_inc = 0);
 
+        /* Get the current active process. */
+        ProcessBase *current_process() const { return _current_process; }
+
         /*
             Run the simulation until the task completes and return its value. The task is registered as a
             one-shot process, scheduled immediately, and removed once done. Time advances event-to-event, like run().
@@ -126,31 +129,31 @@ namespace dspsim
         bool run_until(SensitivityEvent &event, uint64_t timeout = 0);
 
         // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
-        void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
+        void schedule_time_delta_event(uint64_t time_delta);
 
         /*
             Coroutine awaitables. The process defaults to the one currently being evaluated, so inside a
             coroutine process these can be awaited directly: `co_await ctx->wait(10);`.
         */
         // wait on all events in the static sensitivity list.
-        Wait wait(ProcessBase *process = nullptr);
+        Wait wait();
         // Wait on a time event.
-        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitTimeEvent wait(uint64_t time_delta);
 
         // wait on a dynamic event.
-        WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event);
         // wait on multiple dynamic events.
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events);
         // wait on multiple dynamic events, given by pointer.
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events);
 
         /*
             Wait on dynamic events with a timeout (> 0). The result says whether an event triggered or the
             timeout elapsed. A literal 0 timeout is ambiguous with the process argument: use the overloads above.
         */
-        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;

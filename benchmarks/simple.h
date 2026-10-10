@@ -17,38 +17,20 @@ namespace benchmarks
 
         dspsim::ProcessBase *proc;
 
-        // // Coroutine implementation: 9.476481
-        // DSPSIM_CTOR(SimpleDff)
-        // {
-        //     proc = DSPSIM_CORO(eval)
-        //                ->always(clk.pos());
-        // }
-
-        // dspsim::Task<> eval()
-        // {
-        //     while (true)
-        //     {
-        //         // co_await dspsim::WaitSensitivityEvent{proc};
-        //         co_await dspsim::Wait{};
-        //         out.write(in.read());
-        //     }
-        // }
-
-        // Method implementation:
+        // Coroutine implementation
         DSPSIM_CTOR(SimpleDff)
         {
-            DSPSIM_METHOD(eval)
-                ->always(clk.pos())
-                ->initialize(false);
+            proc = DSPSIM_CORO(eval)
+                       ->always(clk.pos());
         }
 
-        void eval()
+        dspsim::Task<> eval()
         {
-            // if (clk.pos())
-            // if (clk)
-            // {
-            out.write(in.read());
-            // }
+            while (true)
+            {
+                co_await wait();
+                out.write(in.read());
+            }
         }
     };
 
@@ -63,8 +45,6 @@ namespace benchmarks
 
         DSPSIM_CTOR(SimpleWire)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always("*");
             DSPSIM_CORO(eval)
                 ->always("*");
         }
