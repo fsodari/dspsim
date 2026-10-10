@@ -40,7 +40,8 @@ namespace dspsim
         {
             while (true)
             {
-                co_await wait(clk.pos());
+                // co_await wait(clk.pos());
+                co_await wait();
 
                 // A valid transaction has occurred, pop the front of the FIFO.
                 if (m_axis_tvalid.read() && m_axis_tready.read())

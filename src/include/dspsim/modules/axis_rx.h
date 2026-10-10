@@ -41,7 +41,8 @@ namespace dspsim
         {
             while (true)
             {
-                co_await wait(clk.pos());
+                // co_await wait(clk.pos());
+                co_await wait();
 
                 if (s_axis_tvalid.read() && s_axis_tready.read())
                 {
