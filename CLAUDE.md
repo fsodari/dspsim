@@ -64,6 +64,8 @@ uv run ruff check . && uv run ruff format .
 - **C++ tests**: all `tests/cpp/*.cpp` link into one binary, so wrap file-local helper classes in an anonymous `namespace { }` to avoid silent ODR violations. New test files must be added to `tests/cpp/CMakeLists.txt`. A Catch2 listener (`test_listeners.cpp`) resets the global context after each test case. Verilated test models (`hdl/Skid.sv`, `NDArrayModel.sv`) are built there with `verilate(...)`.
 - Python is formatted with ruff (preview format enabled).
 
-## Docs caveat
+## Docs
 
-`docs/Architecture.md` is partly stale: it references old paths (`src/dspsim/framework/include/...`), the removed `SensitivityList`, and `scripts/cpptest.sh`. Trust the code over it. `docs/Coro.md` covers the coroutine awaitable design (leaf waits, `Task<T>`, `run_until`, Python bridge). `docs/BitSlicing.md` covers slicing and packing.
+`docs/Architecture.md` is the overview of the core classes, the delta cycle, time-event scheduling, bindings and codegen. `docs/Coro.md` covers the coroutine awaitable design (leaf waits, `Task<T>`, `run_until`, Python bridge). `docs/BitSlicing.md` covers slicing and packing.
+
+Keep the docs up to date: when a change renames, moves, adds or removes something they describe (classes, paths, commands, scheduling behavior), update the affected doc, and this file, in the same change.
