@@ -32,7 +32,19 @@ namespace dspsim::bindings
 
      static inline auto bind_context(nb::module_ &m, const char *name)
      {
-          nb::exception<TimeoutError>(m, "TimeoutError", PyExc_TimeoutError);
+          // A run_until timeout raises the builtin TimeoutError (no dspsim-specific exception class).
+          nb::register_exception_translator(
+              [](const std::exception_ptr &p, void *)
+              {
+                   try
+                   {
+                        std::rethrow_exception(p);
+                   }
+                   catch (const TimeoutError &e)
+                   {
+                        PyErr_SetString(PyExc_TimeoutError, e.what());
+                   }
+              });
 
           nb::dict globals;
           nb::exec(

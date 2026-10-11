@@ -141,7 +141,7 @@ install(TARGETS _framework
     LIBRARY DESTINATION ${DSPSIM_INSTALL_DIR})
 
 # Install stubs. Call last so that all targets are installed when this is run.
-dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR})
+dspsim_add_stub(_framework ${DSPSIM_INSTALL_DIR} ${DSPSIM_SRC_DIR}/_framework.pat)
 
 # Build benchmarks
 if(BUILD_BENCHMARKS)

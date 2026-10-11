@@ -193,6 +193,8 @@ namespace dspsim::bindings
         // nb::sig keeps the pointers, so the strings must stay alive.
         ArrayNames names{class_name};
         auto *elem_sig = new std::string("def __getitem__(self, key: int | tuple[int, ...], /) -> " + names.element);
+        // The stub for these two overloads is written by the pattern in src/_framework.pat (it adds the type-ignore
+        // comment their intended overlap needs): keep the two in sync.
         auto *view_sig = new std::string("def __getitem__(self, key: slice | int | tuple[int | slice, ...], /) -> " + names.view);
         auto *slice_sig = new std::string("def slice(self, key: slice | int | tuple[int | slice, ...] = ()) -> " + names.view);
         auto get_view = [](Array &a, nb::handle key)

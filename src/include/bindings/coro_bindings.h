@@ -109,8 +109,9 @@ namespace dspsim::bindings
 
         return nb::class_<WaitBase>(m, name)
             .def("_py_step_done", &WaitBase::py_step_done)
+            // Typed as object so that subclasses can override it with their own result type.
             .def("_py_result", [](WaitBase &)
-                 { return nb::none(); })
+                 { return nb::none(); }, nb::sig("def _py_result(self) -> object"))
             .def("__await__", [wait_await](nb::object self)
                  { return wait_await(self); }, nb::sig("def __await__(self) -> typing.Generator[typing.Any, typing.Any, typing.Any]"));
     }

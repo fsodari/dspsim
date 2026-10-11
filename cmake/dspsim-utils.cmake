@@ -73,6 +73,8 @@ function(dspsim_add_stub name output_dir)
         INSTALL_TIME
         # Private (leading underscore) bindings are typed too.
         INCLUDE_PRIVATE
+        # Optional nanobind stubgen pattern files, given as extra arguments.
+        PATTERN_FILE ${ARGN}
     )
 endfunction()
 

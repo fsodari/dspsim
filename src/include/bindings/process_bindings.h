@@ -40,7 +40,7 @@ namespace dspsim::bindings
                  { return self->initialize(init); }, nb::arg("init"), nb::rv_policy::reference_internal)
             .def("always", [](ProcessBase *self, const std::string &event_name)
                  { return self->always(event_name); }, nb::arg("event_name"), nb::rv_policy::reference_internal)
-            .def("always", &process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> ProcessBase"))
+            .def("always", &process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | PortBase | SignalBase) -> ProcessBase"))
             .def_prop_ro("done", &ProcessBase::done);
     }
 

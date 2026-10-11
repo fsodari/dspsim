@@ -145,7 +145,7 @@ with Context() as ctx:
 ```
 
 - `await self.wait(event, timeout=100)` returns `WaitResult.Triggered` or `WaitResult.Timeout`.
-- `dspsim.framework.TimeoutError` subclasses the builtin `TimeoutError`.
+- A `run_until` timeout raises the builtin `TimeoutError`.
 - Bound C++ tasks (`Task`, `TaskBool`, `TaskListS32`, ...) are awaitable objects. They must be awaited from a
   task running in the simulation (`Module.add_task` or `Context.run_until`), never from `asyncio`.
 

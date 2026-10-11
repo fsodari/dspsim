@@ -1,6 +1,5 @@
 """Asynchronous operations from Python: run_until, waits with timeouts, awaiting C++ tasks."""
 
-import builtins
 from dataclasses import dataclass
 
 import pytest
@@ -13,7 +12,6 @@ from dspsim.framework import (
     Module,
     SignalS32,
     SignalU8,
-    TimeoutError,
     WaitResult,
 )
 
@@ -90,8 +88,7 @@ def test_run_until_timeout_raises_and_the_simulation_stays_usable():
             ctx.run_until(loop.rx.receive(1), timeout=100)
         assert ctx.time == 100
 
-        # The builtin TimeoutError catches it too.
-        with pytest.raises(builtins.TimeoutError):
+        with pytest.raises(TimeoutError):
             ctx.run_until(loop.rx.receive(1), timeout=100)
 
         loop.tx.push(42)
