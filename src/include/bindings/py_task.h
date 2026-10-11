@@ -16,13 +16,14 @@ namespace dspsim::bindings
     {
     public:
         PyTask(Context *context, nb::object coro, const std::string &name = "")
-            : ProcessBase(context, name), coro_(std::move(coro)) {}
+            : ProcessBase(context, name, true), coro_(std::move(coro)) {}
 
         bool done() const override { return done_; }
 
         // The coroutine's return value, once done.
         const nb::object &result() const { return result_; }
 
+    private:
         void resume() override
         {
             if (done_)
@@ -40,10 +41,13 @@ namespace dspsim::bindings
                     result_ = nb::steal(result);
                 }
                 done_ = true;
+                // The coroutine has completed: nothing may schedule it again.
+                unschedule();
                 break;
             case PYGEN_ERROR:
             default:
                 done_ = true;
+                unschedule();
                 throw nb::python_error();
             }
         }

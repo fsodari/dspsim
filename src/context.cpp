@@ -277,6 +277,16 @@ namespace dspsim
         // Otherwise the process was resumed since the wait was scheduled, so the wakeup is stale.
     }
 
+    void Context::_schedule_time_delta_event(uint64_t time_delta)
+    {
+        if (_current_process->is_coroutine()) [[unlikely]]
+        {
+            throw std::logic_error("next_trigger(time) is not allowed in coroutine process " +
+                                   _current_process->name() + ": use wait(time) instead");
+        }
+        _time_event_stack.emplace(_time + time_delta, _current_process);
+    }
+
     void Context::_run_until_done(ProcessBase *process, uint64_t timeout)
     {
         if (!_initialized) [[unlikely]]
@@ -308,7 +318,7 @@ namespace dspsim
 
     void Context::_remove_process(ProcessBase *process)
     {
-        process->cancel_dynamic_events();
+        process->unschedule();
 
         // Drop its pending time events. std::priority_queue has no erase, so rebuild it.
         std::vector<TimeEvent> kept;
@@ -347,11 +357,6 @@ namespace dspsim
     bool Context::run_until(SensitivityEvent &event, uint64_t timeout)
     {
         return run_until(wait_event_task(this, &event, timeout));
-    }
-
-    void Context::schedule_time_delta_event(uint64_t time_delta)
-    {
-        _time_event_stack.emplace(_time + time_delta, _current_process);
     }
 
     Wait Context::wait()

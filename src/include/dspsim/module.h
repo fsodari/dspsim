@@ -20,6 +20,7 @@ namespace dspsim
         // Removes the module from the active module stack in the context.
         void _end_construction();
 
+        // next_trigger() is for method processes. In a coroutine process it throws std::logic_error: use wait().
         // Schedule a process to be evaluated after the given time delta relative to the current simulation time.
         // If this is ever used multithreaded, process must be explicitly provided since active_process may not be reliable.
         void next_trigger(uint64_t time_delta);

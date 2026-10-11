@@ -62,7 +62,7 @@ classDiagram
     class ProcessBase {
         +always(events...)
         +initialize(bool)
-        +resume()
+        -resume()
     }
     Context --> Model : registers
     Context --> ProcessBase : owns
@@ -150,12 +150,15 @@ context owns them:
 
 Sensitivity is either static or dynamic:
 - Static: `process->always(clk.pos(), some_signal, ...)` subscribes the process to those
-  events for the whole simulation. Each argument can be a signal or a port (its change
+  events for as long as it lives. The process records its static events, and a coroutine
+  that completes (returns or throws) unschedules itself (`ProcessBase::unschedule()`:
+  it unsubscribes from its static and dynamic events and its pending time waits become
+  stale), so a one-shot coroutine is not scheduled again. Each argument can be a signal or a port (its change
   event), `.pos()`/`.neg()` of either, or an array of them. `always("*")` means every
   input of the enclosing module.
 - Dynamic: `next_trigger(event)` or `next_trigger(time_delta)` from a method process, and
   `co_await wait(...)` on a time delta, an event, or an event with a timeout from a
-  coroutine. While a process waits on a dynamic event, its static sensitivity is paused.
+  coroutine (`next_trigger` throws in a coroutine process). While a process waits on a dynamic event, its static sensitivity is paused.
 
 ```cpp
 DSPSIM_CTOR(Adder)
@@ -267,7 +270,7 @@ After the last round, models that requested tracing dump their traces.
 ### The time-event queue
 `_time_event_stack` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
 returns the soonest-scheduled event, independent of push order. Events are added by
-`Module::next_trigger(time_delta)` / `Context::schedule_time_delta_event()`, by a
+`Module::next_trigger(time_delta)` (method processes only), by a
 coroutine's `co_await wait(time_delta)`, and by `Clock`.
 
 A time event from a coroutine wait is tagged with the process's `wake_count`. If

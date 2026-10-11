@@ -59,6 +59,8 @@ namespace dspsim
     class Context
     {
         friend class ContextFactory;
+        // Module::next_trigger(time_delta) schedules a time event for the running process.
+        friend class Module;
 
     private:
         // Can't create context directly. Use create() to make a new global context, and obtain() to get the active one.
@@ -124,9 +126,6 @@ namespace dspsim
 
         // Run the simulation until the event triggers. Returns false if the timeout (0 = none) elapsed first.
         bool run_until(SensitivityEvent &event, uint64_t timeout = 0);
-
-        // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
-        void schedule_time_delta_event(uint64_t time_delta);
 
         /*
             Coroutine awaitables. The process defaults to the one currently being evaluated, so inside a
@@ -229,13 +228,6 @@ namespace dspsim
         // Register a function as a process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
 
-        // Register a member function bound at run time (goes through std::function).
-        template <typename MemberFunc, typename ClassType>
-        ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
-        {
-            return register_process_func(method_to_function(mem_ptr, instance), name);
-        }
-
         /*
             Register a member function bound at compile time: register_method<&MyModule::eval>(this).
             This is what DSPSIM_METHOD uses. The call is a plain function pointer call with no allocation.
@@ -288,6 +280,9 @@ namespace dspsim
         void _update_signals();
         // Queue the process of a due time event, unless the event is a stale coroutine time wait.
         void _schedule_time_event(const TimeEvent &event);
+        // Module::next_trigger(time_delta): evaluate the running process again after the given time delta.
+        // Throws std::logic_error in a coroutine process: use wait(time_delta) instead.
+        void _schedule_time_delta_event(uint64_t time_delta);
 
     public:
         /*

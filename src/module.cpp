@@ -1,5 +1,6 @@
 #include <dspsim/module.h>
 #include <dspsim/context.h>
+#include <dspsim/process.h>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 
@@ -15,6 +16,18 @@ namespace dspsim
             throw std::logic_error("Module() requires an active ModuleName. Construct the module with a ModuleName.");
         }
         return names.back();
+    }
+
+    // The running process, for next_trigger(event): a coroutine process must wait(event) instead.
+    static ProcessBase *method_process(Context *context)
+    {
+        ProcessBase *process = context->current_process();
+        if (process->is_coroutine()) [[unlikely]]
+        {
+            throw std::logic_error("next_trigger(event) is not allowed in coroutine process " + process->name() +
+                                   ": use wait(event) instead");
+        }
+        return process;
     }
 
     Module::Module() : Model(current_module_name(), "module")
@@ -38,16 +51,16 @@ namespace dspsim
 
     void Module::next_trigger(uint64_t time_delta)
     {
-        context()->schedule_time_delta_event(time_delta);
+        context()->_schedule_time_delta_event(time_delta);
     }
 
     void Module::next_trigger(SensitivityEvent &event)
     {
-        context()->current_process()->schedule_dynamic_event(event);
+        method_process(context())->schedule_dynamic_event(event);
     }
     void Module::next_trigger(const std::string &event_name)
     {
-        context()->current_process()->schedule_dynamic_event(event_name);
+        method_process(context())->schedule_dynamic_event(event_name);
     }
 
     WaitTimeEvent Module::wait(uint64_t time_delta)

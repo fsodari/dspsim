@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 
 using namespace dspsim;
@@ -50,9 +51,7 @@ public:
         REQUIRE(context()->time() == 5);
         context()->logger->info("After one_shot wait(5), t={}", context()->time());
 
-        // Task ends and can no longer be resumed.
-        // If the task has static sensitivity, an error will occur in the logs when those events occur.
-        // One shot tasks should only rely on dynamic sensitivity.
+        // Task ends and can no longer be resumed. It is unsubscribed from its static events.
         co_return;
     }
 
@@ -157,9 +156,8 @@ TEST_CASE("test coro basic", "[coro]")
 
     ctx->run(21);
 
-    // What happens when one_shot is dead? SEGFAULT.
-    // Need to remove the process from everything that has a reference to it?
-    some_module._one_shot_process->resume();
+    // one_shot has completed. Only the scheduler resumes processes, and it no longer has a reference to it.
+    REQUIRE(some_module._one_shot_process->done());
 }
 
 TEST_CASE("test coro static sensitivity", "[coro]")
@@ -207,10 +205,11 @@ namespace
     DSPSIM_MODULE(ThrowingCoro)
     {
         Input<uint8_t> s{"s"};
+        ProcessBase *process = nullptr;
 
         DSPSIM_CTOR(ThrowingCoro)
         {
-            DSPSIM_CORO(body);
+            process = DSPSIM_CORO(body);
         }
 
         Task<> body()
@@ -232,4 +231,181 @@ TEST_CASE("an exception in a coroutine propagates instead of terminating", "[cor
 
     s.write(1);
     REQUIRE_THROWS_WITH(ctx->run(1), "coro boom");
+}
+
+namespace
+{
+    // A coroutine with static sensitivity that completes after two events.
+    DSPSIM_MODULE(OneShotStatic)
+    {
+        Input<uint8_t> s{"s"};
+        int count = 0;
+        ProcessBase *process = nullptr;
+
+        DSPSIM_CTOR(OneShotStatic)
+        {
+            // Subscribed through the port, before it is bound.
+            process = DSPSIM_CORO(body)->always(s)->initialize(false);
+        }
+
+        Task<> body()
+        {
+            ++count;
+            co_await wait();
+            ++count;
+        }
+    };
+} // namespace
+
+TEST_CASE("a completed coroutine unsubscribes from its static events", "[coro]")
+{
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    Signal<uint8_t> direct{"direct"};
+    OneShotStatic m{"m"};
+    m.s.bind(s);
+    // A second static event, on a signal.
+    auto *process = m.process;
+    process->always(direct.pos());
+    ctx->elaborate();
+
+    ctx->run(1);
+    REQUIRE(m.count == 0);
+    REQUIRE(s.change().has_static_subscribers());
+    REQUIRE(direct.pos().has_static_subscribers());
+
+    s.write(1);
+    ctx->run(1);
+    REQUIRE(m.count == 1);
+    REQUIRE(s.change().has_static_subscribers());
+
+    s.write(2);
+    ctx->run(1);
+    REQUIRE(m.count == 2);
+    REQUIRE(process->done());
+    REQUIRE_FALSE(s.change().has_static_subscribers());
+    REQUIRE_FALSE(direct.pos().has_static_subscribers());
+    const uint64_t wake_count = process->wake_count();
+
+    // Further events do not schedule the completed process.
+    s.write(3);
+    direct.write(1);
+    ctx->run(1);
+    REQUIRE(m.count == 2);
+    REQUIRE(process->wake_count() == wake_count);
+}
+
+TEST_CASE("a coroutine that throws unsubscribes from its static events", "[coro]")
+{
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    ThrowingCoro m{"m"};
+    m.s.bind(s);
+    m.process->always(s.neg());
+    ctx->elaborate();
+    ctx->run(1);
+
+    s.write(1);
+    REQUIRE_THROWS_WITH(ctx->run(1), "coro boom");
+    REQUIRE_FALSE(s.neg().has_static_subscribers());
+}
+
+namespace
+{
+    // A coroutine that completes while it still has a dynamic event and a time wait scheduled.
+    DSPSIM_MODULE(LeftoverWaits)
+    {
+        Input<uint8_t> s{"s"};
+        ProcessBase *process = nullptr;
+
+        DSPSIM_CTOR(LeftoverWaits)
+        {
+            process = DSPSIM_CORO(body);
+        }
+
+        Task<> body()
+        {
+            // Scheduled, but never awaited.
+            process->schedule_dynamic_event(s.change());
+            process->schedule_time_wait(5);
+            co_return;
+        }
+    };
+
+    // Coroutines that call next_trigger(), which is only for method processes.
+    DSPSIM_MODULE(NextTriggerCoro)
+    {
+        Input<uint8_t> s{"s"};
+        bool use_time;
+
+        NextTriggerCoro(ModuleName name, bool use_time) : Module(name), use_time(use_time)
+        {
+            DSPSIM_CORO(body);
+        }
+
+        Task<> body()
+        {
+            if (use_time)
+            {
+                next_trigger(5);
+            }
+            else
+            {
+                next_trigger(s.change());
+            }
+            co_return;
+        }
+    };
+} // namespace
+
+TEST_CASE("next_trigger() is not allowed in a coroutine process", "[coro]")
+{
+    const bool use_time = GENERATE(false, true);
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    NextTriggerCoro m{"m", use_time};
+    m.s.bind(s);
+    ctx->elaborate();
+
+    REQUIRE_THROWS_AS(ctx->run(1), std::logic_error);
+    // Nothing was scheduled, so the completed coroutine is not woken.
+    REQUIRE_FALSE(s.change().has_dynamic_subscribers());
+    s.write(1);
+    ctx->run(10);
+}
+
+TEST_CASE("initialize(true) is not allowed on a completed coroutine", "[coro]")
+{
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    LeftoverWaits m{"m"};
+    m.s.bind(s);
+    ctx->elaborate();
+
+    // Allowed while the coroutine has not completed.
+    m.process->initialize(false)->initialize(true);
+    ctx->run(1);
+    REQUIRE(m.process->done());
+
+    REQUIRE_THROWS_AS(m.process->initialize(true), std::logic_error);
+    m.process->initialize(false);
+    ctx->run(1);
+}
+
+TEST_CASE("a completed coroutine is not woken by leftover waits", "[coro]")
+{
+    auto ctx = Context::create();
+    Signal<uint8_t> s{"s"};
+    LeftoverWaits m{"m"};
+    m.s.bind(s);
+    ctx->elaborate();
+
+    ctx->run(1);
+    REQUIRE(m.process->done());
+    REQUIRE_FALSE(s.change().has_dynamic_subscribers());
+    const uint64_t wake_count = m.process->wake_count();
+
+    s.write(1);
+    ctx->run(10);
+    REQUIRE(m.process->wake_count() == wake_count);
 }

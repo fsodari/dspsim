@@ -55,7 +55,6 @@ namespace dspsim::bindings
               // Run until the awaitable completes and return its value. Raises TimeoutError if the timeout (> 0) elapses first.
               .def("run_until", [run_awaitable](Context &ctx, nb::object awaitable, uint64_t timeout)
                    { return _context_run_until_awaitable(run_awaitable, ctx, std::move(awaitable), timeout); }, nb::arg("task"), nb::arg("timeout") = 0, nb::sig("def run_until(self, task: typing.Awaitable[typing.Any], timeout: int = 0) -> typing.Any"))
-              .def("schedule_time_delta_event", &Context::schedule_time_delta_event, nb::arg("time_delta"))
               .def("wait", [](Context &ctx)
                    { return ctx.wait(); })
               .def("wait", [](Context &ctx, uint64_t time_delta)

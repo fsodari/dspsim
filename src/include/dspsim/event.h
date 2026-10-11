@@ -55,10 +55,12 @@ namespace dspsim
 
         // Subscribe a process with static sensitivity: it is scheduled whenever the event occurs.
         void subscribe_static(ProcessBase *process);
+        void unsubscribe_static(ProcessBase *process);
         // Subscribe a process with dynamic sensitivity: scheduled once, on the next occurrence.
         void subscribe_dynamic(ProcessBase *process);
         void unsubscribe_dynamic(ProcessBase *process);
         // Add the static subscribers of another event (ports hand theirs to the bound signal at elaboration).
+        // Each process records this event as one of its static events.
         void merge_static_subscribers(const SensitivityEvent &other);
 
         // True if any process ever subscribed (the lists exist).

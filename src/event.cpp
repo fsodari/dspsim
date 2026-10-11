@@ -2,6 +2,7 @@
 #include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
+#include <dspsim/process.h>
 #include <spdlog/spdlog.h>
 
 namespace dspsim
@@ -71,6 +72,14 @@ namespace dspsim
         subscribers().static_.push_back(process);
     }
 
+    void SensitivityEvent::unsubscribe_static(ProcessBase *process)
+    {
+        if (subscribers_)
+        {
+            subscribers_->static_.erase(process);
+        }
+    }
+
     void SensitivityEvent::subscribe_dynamic(ProcessBase *process)
     {
         subscribers().dynamic_.push_back(process);
@@ -86,9 +95,13 @@ namespace dspsim
 
     void SensitivityEvent::merge_static_subscribers(const SensitivityEvent &other)
     {
-        if (other.subscribers_ && !other.subscribers_->static_.empty())
+        if (other.subscribers_)
         {
-            subscribers().static_.push_range(other.subscribers_->static_);
+            // Subscribe through the process so that it can unsubscribe from this event when it completes.
+            for (auto *process : other.subscribers_->static_)
+            {
+                process->schedule_static_event(*this);
+            }
         }
     }
 
