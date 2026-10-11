@@ -25,6 +25,7 @@ namespace dspsim
         int hi;
         int lo;
 
+        /// Inline: used for every read and write of a selection.
         int width() const { return hi - lo + 1; }
         bool operator==(const BitPart &) const = default;
     };
@@ -60,9 +61,9 @@ namespace dspsim
         static BitSel concat(const std::vector<BitSel> &sels);
 
         /// Width of the selection in bits.
-        int width() const { return width_; }
+        int width() const;
         /// The selected ranges, ordered from least to most significant.
-        const std::vector<BitPart> &parts() const { return parts_; }
+        const std::vector<BitPart> &parts() const;
 
         /// Read the committed value of the selected bits.
         uint64_t read() const;
@@ -75,8 +76,8 @@ namespace dspsim
 
         /// Select bits [hi:lo] of this selection. Requires 0 <= lo <= hi < width().
         BitSel slice(int hi, int lo) const;
-        BitSel operator[](BitRange range) const { return slice(range.hi, range.lo); }
-        BitSel operator[](int bit) const { return slice(bit, bit); }
+        BitSel operator[](BitRange range) const;
+        BitSel operator[](int bit) const;
 
         /// Create a signal holding the value of this selection, for use as a sensitivity (pos/neg/change events)
         /// or to bind ports to. Each call creates a new signal, owned by the context. Must be called before
@@ -105,10 +106,7 @@ namespace dspsim
             std::end(r);
         };
 
-        inline void pack_append(std::vector<BitSel> &sels, const BitSel &sel)
-        {
-            sels.push_back(sel);
-        }
+        void pack_append(std::vector<BitSel> &sels, const BitSel &sel);
 
         template <SignalRange R>
         void pack_append(std::vector<BitSel> &sels, R &signals)

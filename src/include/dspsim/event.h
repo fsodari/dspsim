@@ -1,5 +1,4 @@
 #pragma once
-#include <dspsim/utils/unique_stack.h>
 #include <cstdint>
 #include <memory>
 
@@ -44,6 +43,7 @@ namespace dspsim
         SensitivityEvent(Context *context);
         SensitivityEvent(const SensitivityEvent &) = delete;
         SensitivityEvent &operator=(const SensitivityEvent &) = delete;
+        ~SensitivityEvent();
 
         // Notify all subscribed processes that this event has occurred: they are evaluated in the next delta cycle.
         // Signals call this in the update phase. Call it from a process to raise a custom event.
@@ -54,14 +54,8 @@ namespace dspsim
         operator bool() const { return has_happened(); }
 
     private:
-        struct Subscribers
-        {
-            // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
-            UniqueStack<ProcessBase *> static_;
-            // Processes with dynamic sensitivity. This list is cleared when the event occurs, each process is removed
-            // from its other dynamic events, and it returns to having static sensitivity.
-            UniqueStack<ProcessBase *> dynamic_;
-        };
+        // The static and dynamic subscriber lists. Defined in event.cpp.
+        struct Subscribers;
 
         // Schedule the subscribed processes. Called by the scheduler for each notified event.
         void trigger();
@@ -103,6 +97,7 @@ namespace dspsim
             has been resumed since (see ProcessBase::schedule_time_wait).
         */
         TimeEvent(uint64_t time_update, ProcessBase *process, uint64_t wake_count = kAnyWake);
+        // The accessors and comparisons are inline: the scheduler's time queue uses them for every time step.
         uint64_t time_update() const { return time_update_; }
         ProcessBase *process() const { return process_; }
         uint64_t wake_count() const { return wake_count_; }

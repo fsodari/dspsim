@@ -1,6 +1,6 @@
 #include <dspsim/clock.h>
 #include <dspsim/context.h>
-#include <spdlog/spdlog.h>
+#include <dspsim/process.h>
 
 namespace dspsim
 {
@@ -17,6 +17,16 @@ namespace dspsim
 
         DSPSIM_CORO(tick_coro);
         // DSPSIM_METHOD(tick_method);
+    }
+
+    std::shared_ptr<Clock> Clock::create(const std::string &name, uint64_t period)
+    {
+        return Model::create<Clock>(name, period);
+    }
+
+    uint64_t Clock::period() const
+    {
+        return period_;
     }
 
     Task<> Clock::tick_coro()
@@ -36,9 +46,4 @@ namespace dspsim
     //     next_delta_time_ = (next_delta_time_ == half_period_) ? remainder_ : half_period_;
     //     context()->schedule_time_delta_event(next_delta_time_);
     // }
-
-    uint64_t Clock::period() const
-    {
-        return period_;
-    }
 } // namespace dspsim

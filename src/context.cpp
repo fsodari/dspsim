@@ -1,38 +1,21 @@
 #include <dspsim/context.h>
+#include <dspsim/coro.h>
+#include <dspsim/derived_signal.h>
+#include <dspsim/event.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
-#include <dspsim/event.h>
+#include <dspsim/process.h>
 #include <dspsim/signal.h>
-#include <dspsim/derived_signal.h>
 
-#include "timestrings.h"
-#include <format>
-#include <iostream>
+#include "log.h"
+
 #include <algorithm>
-#include <dspsim/module_name.h>
-
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 namespace dspsim
 {
-    static inline auto parse_level(const std::string &level)
-    {
-        // Convert to lowercase
-        std::string lower_log_level = level;
-        std::transform(lower_log_level.begin(), lower_log_level.end(), lower_log_level.begin(), ::tolower);
-        spdlog::level::level_enum parsed_level = spdlog::level::from_str(lower_log_level);
-        if (parsed_level == spdlog::level::off && lower_log_level != "off")
-        {
-            // Invalid string level, use info as fallback.
-            return spdlog::level::info;
-        }
-        else
-        {
-            return parsed_level;
-        }
-    }
-
     Context::Context(const std::string &name, int id)
         : name_(name),
           id_(id),
@@ -47,33 +30,29 @@ namespace dspsim
         {
             name_ = "context_" + std::to_string(id_);
         }
-        // spdlog's registry needs unique names, and context names may repeat. The id makes it unique.
-        this->logger_ = spdlog::stdout_color_mt(std::format("{}#{}", name_, id_));
-        logger_->set_level(spdlog::level::warn);
-        logger_->set_pattern("[%^%l%$] %v");
+        // Logger names must be unique, and context names may repeat. The id makes it unique.
+        logger_ = std::make_unique<detail::Logger>(name_ + "#" + std::to_string(id_));
 
         // Reserve space in eval/update/event stacks.
-        process_eval_stack_.stack().reserve(1000);
-        signal_update_stack_.stack().reserve(1000);
+        process_eval_stack_.reserve(1000);
+        signal_update_stack_.reserve(1000);
         sensitivity_event_stack_.reserve(1000);
     }
 
+    Context::Context(Context &&) noexcept = default;
+
     Context::~Context()
     {
-        // Do not touch spdlog's global registry here: Context can be destroyed by the
-        // static destruction of global_context_factory, and spdlog's registry (a
-        // function-local static) may already have been torn down by that point,
-        // making spdlog::drop() dereference freed memory.
         clear();
     }
 
     void Context::clear()
     {
-        // Drop everything that is scheduled. The underlying vectors are cleared directly: FlaggedStack::clear()
+        // Drop everything that is scheduled, with drop() instead of clear(): FlaggedStack::clear()
         // resets the flag of each element, and signals may have gone out of scope already.
-        process_eval_stack_.stack().clear();
-        signal_update_stack_.stack().clear();
-        derived_update_stack_.stack().clear();
+        process_eval_stack_.drop();
+        signal_update_stack_.drop();
+        derived_update_stack_.drop();
         current_process_ = nullptr;
 
         registered_models_.clear();
@@ -139,7 +118,7 @@ namespace dspsim
         {
             SignalBase *signal = signal_update_stack_.back();
             signal_update_stack_.pop_back();
-            SPDLOG_LOGGER_TRACE(logger_, "Updating signal: {}", signal->name());
+            DSPSIM_LOG_TRACE(logger_, "Updating signal: " + signal->name());
             signal->update();
         }
 
@@ -162,7 +141,7 @@ namespace dspsim
         while (!process_eval_stack_.empty() || !signal_update_stack_.empty())
         {
             any_model_updated = !process_eval_stack_.empty();
-            SPDLOG_LOGGER_TRACE(logger_, "Starting delta cycle iteration: {}", n_iter);
+            DSPSIM_LOG_TRACE(logger_, "Starting delta cycle iteration: " + std::to_string(n_iter));
             ++n_iter;
 
             // run eval cycle on all models that were scheduled to be evaluated.
@@ -172,7 +151,7 @@ namespace dspsim
             {
                 ProcessBase *process = process_eval_stack_.back();
                 process_eval_stack_.pop_back();
-                SPDLOG_LOGGER_TRACE(logger_, "Evaluating process: {}", process->name());
+                DSPSIM_LOG_TRACE(logger_, "Evaluating process: " + process->name());
                 current_process_ = process;
                 process->mark_woken();
                 process->resume();
@@ -189,7 +168,7 @@ namespace dspsim
             // Trigger all sensitivity events that were notified.
             for (const auto &event : sensitivity_event_stack_)
             {
-                SPDLOG_LOGGER_TRACE(logger_, "Triggering sensitivity event");
+                DSPSIM_LOG_TRACE(logger_, "Triggering sensitivity event");
                 event->trigger();
             }
             sensitivity_event_stack_.clear();
@@ -241,14 +220,14 @@ namespace dspsim
             time_ += next_time_step;
             time_inc -= next_time_step;
 
-            SPDLOG_LOGGER_TRACE(logger_, "Advancing simulation time by: {} to time: {}", next_time_step, time_);
+            DSPSIM_LOG_TRACE(logger_, "Advancing simulation time by: " + std::to_string(next_time_step) + " to time: " + std::to_string(time_));
 
             // Queue all models for evaluation that have a zero time update.
             while (!time_event_stack_.empty() && time_event_stack_.top().time_update() == time_)
             {
                 auto event = time_event_stack_.top();
                 time_event_stack_.pop();
-                SPDLOG_LOGGER_TRACE(logger_, "Popping time event subscriber: {}", event.process()->name());
+                DSPSIM_LOG_TRACE(logger_, "Popping time event subscriber: " + event.process()->name());
                 schedule_time_event(event);
             }
             // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
@@ -299,16 +278,15 @@ namespace dspsim
         {
             if (time_event_stack_.empty())
             {
-                throw std::runtime_error(std::format(
-                    "run_until: the simulation stalled at t={} with no pending time events, so '{}' can never complete.",
-                    time_, process->name()));
+                throw std::runtime_error("run_until: the simulation stalled at t=" + std::to_string(time_) +
+                                         " with no pending time events, so '" + process->name() + "' can never complete.");
             }
             uint64_t next_time = time_event_stack_.top().time_update();
             if (timeout != 0 && next_time > deadline)
             {
                 run(deadline - time_);
-                throw TimeoutError(std::format("run_until: '{}' did not complete within {} time units (t={}).",
-                                               process->name(), timeout, time_));
+                throw TimeoutError("run_until: '" + process->name() + "' did not complete within " + std::to_string(timeout) +
+                                   " time units (t=" + std::to_string(time_) + ").");
             }
             // Advance to the next time step and evaluate it.
             run(next_time - time_);
@@ -400,7 +378,7 @@ namespace dspsim
     {
         for (auto *child : children(parent))
         {
-            logger_->info("{}{}", std::string(depth * 2, ' '), child->name());
+            DSPSIM_LOG_INFO(logger_, std::string(depth * 2, ' ') + child->name());
             print_hierarchy(child, depth + 1);
         }
     }
@@ -451,30 +429,27 @@ namespace dspsim
 
     const std::string Context::log_level() const
     {
-        auto view = spdlog::level::to_string_view(logger_->level());
-        return std::string{view.begin(), view.end()};
+        return logger_->level();
     }
     void Context::set_log_level(const std::string &log_level)
     {
-        auto level = parse_level(log_level);
-        logger_->set_level(level);
+        logger_->set_level(log_level);
     }
 
     const std::string Context::repr() const
     {
-        return std::format("Context(id={}, time={})", id_, time_);
+        return "Context(id=" + std::to_string(id_) + ", time=" + std::to_string(time_) + ")";
     }
 
     void Context::log(const std::string &level, const std::string &message)
     {
-        auto lvl = parse_level(level);
-        logger_->log(lvl, message);
+        logger_->log(level, message);
     }
 
     void Context::add_model(Model *model)
     {
         model->hier_name_ = current_hierarchy() + "." + model->name();
-        SPDLOG_LOGGER_TRACE(logger_, "Adding model: {}, hier: {}", model->name(), current_hierarchy());
+        DSPSIM_LOG_TRACE(logger_, "Adding model: " + model->name() + ", hier: " + current_hierarchy());
         registered_models_.push_back(model);
         children_[model->parent()].push_back(model);
 
@@ -497,6 +472,16 @@ namespace dspsim
         return owned_models_;
     }
 
+    uint32_t Context::next_model_id()
+    {
+        return next_model_id_++;
+    }
+
+    uint32_t Context::next_process_id()
+    {
+        return next_process_id_++;
+    }
+
     void Context::trace_model(Model *model)
     {
         trace_stack_.push_back(model);
@@ -517,19 +502,19 @@ namespace dspsim
 
     ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        logger_->info("Registering process: {}", name);
+        DSPSIM_LOG_INFO(logger_, "Registering process: " + name);
         return add_process(std::make_unique<Process>(this, eval, name));
     }
 
-    ProcessBase *Context::register_trampoline(void *instance, MethodProcess::Trampoline call, const std::string &name)
+    ProcessBase *Context::register_trampoline(void *instance, void (*call)(void *), const std::string &name)
     {
-        logger_->info("Registering process: {}", name);
+        DSPSIM_LOG_INFO(logger_, "Registering process: " + name);
         return add_process(std::make_unique<MethodProcess>(this, instance, call, name));
     }
 
     ProcessBase *Context::register_coro(std::coroutine_handle<> root, const std::string &name)
     {
-        logger_->info("Registering coroutine task: {}", name);
+        DSPSIM_LOG_INFO(logger_, "Registering coroutine task: " + name);
         return add_process(std::make_unique<CoroProcess>(this, root, name));
     }
 
@@ -565,22 +550,35 @@ namespace dspsim
     }
 
     // Context Factory
+    struct ContextFactory::State
+    {
+        int next_context_id = 0;
+        std::shared_ptr<Context> active_context;
+        // The thread constructing the active context.
+        std::thread::id owner;
+        // Guards the active context and its owner. Never held while calling into models or contexts.
+        std::mutex mutex;
+        // Notified when the active context is released.
+        std::condition_variable released;
+    };
+
     ContextFactory::ContextFactory()
-        : next_context_id_(0),
-          active_context_(nullptr)
+        : state_(std::make_unique<State>())
     {
     }
 
+    ContextFactory::~ContextFactory() = default;
+
     std::shared_ptr<Context> ContextFactory::obtain()
     {
-        std::lock_guard lock(mutex_);
-        if (active_context_ == nullptr || owner_ != std::this_thread::get_id())
+        std::lock_guard lock(state_->mutex);
+        if (state_->active_context == nullptr || state_->owner != std::this_thread::get_id())
         {
             throw ContextConstructionError(
                 "There is no active context in this thread. Call Context::create() before constructing models. "
                 "A context is no longer active once it has been elaborated or released.");
         }
-        return active_context_;
+        return state_->active_context;
     }
 
     void ContextFactory::reset()
@@ -595,44 +593,44 @@ namespace dspsim
                        { return active == context; });
     }
 
+    bool ContextFactory::is_active(const Context *context)
+    {
+        std::lock_guard lock(state_->mutex);
+        return state_->active_context.get() == context;
+    }
+
+    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
+    {
+        std::unique_lock lock(state_->mutex);
+        // Waiting on a context this thread is constructing would deadlock.
+        if (state_->active_context && state_->owner == std::this_thread::get_id())
+        {
+            throw ContextConstructionError(
+                "Cannot create context '" + name + "': context '" + state_->active_context->name() +
+                "' is still under construction in this thread. "
+                "Call elaborate() or release() on it first, or Context::reset() to discard it.");
+        }
+        state_->released.wait(lock, [this]
+                              { return state_->active_context == nullptr; });
+        state_->active_context = std::shared_ptr<Context>(new Context(name, state_->next_context_id++));
+        state_->owner = std::this_thread::get_id();
+        return state_->active_context;
+    }
+
     void ContextFactory::release_active(const std::function<bool(const Context *)> &if_active)
     {
         // The context may be destroyed when released. Do that outside of the lock.
         std::shared_ptr<Context> released;
         {
-            std::lock_guard lock(mutex_);
-            if (!if_active(active_context_.get()))
+            std::lock_guard lock(state_->mutex);
+            if (!if_active(state_->active_context.get()))
             {
                 return;
             }
-            released = std::move(active_context_);
-            owner_ = {};
+            released = std::move(state_->active_context);
+            state_->owner = {};
         }
-        released_.notify_all();
-    }
-
-    bool ContextFactory::is_active(const Context *context)
-    {
-        std::lock_guard lock(mutex_);
-        return active_context_.get() == context;
-    }
-
-    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
-    {
-        std::unique_lock lock(mutex_);
-        // Waiting on a context this thread is constructing would deadlock.
-        if (active_context_ && owner_ == std::this_thread::get_id())
-        {
-            throw ContextConstructionError(std::format(
-                "Cannot create context '{}': context '{}' is still under construction in this thread. "
-                "Call elaborate() or release() on it first, or Context::reset() to discard it.",
-                name, active_context_->name()));
-        }
-        released_.wait(lock, [this]
-                       { return active_context_ == nullptr; });
-        active_context_ = std::shared_ptr<Context>(new Context(name, next_context_id_++));
-        owner_ = std::this_thread::get_id();
-        return active_context_;
+        state_->released.notify_all();
     }
 
     static std::shared_ptr<ContextFactory> global_context_factory = nullptr;

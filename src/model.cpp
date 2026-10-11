@@ -1,7 +1,8 @@
 #include <dspsim/model.h>
 #include <dspsim/context.h>
 #include <dspsim/module.h>
-#include <format>
+
+#include <string>
 namespace dspsim
 {
     void detail::own_model(Context *context, std::shared_ptr<Model> model)
@@ -27,13 +28,14 @@ namespace dspsim
         context_->add_model(this);
     }
 
-    void Model::finalize()
+    uint32_t Model::id() const
     {
+        return id_;
     }
 
-    void Model::request_trace()
+    const std::string &Model::name() const
     {
-        context_->trace_model(this);
+        return name_;
     }
 
     const std::string &Model::kind() const
@@ -52,6 +54,21 @@ namespace dspsim
 
     const std::string Model::repr() const
     {
-        return std::format("Model(id={}, kind={}, name={}, parent={}, context={})", id(), kind(), name(), parent() ? parent()->name() : "root", context()->id());
+        return "Model(id=" + std::to_string(id()) + ", kind=" + kind() + ", name=" + name() +
+               ", parent=" + (parent() ? parent()->name() : std::string("root")) +
+               ", context=" + std::to_string(context()->id()) + ")";
+    }
+
+    void Model::finalize()
+    {
+    }
+
+    void Model::dump_trace()
+    {
+    }
+
+    void Model::request_trace()
+    {
+        context_->trace_model(this);
     }
 }

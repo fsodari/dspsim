@@ -2,8 +2,10 @@
 #include <dspsim/context.h>
 #include <dspsim/event.h>
 #include <dspsim/module.h>
+#include <dspsim/port.h>
 
-#include <spdlog/spdlog.h>
+#include "log.h"
+
 #include <algorithm>
 #include <stdexcept>
 
@@ -16,6 +18,18 @@ namespace dspsim
           name_(name),
           parent_module_(context->active_module())
     {
+    }
+
+    ProcessBase::~ProcessBase() = default;
+
+    const std::string &ProcessBase::name() const
+    {
+        return name_;
+    }
+
+    bool ProcessBase::initialize() const
+    {
+        return initialize_;
     }
 
     ProcessBase *ProcessBase::initialize(bool init)
@@ -35,6 +49,14 @@ namespace dspsim
             context_->process_eval_stack_.erase(this);
         }
         return this;
+    }
+
+    void ProcessBase::unschedule()
+    {
+        cancel_static_events();
+        cancel_dynamic_events();
+        // Pending time waits are tagged with the old wake count.
+        ++wake_count_;
     }
 
     void ProcessBase::schedule_static_event(SensitivityEvent &event)
@@ -60,7 +82,7 @@ namespace dspsim
         }
         else
         {
-            context_->logger_->error("Event not found: {}", event_name);
+            DSPSIM_LOG_ERROR(context_->logger_, "Event not found: " + event_name);
         }
     }
 
@@ -85,7 +107,7 @@ namespace dspsim
         }
         else
         {
-            context_->logger_->error("Event not found: {}", event_name);
+            DSPSIM_LOG_ERROR(context_->logger_, "Event not found: " + event_name);
         }
     }
 
@@ -94,14 +116,6 @@ namespace dspsim
         // Tagged with the wake count: if anything else resumes the process first, the wakeup is stale.
         context_->time_event_stack_.emplace(context_->time() + time_delta, this, wake_count_);
         static_sensitivity_disabled_ = true;
-    }
-
-    void ProcessBase::unschedule()
-    {
-        cancel_static_events();
-        cancel_dynamic_events();
-        // Pending time waits are tagged with the old wake count.
-        ++wake_count_;
     }
 
     void ProcessBase::dynamic_event_triggered(SensitivityEvent &event)
@@ -152,9 +166,31 @@ namespace dspsim
     {
     }
 
+    bool Process::done() const
+    {
+        return done_;
+    }
+
+    void Process::resume()
+    {
+        eval_();
+        done_ = true;
+    }
+
     MethodProcess::MethodProcess(Context *context, void *instance, Trampoline call, const std::string &name)
         : ProcessBase(context, name), instance_(instance), call_(call)
     {
+    }
+
+    bool MethodProcess::done() const
+    {
+        return done_;
+    }
+
+    void MethodProcess::resume()
+    {
+        call_(instance_);
+        done_ = true;
     }
 
     /*

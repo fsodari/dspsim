@@ -1,7 +1,9 @@
 #include <dspsim/module.h>
 #include <dspsim/context.h>
+#include <dspsim/port.h>
 #include <dspsim/process.h>
-#include <spdlog/spdlog.h>
+#include "log.h"
+
 #include <stdexcept>
 
 namespace dspsim
@@ -32,14 +34,14 @@ namespace dspsim
 
     Module::Module() : Model(current_module_name(), "module")
     {
-        SPDLOG_LOGGER_DEBUG(context()->logger_, "Constructing Module with default name = {}", name());
+        DSPSIM_LOG_DEBUG(context()->logger_, "Constructing Module with default name = " + name());
         context()->active_module_stack_.push_back(this);
         context()->add_module(this);
     }
 
     Module::Module(ModuleName &name) : Model(name.name(), "module")
     {
-        SPDLOG_LOGGER_DEBUG(context()->logger_, "Constructing Module with name = {}", name.name());
+        DSPSIM_LOG_DEBUG(context()->logger_, "Constructing Module with name = " + name.name());
         context()->active_module_stack_.push_back(this);
         context()->add_module(this);
     }

@@ -1,13 +1,21 @@
 #pragma once
 #include <dspsim/model.h>
 #include <dspsim/module_name.h>
-#include <dspsim/port.h>
+// A module registers its processes with DSPSIM_METHOD / DSPSIM_CORO, which need the complete Context and
+// ProcessBase, and its coroutines await the awaitables returned by wait().
+#include <dspsim/context.h>
 #include <dspsim/coro.h>
+#include <dspsim/process.h>
+
+#include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace dspsim
 {
-    class ProcessBase;
+    class PortBase;
+    class SensitivityEvent;
     class Module : public Model
     {
         // Ports register with the module they are declared in.
@@ -44,6 +52,7 @@ namespace dspsim
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // The ports declared in this module, in declaration order.
+        // Defined inline: a verilated module walks its inputs and outputs on every evaluation.
         const std::vector<PortBase *> &ports() const { return ports_; }
         const std::vector<PortBase *> &inputs() const { return inputs_; }
         const std::vector<PortBase *> &outputs() const { return outputs_; }

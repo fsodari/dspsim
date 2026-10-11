@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/module.h>
+#include <dspsim/port.h>
 #include <dspsim/coro.h>
 #include <dspsim/event.h>
 #include <ranges>

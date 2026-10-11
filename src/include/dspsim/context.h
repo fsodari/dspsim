@@ -1,25 +1,16 @@
 #pragma once
-#include <dspsim/model.h>
 #include <dspsim/event.h>
-#include <dspsim/process.h>
-#include <dspsim/coro.h>
-#include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include <string>
-#include <condition_variable>
+#include <coroutine>
+#include <cstdint>
 #include <functional>
-#include <mutex>
+#include <memory>
 #include <stdexcept>
-#include <thread>
-
-namespace spdlog
-{
-    class logger;
-}
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace dspsim
 {
@@ -29,10 +20,19 @@ namespace dspsim
     class SignalBase;
     class DerivedSignalBase;
     class PortBase;
+    class ProcessBase;
+    // Coroutine types, defined in <dspsim/coro.h>. Include it to call wait() or run_until().
+    template <typename T>
+    struct Task;
+    class Wait;
+    class WaitTimeEvent;
+    class WaitSensitivityEvent;
 
     namespace detail
     {
         struct EngineAccess;
+        // The engine's logger. Defined in src/log.h, which is internal to the core library.
+        class Logger;
     }
     namespace testing
     {
@@ -90,7 +90,7 @@ namespace dspsim
         Context &operator=(const Context &) = delete;
 
         // Move operations can be kept if desired
-        Context(Context &&) noexcept = default;
+        Context(Context &&) noexcept;
         ~Context();
 
         // Obtain the active global context. Throws ContextConstructionError if there is none.
@@ -255,8 +255,8 @@ namespace dspsim
         void trace_model(Model *model);
 
         // Each model is assigned a unique id from its context on construction.
-        uint32_t next_model_id() { return next_model_id_++; }
-        uint32_t next_process_id() { return next_process_id_++; }
+        uint32_t next_model_id();
+        uint32_t next_process_id();
 
         /*
             Take ownership of a process and schedule it for evaluation in the next delta cycle
@@ -264,7 +264,7 @@ namespace dspsim
             between run() calls, or from a running process.
         */
         ProcessBase *add_process(std::unique_ptr<ProcessBase> process);
-        ProcessBase *register_trampoline(void *instance, MethodProcess::Trampoline call, const std::string &name);
+        ProcessBase *register_trampoline(void *instance, void (*call)(void *), const std::string &name);
         ProcessBase *register_coro(std::coroutine_handle<> root, const std::string &name);
 
         /*
@@ -277,6 +277,7 @@ namespace dspsim
         void remove_process(ProcessBase *process);
 
         // The process being evaluated, or nullptr outside the eval phase.
+        // Inline, like update_count(): read by the scheduler and the awaitables for every evaluation.
         ProcessBase *current_process() const { return current_process_; }
 
         /*
@@ -353,8 +354,8 @@ namespace dspsim
         // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
         std::vector<Model *> trace_stack_;
 
-        // spdlog is an implementation detail: use log() and set_log_level().
-        std::shared_ptr<spdlog::logger> logger_;
+        // The logging backend (spdlog) is an implementation detail: use log() and set_log_level().
+        std::unique_ptr<detail::Logger> logger_;
 
         // Keep track of the currently active module to build a hierarchy.
         std::vector<Module *> active_module_stack_;
@@ -370,6 +371,7 @@ namespace dspsim
     {
     public:
         ContextFactory();
+        ~ContextFactory();
 
         /*
             Obtain the active context. Throws ContextConstructionError if this thread has no context under construction:
@@ -394,14 +396,10 @@ namespace dspsim
         void release_active(const std::function<bool(const Context *)> &if_active);
 
     private:
-        int next_context_id_;
-        std::shared_ptr<Context> active_context_;
-        // The thread constructing the active context.
-        std::thread::id owner_;
-        // Guards the active context and its owner. Never held while calling into models or contexts.
-        std::mutex mutex_;
-        // Notified when the active context is released.
-        std::condition_variable released_;
+        // The active context, the thread constructing it and the lock that guards them. Defined in context.cpp,
+        // which keeps <mutex>, <thread> and <condition_variable> out of every file that includes this header.
+        struct State;
+        std::unique_ptr<State> state_;
     };
 
     using ContextFactoryPtr = std::shared_ptr<ContextFactory>;

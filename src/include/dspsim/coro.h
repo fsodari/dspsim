@@ -16,10 +16,9 @@
     Context::run_until(task) runs one to completion from ordinary (non-coroutine) code.
 */
 #pragma once
-#include <dspsim/process.h>
-
 #include <concepts>
 #include <coroutine>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <optional>
@@ -29,7 +28,7 @@
 
 namespace dspsim
 {
-    class Context;
+    class ProcessBase;
     class SensitivityEvent;
 
     template <typename T = void>
@@ -272,8 +271,7 @@ namespace dspsim
 
         // Wait on a dynamically added event.
         WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process, uint64_t timeout = 0);
-        WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process, uint64_t timeout = 0)
-            : WaitSensitivityEvent(event.get(), process, timeout) {}
+        WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process, uint64_t timeout = 0);
 
         // Wait on any of several dynamic events.
         WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process, uint64_t timeout = 0);

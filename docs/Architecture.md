@@ -254,11 +254,83 @@ Two named friends cover everything outside the core classes:
   "this process did not run".
 
 spdlog is an implementation detail of `dspsim-core`: the logger is a private member of `Context`, and
-user code logs with `Context::log(level, message)`.
+user code logs with `Context::log(level, message)`. Inside the core, only `src/log.cpp` includes spdlog
+(see "Build configuration of the core library").
 
 In Python, a binding that is not part of the user API has a leading underscore (`Context._own_model`,
 `_get_global_context_factory`). The stubs are generated with `INCLUDE_PRIVATE`, so these are typed too.
 `dspsim.framework.__all__` lists the public names.
+
+### Headers and inline code
+The public headers are written to be cheap to include, since every model, test and binding parses them:
+
+- A header includes what its own declarations need and forward declares the rest. `signal.h` and `port.h`
+  do not include `context.h`; `context.h` forward declares the process and coroutine types.
+  `module.h` is the header for writing a module, so it includes `context.h`, `process.h` and `coro.h`
+  (`DSPSIM_METHOD`, `DSPSIM_CORO` and `wait()` need them). Include `port.h` for the ports.
+- Expensive standard headers stay in the `.cpp` files. `ContextFactory` keeps its mutex, condition variable
+  and owner thread in `ContextFactory::State`, and `SensitivityEvent` keeps its subscriber lists in
+  `SensitivityEvent::Subscribers`; both structs are defined in the `.cpp` file.
+- Definitions live in the `.cpp` files, except for templates over a user's type and the one-line accessors
+  on the run cycle, which stay inline in the headers. Each of those has a comment saying so.
+  - Model code calls these on every evaluation: `Signal::read()`, `Input::read()`, `Output::write()`, the
+    `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`, the
+    awaitables' `await_ready()`/`await_resume()` and `Task`. Model code is compiled outside of
+    `dspsim-core`, so the compiler cannot see their definitions unless they are in a header.
+  - The scheduler reads these on every evaluation: the `ProcessBase` flags and counters, `TimeEvent`'s
+    accessors and comparisons, `Context::current_process()`/`update_count()`, the `scheduled_flag()`
+    functions, `SignalBase::width()` and `BitPart::width()`. In the default build the compiler would inline
+    them from a `.cpp` file as well (see below), but not with `DSPSIM_UNITY_BUILD=OFF`.
+- `FlaggedStack` (the process and signal scheduling stacks) keeps its own end and capacity pointers
+  instead of calling `std::vector::push_back()`. `push_back()` takes its argument by reference, so when the
+  compiler does not inline the vector's growth path, the caller spills the pointer it pushes to the stack
+  on every call. In `Signal::write()` that was measurable (about 5% on the DFF chain benchmarks).
+
+### Build configuration of the core library
+How `dspsim-core` is compiled decides how fast the run cycle is. The settings are in
+[src/CMakeLists.txt](../src/CMakeLists.txt):
+
+- **Unity build, no link-time optimization.** All core sources are compiled as one translation unit
+  (`DSPSIM_UNITY_BUILD`, on by default), which lets the compiler inline across them. Link-time optimization
+  would do the same, but it stores compiler-specific intermediate code in the object files. The static
+  library is installed into the wheel and linked by every model extension that a user builds, so with LTO
+  that build needs the same compiler in the same version as the one that built the wheel (GCC rejects LTO
+  objects of another version; Clang and MSVC cannot read GCC's at all). A unity build produces ordinary
+  object code. File-local names (`static` functions, anonymous namespaces) in different core `.cpp` files
+  must therefore be unique. Configure with `-DDSPSIM_UNITY_BUILD=OFF` to compile each source file on its
+  own while working on the core: rebuilds after a one-file change are faster, the simulation is slower.
+  A C++ program that is built together with dspsim (the benchmarks, for example) can still use link-time
+  optimization for the whole program with the standard `-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON`, which
+  also inlines the core into the model code: `nested_dff` ran 13% faster that way. Do not build a wheel
+  like that.
+- **`-fno-semantic-interposition`** (GCC and Clang on ELF platforms, `PUBLIC`). On Linux, a function
+  exported from a shared library can be replaced at load time by a definition from another library
+  (interposition, the mechanism behind `LD_PRELOAD`). GCC keeps that possible: in position independent
+  code it does not inline an exported function into its callers, not even inside one source file. The
+  Python extensions are shared libraries and all of the core's functions are exported from them, so without
+  the flag the run cycle is compiled as if every function were in a different file. The flag tells GCC
+  that a replacement would behave like the original, which is the only kind dspsim could work with anyway.
+  It is `PUBLIC` because code that links the core has the same problem: a chain of verilated `Skid` models
+  ran 5.7% fewer instructions with the flag on the model code alone. macOS and Windows have no interposition,
+  and Clang never restricted inlining for it.
+- **`-fno-stack-protector`** (core only). Debian and Ubuntu compilers enable `-fstack-protector-strong`
+  by default, which adds a canary check to any function that passes the address of a local variable to a
+  function that was not inlined.
+- **Logging in one source file.** spdlog is used header-only (on purpose: linking the compiled spdlog
+  library caused problems when distributing the wheels), and a source file that includes it takes
+  7 to 10 seconds to compile. Only [src/log.cpp](../src/log.cpp) includes it. It is kept out of the unity
+  translation unit, so it is only recompiled when the logging code changes. The rest of the core logs
+  through `detail::Logger` and the `DSPSIM_LOG_*` macros in [src/log.h](../src/log.h), with messages built
+  by string concatenation: `std::format` costs about 2 seconds per source file that uses it.
+- **No C++ modules.** `CMAKE_CXX_SCAN_FOR_MODULES` is off, here and in the generated model projects. From
+  C++20 on, CMake otherwise preprocesses every source file an extra time to scan it for module dependencies.
+
+Measure a change to any of this in two places. The C++ benchmarks are executables, and the Python
+extensions are shared libraries: the same source can compile differently for the two (that is how the
+interposition problem stayed hidden). Wall-clock times of the benchmarks vary by about 5% between runs and
+between builds that differ only in code layout, so compare instruction counts first
+(`perf stat -e instructions:u`), for a C++ benchmark and for a simulation driven from Python, and use
+wall-clock time with several repetitions to confirm.
 
 ## Delta-cycle execution model
 
@@ -336,10 +408,14 @@ it manually.
 
 - [`src/_framework.cpp`](../src/_framework.cpp) uses
   [nanobind](https://github.com/wjakob/nanobind) to define the `dspsim._framework`
-  extension module by calling the `bindings::bind_*` helpers in
-  `src/include/bindings/*.h`. Templates are instantiated per type with suffixed names:
-  `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`, `Input*`/`Output*`,
-  `Dff*`, and so on.
+  extension module. The bindings are compiled as several translation units so that they build in
+  parallel: `_framework.cpp` calls one `bindings::register_*` function per group of classes
+  (declared in `src/include/bindings/framework.h`, defined in `src/bindings/<group>.cpp`: `engine`,
+  `signals`, `signal_arrays`, `ports`, `input_arrays`, `output_arrays`, `modules`), and each of those
+  calls the `bindings::bind_*` helpers in `src/include/bindings/*.h`. Templates are instantiated per
+  type with suffixed names: `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`,
+  `Input*`/`Output*`, `Dff*`, and so on. The groups are registered in dependency order: a base class
+  before the classes derived from it.
 - [`src/dspsim/framework.py`](../src/dspsim/framework.py) is the public Python API. It
   re-exports `_framework`, subclasses `Context` and `Module`. A Python `Module` subclass takes a `name` argument in `__init__`;
   `Module.__init_subclass__` wraps `__init__` to open and close the `ModuleName` scope,

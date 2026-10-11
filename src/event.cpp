@@ -1,12 +1,18 @@
 #include <dspsim/event.h>
 #include <dspsim/context.h>
-#include <dspsim/model.h>
-#include <dspsim/module.h>
 #include <dspsim/process.h>
-#include <spdlog/spdlog.h>
+#include <dspsim/utils/unique_stack.h>
 
 namespace dspsim
 {
+    struct SensitivityEvent::Subscribers
+    {
+        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
+        UniqueStack<ProcessBase *> static_;
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs, each process is removed
+        // from its other dynamic events, and it returns to having static sensitivity.
+        UniqueStack<ProcessBase *> dynamic_;
+    };
 
     SensitivityEvent::SensitivityEvent(Context *context)
         : context_(context),
@@ -14,6 +20,8 @@ namespace dspsim
           subscribers_(nullptr)
     {
     }
+
+    SensitivityEvent::~SensitivityEvent() = default;
 
     SensitivityEvent::Subscribers &SensitivityEvent::subscribers()
     {

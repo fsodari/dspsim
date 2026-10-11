@@ -1,20 +1,18 @@
 #pragma once
-#include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/event.h>
-#include <dspsim/utils/unique_stack.h>
 #include <dspsim/ndarray.h>
 #include <dspsim/bitsel.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <type_traits>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace dspsim
 {
-    class SensitivityEvent;
-    class PortBase;
     class DerivedSignalBase;
     template <typename T>
     class DerivedSignal;
@@ -44,6 +42,7 @@ namespace dspsim
         SignalBase(const std::string &name, int width);
 
         /// Width of the signal in bits.
+        /// Inline: bit selections read it for every update of a derived signal.
         int width() const { return width_; }
 
         /// True if the signal holds an integral value, so its bits can be selected with slice() or pack().
@@ -51,10 +50,11 @@ namespace dspsim
 
         /// Select bits [hi:lo] of the signal. Slices are unsigned, as in SystemVerilog.
         BitSel slice(int hi, int lo);
-        BitSel operator[](BitRange range) { return slice(range.hi, range.lo); }
-        BitSel operator[](int bit) { return slice(bit, bit); }
+        BitSel operator[](BitRange range);
+        BitSel operator[](int bit);
 
         // Access the sensitivity events for this signal.
+        // Defined inline: processes wait on these on every evaluation (wait(clk.pos())).
         SensitivityEvent &change() { return change_event_; }
         SensitivityEvent &pos() { return posedge_event_; }
         SensitivityEvent &neg() { return negedge_event_; }
@@ -73,7 +73,7 @@ namespace dspsim
 
         /// The selection a derived signal is computed from, or nullptr for an ordinary signal.
         /// Selections of a derived signal refer to its sources instead, and writes to it go through to them.
-        const BitSel *source_selection() const { return source_selection_; }
+        const BitSel *source_selection() const;
 
         // Schedule the derived signals for recomputation after this signal has updated.
         void schedule_dependents();
@@ -84,6 +84,7 @@ namespace dspsim
         /// Register a derived signal that is recomputed whenever this signal changes.
         void add_dependent(DerivedSignalBase *dependent);
         // Set while this signal sits in Context::signal_update_stack_; used by FlaggedStack.
+        // Inline: checked on every write().
         bool &scheduled_flag() { return scheduled_; }
 
     private:
@@ -120,8 +121,9 @@ namespace dspsim
         /// their own, so init() throws std::logic_error for them; init the source signals instead.
         Signal<T> &init(const T &value);
 
-        virtual const std::string repr() const override { return ""; }
+        virtual const std::string repr() const override;
 
+        // read() and the operators below are defined inline: model code calls them on every evaluation.
         const T &read() const { return q_; }
         const T &operator()() const { return read(); }
 
@@ -134,18 +136,15 @@ namespace dspsim
             return read();
         }
 
-        bool is_integral() const override { return std::is_integral_v<T>; }
+        bool is_integral() const override;
 
         /*
             Static Methods
         */
-        static auto create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0)
-        {
-            return Model::create<Signal<T>>(name, width, init);
-        }
+        static std::shared_ptr<Signal<T>> create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0);
 
         // The pending value. Shouldn't be needed in a design, but it's available.
-        const T &read_d_() const { return d_; }
+        const T &read_d_() const;
 
     protected:
         void update() override;

@@ -2,7 +2,10 @@
 #include <dspsim/context.h>
 #include <dspsim/module.h>
 
-#include <spdlog/spdlog.h>
+#include "log.h"
+
+#include <cstddef>
+
 namespace dspsim
 {
     /*
@@ -21,7 +24,7 @@ namespace dspsim
               name(name),
               module_depth(context->active_module_stack_.size())
         {
-            context->logger_->debug("Constructing ModuleName: {}", name);
+            DSPSIM_LOG_AT(context->logger_, Debug, "Constructing ModuleName: " + name);
             context->active_module_name_stack_.push_back(name);
         }
 
@@ -43,12 +46,12 @@ namespace dspsim
             if (context->active_module_stack_.size() > module_depth)
             {
                 Module *m = context->active_module();
-                context->logger_->debug("Ending construction of {}", m->hier_name());
+                DSPSIM_LOG_AT(context->logger_, Debug, "Ending construction of " + m->hier_name());
                 m->end_construction();
             }
             else
             {
-                context->logger_->error("ModuleName {} ended without constructing a module", name);
+                DSPSIM_LOG_ERROR(context->logger_, "ModuleName " + name + " ended without constructing a module");
             }
             // Context::clear() may have emptied the stack while this scope was open.
             if (!context->active_module_name_stack_.empty())
@@ -63,6 +66,11 @@ namespace dspsim
     {
     }
 
+    ModuleName::ModuleName(const char *name)
+        : ModuleName(std::string(name))
+    {
+    }
+
     void ModuleName::end()
     {
         scope_->end();
@@ -71,5 +79,15 @@ namespace dspsim
     const std::string &ModuleName::name() const
     {
         return scope_->name;
+    }
+
+    ModuleName::operator const char *() const
+    {
+        return name().c_str();
+    }
+
+    ModuleName::operator const std::string &() const
+    {
+        return name();
     }
 }

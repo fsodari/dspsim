@@ -4,6 +4,8 @@ project({{model.name}} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# No C++ modules here: skip CMake's module dependency scan of every source file (on by default from C++20).
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # dspsim
 find_package(dspsim REQUIRED)

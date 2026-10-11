@@ -4,8 +4,11 @@
 #pragma once
 #include <coroutine>
 #include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace dspsim
@@ -42,11 +45,14 @@ namespace dspsim
         friend struct testing::EngineInspector;
 
     public:
-        virtual ~ProcessBase() = default;
+        virtual ~ProcessBase();
 
+        // The accessors defined in this class are read by the scheduler for every evaluation. They are inline
+        // because a call into another translation unit of a shared library (the Python extension) is not
+        // inlined by link-time optimization. Everything else is defined in process.cpp.
         Context *context() const { return context_; }
         uint32_t id() const { return id_; }
-        const std::string &name() const { return name_; }
+        const std::string &name() const;
         // True for a coroutine process: it waits with wait(...) instead of next_trigger(...), and it completes.
         bool is_coroutine() const { return coroutine_; }
 
@@ -56,7 +62,7 @@ namespace dspsim
             simulation continues if it was registered later.
         */
         // True if the process is evaluated once after registration without waiting for an event.
-        bool initialize() const { return initialize_; }
+        bool initialize() const;
         /*
             initialize(false) takes the process off the evaluation stack, so it is first evaluated when one of
             its events occurs. initialize(true) schedules it again. Can be chained with always() calls.
@@ -189,14 +195,10 @@ namespace dspsim
     public:
         Process(Context *context, std::function<void()> eval, const std::string &name = "");
 
-        bool done() const override { return done_; }
+        bool done() const override;
 
     private:
-        void resume() override
-        {
-            eval_();
-            done_ = true;
-        }
+        void resume() override;
 
     private:
         std::function<void()> eval_;
@@ -215,14 +217,10 @@ namespace dspsim
 
         MethodProcess(Context *context, void *instance, Trampoline call, const std::string &name = "");
 
-        bool done() const override { return done_; }
+        bool done() const override;
 
     private:
-        void resume() override
-        {
-            call_(instance_);
-            done_ = true;
-        }
+        void resume() override;
 
     private:
         void *instance_;

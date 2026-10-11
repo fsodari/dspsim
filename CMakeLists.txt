@@ -4,6 +4,9 @@ project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION} LANGUAGES CXX
 # Set C++ standard to 23. 20?
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# dspsim does not use C++ modules. From C++20 on, CMake otherwise runs a dependency scan (an extra
+# preprocessor run) for every source file before compiling it.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # Dependencies installation directory
 option(USE_LOCAL_DEPS "Add the deps/install folder to the module search path" ON)
@@ -132,8 +135,16 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dspsim-config.cmake
 # Include dspsim utilities
 include(${CMAKE_SOURCE_DIR}/cmake/dspsim-utils.cmake)
 
-# Build _framework module
-dspsim_add_nanobind_module(_framework ${DSPSIM_SRC_DIR}/_framework.cpp)
+# Build _framework module. The bindings are split into groups that compile in parallel: see src/bindings/framework.h.
+dspsim_add_nanobind_module(_framework
+    ${DSPSIM_SRC_DIR}/_framework.cpp
+    ${DSPSIM_SRC_DIR}/bindings/engine.cpp
+    ${DSPSIM_SRC_DIR}/bindings/signals.cpp
+    ${DSPSIM_SRC_DIR}/bindings/signal_arrays.cpp
+    ${DSPSIM_SRC_DIR}/bindings/ports.cpp
+    ${DSPSIM_SRC_DIR}/bindings/input_arrays.cpp
+    ${DSPSIM_SRC_DIR}/bindings/output_arrays.cpp
+    ${DSPSIM_SRC_DIR}/bindings/modules.cpp)
 set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # Install extension

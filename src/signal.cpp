@@ -1,15 +1,12 @@
 #include <dspsim/signal.h>
 #include <dspsim/context.h>
-#include <dspsim/port.h>
-#include <dspsim/module.h>
 #include <dspsim/event.h>
 #include <dspsim/bits.h>
 #include <dspsim/derived_signal.h>
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 namespace dspsim
@@ -31,13 +28,19 @@ namespace dspsim
         return BitSel(*this, hi, lo);
     }
 
-    void SignalBase::add_dependent(DerivedSignalBase *dependent)
+    BitSel SignalBase::operator[](BitRange range)
     {
-        if (std::find(dependents_.begin(), dependents_.end(), dependent) == dependents_.end())
-        {
-            dependents_.push_back(dependent);
-            has_dependents_ = true;
-        }
+        return slice(range.hi, range.lo);
+    }
+
+    BitSel SignalBase::operator[](int bit)
+    {
+        return slice(bit, bit);
+    }
+
+    const BitSel *SignalBase::source_selection() const
+    {
+        return source_selection_;
     }
 
     void SignalBase::schedule_dependents()
@@ -53,6 +56,15 @@ namespace dspsim
         for (auto *dependent : dependents_)
         {
             dependent->refresh();
+        }
+    }
+
+    void SignalBase::add_dependent(DerivedSignalBase *dependent)
+    {
+        if (std::find(dependents_.begin(), dependents_.end(), dependent) == dependents_.end())
+        {
+            dependents_.push_back(dependent);
+            has_dependents_ = true;
         }
     }
 
@@ -75,6 +87,12 @@ namespace dspsim
         q_ = value;
         refresh_dependents();
         return *this;
+    }
+
+    template <typename T>
+    const std::string Signal<T>::repr() const
+    {
+        return "";
     }
 
     template <typename T>
@@ -110,6 +128,24 @@ namespace dspsim
         //         context()->signal_update_stack_.erase(it);
         //     }
         // }
+    }
+
+    template <typename T>
+    bool Signal<T>::is_integral() const
+    {
+        return std::is_integral_v<T>;
+    }
+
+    template <typename T>
+    std::shared_ptr<Signal<T>> Signal<T>::create(const std::string &name, int width, T init)
+    {
+        return Model::create<Signal<T>>(name, width, init);
+    }
+
+    template <typename T>
+    const T &Signal<T>::read_d_() const
+    {
+        return d_;
     }
 
     template <typename T>

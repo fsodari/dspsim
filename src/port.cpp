@@ -3,9 +3,10 @@
 #include <dspsim/module.h>
 #include <dspsim/derived_signal.h>
 
-#include <spdlog/spdlog.h>
+#include "log.h"
 
 #include <stdexcept>
+#include <string>
 
 namespace dspsim
 {
@@ -43,8 +44,15 @@ namespace dspsim
         }
         else
         {
-            context()->logger_->error("A port cannot be declared at root level. Port: {}", hier_name());
+            DSPSIM_LOG_ERROR(context()->logger_, "A port cannot be declared at root level. Port: " + hier_name());
         }
+    }
+
+    PortBase::~PortBase() = default;
+
+    int PortBase::width() const
+    {
+        return width_;
     }
 
     void PortBase::finalize()
@@ -56,19 +64,23 @@ namespace dspsim
         update_bound_signal_subscribers();
     }
 
+    void PortBase::sync()
+    {
+    }
+
     void PortBase::bind_base(SignalBase &signal)
     {
         // Already bound.
         if (bound_signal_)
         {
-            context()->logger_->error("Port {} is already bound to a signal", hier_name());
+            DSPSIM_LOG_ERROR(context()->logger_, "Port " + hier_name() + " is already bound to a signal");
         }
 
         // // Width mismatch check
         // if (signal.width() != this->width())
         // {
         //     // Error or warning?
-        //     context()->logger_->warn("Port {} width mismatch with signal {}", hier_name(), signal.hier_name());
+        //     DSPSIM_LOG_WARN(context()->logger_, "Port " + hier_name() + " width mismatch with signal " + signal.hier_name());
         // }
 
         bound_signal_ = &signal;
@@ -101,7 +113,7 @@ namespace dspsim
         // the port is unconnected.
         if (!bound_signal_)
         {
-            context()->logger_->error("Port {} is not bound to a signal", hier_name());
+            DSPSIM_LOG_ERROR(context()->logger_, "Port " + hier_name() + " is not bound to a signal");
         }
     }
 
@@ -128,10 +140,34 @@ namespace dspsim
     }
 
     template <typename T>
+    void Input<T>::bind(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Input<T>::bind(Input<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
     void Input<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
         bind_base(make_derived_signal<T>(*this, selection));
+    }
+
+    template <typename T>
+    void Input<T>::bind_signal(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Input<T>::bind_port(Input<T> &port)
+    {
+        bind_base(port);
     }
 
     template <typename T>
@@ -140,10 +176,40 @@ namespace dspsim
     }
 
     template <typename T>
+    void Output<T>::bind(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Output<T>::bind(Output<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
     void Output<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
         bind_base(make_derived_signal<T>(*this, selection));
+    }
+
+    template <typename T>
+    void Output<T>::bind_signal(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Output<T>::bind_port(Output<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
+    const T &Output<T>::read_d_() const
+    {
+        return static_cast<Signal<T> *>(bound_signal_)->read_d_();
     }
 
     template class Input<uint8_t>;

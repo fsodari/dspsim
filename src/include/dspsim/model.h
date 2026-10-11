@@ -1,6 +1,8 @@
 #pragma once
-#include <string>
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <utility>
 
 namespace dspsim
 {
@@ -23,11 +25,11 @@ namespace dspsim
         /*
             Properties
         */
-        // Defined inline: called on every signal/process bookkeeping operation in the
-        // delta-cycle hot path, so it must be inlinable without relying on LTO.
+        // Defined inline: model code calls it on every evaluation (context()->wait(...)), and model code is
+        // compiled outside of the core library, where link-time optimization cannot inline it.
         Context *context() const { return context_; }
-        uint32_t id() const { return id_; }
-        const std::string &name() const { return name_; }
+        uint32_t id() const;
+        const std::string &name() const;
         const std::string &kind() const;
         const std::string hier_name() const;
         Model *parent() const;
@@ -47,7 +49,7 @@ namespace dspsim
         // Called by the context during elaboration.
         virtual void finalize();
         // Called by the context at the end of every delta cycle, once the model has called request_trace().
-        virtual void dump_trace() {}
+        virtual void dump_trace();
 
         // Ask the context to call dump_trace() on this model at the end of every delta cycle.
         void request_trace();

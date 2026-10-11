@@ -1,6 +1,10 @@
 #pragma once
 #include <dspsim/signal.h>
-#include <dspsim/process.h>
+#include <dspsim/coro.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
 
 namespace dspsim
 {
@@ -8,10 +12,7 @@ namespace dspsim
     {
     public:
         Clock(const std::string &name, uint64_t period);
-        static auto create(const std::string &name, uint64_t period)
-        {
-            return Model::create<Clock>(name, period);
-        }
+        static std::shared_ptr<Clock> create(const std::string &name, uint64_t period);
 
         uint64_t period() const;
 

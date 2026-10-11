@@ -2,8 +2,13 @@
 #include <dspsim/signal.h>
 #include <dspsim/event.h>
 #include <dspsim/ndarray.h>
+
+#include <cstddef>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace dspsim
@@ -26,12 +31,13 @@ namespace dspsim
         // Constructor for the port base class. Initializes the port with a name, width, and kind.
         // kind will be input/output.
         PortBase(const std::string &name, int width, const std::string &kind);
-        virtual ~PortBase() = default;
+        virtual ~PortBase();
 
         // Get the width of the port.
-        int width() const { return width_; }
+        int width() const;
 
         // Processes can be sensitive to port changes.
+        // Defined inline: processes wait on these on every evaluation (wait(clk.pos())).
         SensitivityEvent &change() { return *change_event_; }
         SensitivityEvent &pos() { return *posedge_event_; }
         SensitivityEvent &neg() { return *negedge_event_; }
@@ -47,8 +53,7 @@ namespace dspsim
         void finalize() override;
 
         // Copy the value between the port and an external model. Only verilated ports (VInput/VOutput) do anything.
-        virtual void sync() {}
-
+        virtual void sync();
 
         // Provides access to the bound signal.
         SignalBase *bound_signal() const { return bound_signal_; }
@@ -99,23 +104,24 @@ namespace dspsim
         Input(const std::string &name, int width = default_bitwidth<T>::value);
 
         // Bind the input port to a signal.
-        void bind(Signal<T> &signal) { bind_base(signal); }
+        void bind(Signal<T> &signal);
         // Bind the input port to another input port.
-        void bind(Input<T> &port) { bind_base(port); }
+        void bind(Input<T> &port);
         /// Bind the input port to a bit selection (a slice or pack of signals) of the same width.
         /// The selected bits are zero or sign extended to T. Must be called before elaboration.
         void bind(const BitSel &selection)
             requires std::is_integral_v<T>;
 
         // Read the value of the port (bound signal).
+        // read() and the conversion are defined inline: model code calls them on every evaluation.
         const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
 
         // Implicit conversion to read the value of the bound signal from the port
         operator const T &() const { return read(); }
 
         // Explicit functions for nanobind bindings
-        void bind_signal(Signal<T> &signal) { bind_base(signal); }
-        void bind_port(Input<T> &port) { bind_base(port); }
+        void bind_signal(Signal<T> &signal);
+        void bind_port(Input<T> &port);
     };
 
     template <typename T>
@@ -125,9 +131,9 @@ namespace dspsim
         Output(const std::string &name, int width = default_bitwidth<T>::value);
 
         // Bind the output port to a signal.
-        void bind(Signal<T> &signal) { bind_base(signal); }
+        void bind(Signal<T> &signal);
         // Bind the output port to another output port.
-        void bind(Output<T> &port) { bind_base(port); }
+        void bind(Output<T> &port);
         /// Bind the output port to a bit selection (a slice or pack of signals) of the same width.
         /// Writes are truncated to the selection's width and passed through to the selected bits of the
         /// source signals at write time, so they combine with other writes to those signals in the same cycle
@@ -135,6 +141,7 @@ namespace dspsim
         void bind(const BitSel &selection)
             requires std::is_integral_v<T>;
 
+        // read(), write() and the operators are defined inline: model code calls them on every evaluation.
         // Read the value of the bound signal.
         const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
         // Implicit conversion to read the value of the bound signal from the port
@@ -150,11 +157,11 @@ namespace dspsim
         }
 
         // Explicit functions for python bindings
-        void bind_signal(Signal<T> &signal) { bind_base(signal); }
-        void bind_port(Output<T> &port) { bind_base(port); }
+        void bind_signal(Signal<T> &signal);
+        void bind_port(Output<T> &port);
 
         // Read the pending value. Shouldn't be used, but is available.
-        const T &read_d_() const { return static_cast<Signal<T> *>(bound_signal_)->read_d_(); }
+        const T &read_d_() const;
     };
 
     template <typename T>

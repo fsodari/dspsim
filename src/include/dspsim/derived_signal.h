@@ -2,6 +2,8 @@
 #include <dspsim/signal.h>
 #include <dspsim/bitsel.h>
 
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -22,7 +24,7 @@ namespace dspsim
         friend class FlaggedStack;
 
     public:
-        virtual ~DerivedSignalBase() = default;
+        virtual ~DerivedSignalBase();
 
     private:
         /// Recompute the value from the source signals and notify events if it changed.
@@ -31,6 +33,7 @@ namespace dspsim
         virtual void refresh() = 0;
 
         /// Set while this signal sits in Context::derived_update_stack_; used by FlaggedStack.
+        /// Inline: checked by the scheduler whenever a source signal updates.
         bool &scheduled_flag() { return scheduled_; }
 
     private:
@@ -57,13 +60,10 @@ namespace dspsim
         DerivedSignal(const std::string &name, const BitSel &selection);
 
         /// Create a derived signal owned by the context.
-        static auto create(const std::string &name, const BitSel &selection)
-        {
-            return Model::create<DerivedSignal<T>>(name, selection);
-        }
+        static std::shared_ptr<DerivedSignal<T>> create(const std::string &name, const BitSel &selection);
 
         /// The selection this signal is derived from.
-        const BitSel &selection() const { return selection_; }
+        const BitSel &selection() const;
 
     private:
         void pull() override;

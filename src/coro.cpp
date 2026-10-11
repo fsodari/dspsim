@@ -51,6 +51,11 @@ namespace dspsim
         schedule_timeout(timeout);
     }
 
+    WaitSensitivityEvent::WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process, uint64_t timeout)
+        : WaitSensitivityEvent(event.get(), process, timeout)
+    {
+    }
+
     WaitSensitivityEvent::WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process, uint64_t timeout)
         : WaitBase(process)
     {

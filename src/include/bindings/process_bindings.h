@@ -1,5 +1,8 @@
 #pragma once
+#include <dspsim/event.h>
+#include <dspsim/port.h>
 #include <dspsim/process.h>
+#include <dspsim/signal.h>
 #include "nb_include.h"
 
 namespace dspsim::bindings
