@@ -54,7 +54,7 @@ Semantics that matter when writing modules:
 - `initialize(true)` on a coroutine process that has completed throws `std::logic_error`.
 - A timeout of `0` means no timeout. In C++, a literal `0` is ambiguous with the `ProcessBase*` argument, so
   use the overload without a timeout instead.
-- Waits take the process to wake from `Context::_current_process`, so they are only valid inside a running
+- Waits take the process to wake from `Context::current_process_`, so they are only valid inside a running
   process (a coroutine body or a task passed to `run_until`).
 
 ### Tasks: `Task<T>`
@@ -139,9 +139,9 @@ with Context() as ctx:
         assert await tx.send([1, 2, 3, 4], timeout=1000)
         return await rx.receive(4, timeout=1000)
 
-    data = ctx.run_until(main(), timeout=10_000)        # -> [1, 2, 3, 4]
-    data = ctx.run_until(rx.receive(4, timeout=1000))    # a C++ task directly
-    ok = ctx.run_until(rx.received, timeout=100)         # an event
+    data = ctx.run_until(main(), timeout=10_000)  # -> [1, 2, 3, 4]
+    data = ctx.run_until(rx.receive(4, timeout=1000))  # a C++ task directly
+    ok = ctx.run_until(rx.received, timeout=100)  # an event
 ```
 
 - `await self.wait(event, timeout=100)` returns `WaitResult.Triggered` or `WaitResult.Timeout`.

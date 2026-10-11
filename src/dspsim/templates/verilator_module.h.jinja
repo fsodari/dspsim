@@ -24,7 +24,7 @@ public:
     }
 
     // Tracing functions. Will raise a warning if tracing is not enabled, but will just do a no-op.
-    void _dump_trace();
-    void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
-    void _close_trace();
+    void dump_trace_impl();
+    void open_trace_impl(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
+    void close_trace_impl();
 };

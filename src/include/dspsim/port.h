@@ -8,6 +8,9 @@
 
 namespace dspsim
 {
+    template <typename V, typename Derived>
+    class VModule;
+
     /*
         Ports represent the interface between modules and signals in the simulation framework.
         Ports can be instantiated within a module and bound to signals
@@ -15,6 +18,10 @@ namespace dspsim
     */
     class PortBase : public Model
     {
+        // A verilated module syncs its ports with the verilated model around each evaluation.
+        template <typename V, typename Derived>
+        friend class VModule;
+
     public:
         // Constructor for the port base class. Initializes the port with a name, width, and kind.
         // kind will be input/output.
@@ -32,17 +39,17 @@ namespace dspsim
         // Implicit conversion to the change event. This may interfere with implicit conversions to the port value...
         operator SensitivityEvent &() { return *change_event_; }
 
+    protected:
         /*
             Called automatically during elaboration.
             This is where the port finalizes its binding to signals and updates its sensitivity events.
-            Should this be private and the context a friend?
         */
         void finalize() override;
 
-        // VPorts need to use this. How can I avoid this coupling? VPorts should use composition instead of inheritance?
+        // Copy the value between the port and an external model. Only verilated ports (VInput/VOutput) do anything.
         virtual void sync() {}
 
-    protected:
+
         // Provides access to the bound signal.
         SignalBase *bound_signal() const { return bound_signal_; }
 

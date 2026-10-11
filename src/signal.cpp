@@ -23,7 +23,7 @@ namespace dspsim
           posedge_event_(context()),
           negedge_event_(context())
     {
-        context()->_add_signal(this);
+        context()->add_signal(this);
     }
 
     BitSel SignalBase::slice(int hi, int lo)
@@ -44,7 +44,7 @@ namespace dspsim
     {
         for (auto *dependent : dependents_)
         {
-            context()->_derived_update_stack.push_back(dependent);
+            context()->derived_update_stack_.push_back(dependent);
         }
     }
 
@@ -95,7 +95,7 @@ namespace dspsim
         if (d_ != q_) [[likely]]
         {
             // Schedule for update
-            context()->_signal_update_stack.push_back(this);
+            context()->signal_update_stack_.push_back(this);
         }
         // Erasing is probably more expensive than just ignoring a change during the update cycle.
         // else [[unlikely]]
@@ -103,11 +103,11 @@ namespace dspsim
         //     // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
         //     // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
         //     // will write the same signal multiple times within the same update cycle.
-        //     auto it = context()->_signal_update_stack.find(this);
+        //     auto it = context()->signal_update_stack_.find(this);
 
-        //     if (it != context()->_signal_update_stack.end())
+        //     if (it != context()->signal_update_stack_.end())
         //     {
-        //         context()->_signal_update_stack.erase(it);
+        //         context()->signal_update_stack_.erase(it);
         //     }
         // }
     }

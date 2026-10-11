@@ -1,29 +1,28 @@
 #pragma once
 #include <dspsim/module.h>
+#include <dspsim/detail/engine_access.h>
 #include "py_task.h"
 #include "nb_include.h"
 
 namespace dspsim::bindings
 {
      namespace nb = nanobind;
-     static inline auto _module_process_helper(Module *module, std::function<void()> func, const std::string &name = "")
+     static inline auto module_process_helper(Module *module, std::function<void()> func, const std::string &name = "")
      {
           return module->context()->register_process_func(func, name);
      }
-     static inline auto _module_coro_helper(Module *module, nb::object task)
+     static inline auto module_coro_helper(Module *module, nb::object task)
      {
           std::string name = module->hier_name() + "." + nb::cast<std::string>(nb::str(nb::getattr(task, "__name__", nb::str("task"))));
-          return module->context()->_add_process(std::make_unique<PyTask>(module->context(), std::move(task), name));
+          return detail::EngineAccess::add_process(*module->context(), std::make_unique<PyTask>(module->context(), std::move(task), name));
      }
 
      static inline auto bind_module(nb::module_ &m, const char *name)
      {
           return nb::class_<Module, Model>(m, name)
               .def(nb::init<ModuleName &>(), nb::arg("name"))
-              // Methods.
-              .def("finalize", &Module::finalize)
-              .def("process", &_module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
-              .def("add_task", &_module_coro_helper, nb::arg("task"), nb::rv_policy::reference)
+              .def("process", &module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
+              .def("add_task", &module_coro_helper, nb::arg("task"), nb::rv_policy::reference)
               .def("wait", [](Module &module)
                    { return module.wait(); })
               .def("wait", [](Module &module, uint64_t time_delta)

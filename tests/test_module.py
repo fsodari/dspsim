@@ -76,7 +76,7 @@ def test_no_super_call_and_ownership():
         del m
         gc.collect()
         # The context owns the module, so it survives losing the Python reference.
-        assert [x.name for x in ctx.owned_models] == ["m"]
+        assert [x.name for x in ctx._owned_models] == ["m"]
         assert ctx.modules[0].i.hier_name == "root.m.i"
 
 

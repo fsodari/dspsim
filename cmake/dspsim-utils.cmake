@@ -71,6 +71,8 @@ function(dspsim_add_stub name output_dir)
         PYTHON_PATH ${PYTHON_PATH}
         MARKER_FILE ${marker_file}
         INSTALL_TIME
+        # Private (leading underscore) bindings are typed too.
+        INCLUDE_PRIVATE
     )
 endfunction()
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <dspsim/context.h>
+#include <dspsim/detail/engine_access.h>
 #include "coro_bindings.h"
 #include "py_task.h"
 #include "nb_include.h"
@@ -10,22 +11,22 @@ namespace dspsim::bindings
 {
      namespace nb = nanobind;
      // Run a Python awaitable (a coroutine object, or anything with __await__) as a one-shot task to completion.
-     static inline nb::object _context_run_until_awaitable(nb::object run_awaitable, Context &ctx, nb::object awaitable, uint64_t timeout)
+     static inline nb::object context_run_until_awaitable(nb::object run_awaitable, Context &ctx, nb::object awaitable, uint64_t timeout)
      {
           // Wrapping in a coroutine accepts any awaitable, e.g. a C++ task such as axis_rx.receive(4, 100).
           nb::object coro = run_awaitable(awaitable);
           auto task = std::make_unique<PyTask>(&ctx, std::move(coro), "run_until");
           PyTask *process = task.get();
-          ctx._add_process(std::move(task));
-          // Remove the process however _run_until_done() exits.
+          detail::EngineAccess::add_process(ctx, std::move(task));
+          // Remove the process however run_until_done() exits.
           struct Cleanup
           {
                Context *context;
                ProcessBase *process;
-               ~Cleanup() { context->_remove_process(process); }
+               ~Cleanup() { detail::EngineAccess::remove_process(*context, process); }
           } cleanup{&ctx, process};
 
-          ctx._run_until_done(process, timeout);
+          detail::EngineAccess::run_until_done(ctx, process, timeout);
           return process->result();
      }
 
@@ -54,7 +55,7 @@ namespace dspsim::bindings
                    { return ctx.run_until(event, timeout); }, nb::arg("event"), nb::arg("timeout") = 0)
               // Run until the awaitable completes and return its value. Raises TimeoutError if the timeout (> 0) elapses first.
               .def("run_until", [run_awaitable](Context &ctx, nb::object awaitable, uint64_t timeout)
-                   { return _context_run_until_awaitable(run_awaitable, ctx, std::move(awaitable), timeout); }, nb::arg("task"), nb::arg("timeout") = 0, nb::sig("def run_until(self, task: typing.Awaitable[typing.Any], timeout: int = 0) -> typing.Any"))
+                   { return context_run_until_awaitable(run_awaitable, ctx, std::move(awaitable), timeout); }, nb::arg("task"), nb::arg("timeout") = 0, nb::sig("def run_until(self, task: typing.Awaitable[typing.Any], timeout: int = 0) -> typing.Any"))
               .def("wait", [](Context &ctx)
                    { return ctx.wait(); })
               .def("wait", [](Context &ctx, uint64_t time_delta)
@@ -76,7 +77,7 @@ namespace dspsim::bindings
               .def_prop_ro("elaborated", &Context::elaborated)
               .def_prop_ro("constructing", &Context::constructing)
               .def_prop_ro("models", &Context::models)
-              .def_prop_ro("owned_models", &Context::owned_models)
+              .def_prop_ro("_owned_models", &Context::owned_models)
               .def_prop_ro("modules", &Context::modules)
               .def_prop_ro("signals", &Context::signals)
 
@@ -88,8 +89,7 @@ namespace dspsim::bindings
               .def("__str__", &Context::repr)
 
               // Python module base class will need to explicitly call this.
-              .def("own_model", &Context::_own_model)
-              // .def("own_module", &Context::_own_module, nb::arg("module"))
+              .def("_own_model", &Context::own_model)
 
               // Register a process.
               .def("register_process", &Context::register_process_func, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
@@ -103,9 +103,9 @@ namespace dspsim::bindings
      static inline auto bind_context_factory(nb::module_ &m, const char *name)
      {
           nb::exception<ContextConstructionError>(m, "ContextConstructionError", PyExc_RuntimeError);
-          m.def("set_global_context_factory", &set_global_context_factory, nb::arg("context_factory"));
-          m.def("get_global_context_factory", &get_global_context_factory);
-          m.def("reset_global_context_factory", &reset_global_context_factory);
+          m.def("_set_global_context_factory", &set_global_context_factory, nb::arg("context_factory"));
+          m.def("_get_global_context_factory", &get_global_context_factory);
+          m.def("_reset_global_context_factory", &reset_global_context_factory);
 
           return nb::class_<ContextFactory>(m, name)
               .def("obtain", &ContextFactory::obtain)

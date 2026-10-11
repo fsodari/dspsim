@@ -21,8 +21,8 @@ def version() -> str:
 def link_module(module):
     import atexit
 
-    from dspsim.framework import get_global_context_factory
+    from dspsim._framework import _get_global_context_factory
 
-    module.set_global_context_factory(get_global_context_factory())
+    module._set_global_context_factory(_get_global_context_factory())
 
-    atexit.register(module.reset_global_context_factory)
+    atexit.register(module._reset_global_context_factory)

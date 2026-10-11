@@ -33,7 +33,7 @@ namespace dspsim
         }
         if (!subscribers_->static_.empty() || !subscribers_->dynamic_.empty())
         {
-            context_->_sensitivity_event_stack.push_back(this);
+            context_->sensitivity_event_stack_.push_back(this);
             change_time_ = context_->update_count();
         }
     }
@@ -47,7 +47,7 @@ namespace dspsim
         {
             if (!process->static_sensitivity_disabled())
             {
-                context_->_process_eval_stack.push_back(process);
+                context_->process_eval_stack_.push_back(process);
             }
         }
         // Schedule dynamic processes.
@@ -56,7 +56,7 @@ namespace dspsim
         {
             auto process = subs.dynamic_.back();
             subs.dynamic_.pop_back();
-            context_->_process_eval_stack.push_back(process);
+            context_->process_eval_stack_.push_back(process);
             // Unsubscribe from the process's other dynamic events and restore its static sensitivity.
             process->dynamic_event_triggered(*this);
         }

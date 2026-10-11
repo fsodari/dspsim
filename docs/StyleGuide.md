@@ -14,6 +14,7 @@ This document defines the development standards and architectural guidelines for
 - Class names should use PascalCase
 - Function and variable names should use snake_case
 - Private member variable names should use a trailing underscore_
+- Do not start a C++ identifier with an underscore. Private methods have plain names. Python bindings use a leading underscore for private names.
 
 ### Class organization
 - From top to bottom, declare members in this order: types/enums, consts/constexprs, constructors/destructors, static factory functions, public methods, protected methods, private methods, public member variables, protected member variables, private member variables.

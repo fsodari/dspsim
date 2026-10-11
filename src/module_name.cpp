@@ -19,10 +19,10 @@ namespace dspsim
         Scope(Context *context, const std::string &name)
             : context(context),
               name(name),
-              module_depth(context->_active_module_stack.size())
+              module_depth(context->active_module_stack_.size())
         {
-            context->logger->debug("Constructing ModuleName: {}", name);
-            context->_active_module_name_stack.push_back(name);
+            context->logger_->debug("Constructing ModuleName: {}", name);
+            context->active_module_name_stack_.push_back(name);
         }
 
         ~Scope()
@@ -40,20 +40,20 @@ namespace dspsim
 
             // Only pop a module that was constructed in this scope. If the Module constructor never ran
             // (for example it threw), the active module belongs to a parent and must stay.
-            if (context->_active_module_stack.size() > module_depth)
+            if (context->active_module_stack_.size() > module_depth)
             {
-                Module *m = context->_active_module();
-                context->logger->debug("Ending construction of {}", m->hier_name());
-                m->_end_construction();
+                Module *m = context->active_module();
+                context->logger_->debug("Ending construction of {}", m->hier_name());
+                m->end_construction();
             }
             else
             {
-                context->logger->error("ModuleName {} ended without constructing a module", name);
+                context->logger_->error("ModuleName {} ended without constructing a module", name);
             }
             // Context::clear() may have emptied the stack while this scope was open.
-            if (!context->_active_module_name_stack.empty())
+            if (!context->active_module_name_stack_.empty())
             {
-                context->_active_module_name_stack.pop_back();
+                context->active_module_name_stack_.pop_back();
             }
         }
     };

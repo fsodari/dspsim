@@ -7,7 +7,7 @@ namespace dspsim
     Clock::Clock(const std::string &name, uint64_t period)
         : Signal<uint8_t>(name, 1, 0), period_(period)
     {
-        this->_kind = "clock";
+        this->kind_ = "clock";
 
         half_period_ = period_ / 2;
         // Needed to handle odd periods.

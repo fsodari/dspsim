@@ -37,13 +37,13 @@ namespace dspsim
         negedge_event_ = &static_negedge_event_;
 
         // Ports must only be declared within a module context.
-        if (context()->_active_module())
+        if (Module *module = context()->active_module())
         {
-            context()->_active_module()->ports().push_back(this);
+            module->add_port(this);
         }
         else
         {
-            context()->logger->error("A port cannot be declared at root level. Port: {}", hier_name());
+            context()->logger_->error("A port cannot be declared at root level. Port: {}", hier_name());
         }
     }
 
@@ -61,14 +61,14 @@ namespace dspsim
         // Already bound.
         if (bound_signal_)
         {
-            context()->logger->error("Port {} is already bound to a signal", hier_name());
+            context()->logger_->error("Port {} is already bound to a signal", hier_name());
         }
 
         // // Width mismatch check
         // if (signal.width() != this->width())
         // {
         //     // Error or warning?
-        //     context()->logger->warn("Port {} width mismatch with signal {}", hier_name(), signal.hier_name());
+        //     context()->logger_->warn("Port {} width mismatch with signal {}", hier_name(), signal.hier_name());
         // }
 
         bound_signal_ = &signal;
@@ -101,7 +101,7 @@ namespace dspsim
         // the port is unconnected.
         if (!bound_signal_)
         {
-            context()->logger->error("Port {} is not bound to a signal", hier_name());
+            context()->logger_->error("Port {} is not bound to a signal", hier_name());
         }
     }
 
@@ -125,11 +125,6 @@ namespace dspsim
     template <typename T>
     Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
     {
-        // Register an input port with the parent module.
-        if (context()->_active_module())
-        {
-            context()->_active_module()->inputs().push_back(this);
-        }
     }
 
     template <typename T>
@@ -142,10 +137,6 @@ namespace dspsim
     template <typename T>
     Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
     {
-        if (context()->_active_module())
-        {
-            context()->_active_module()->outputs().push_back(this);
-        }
     }
 
     template <typename T>

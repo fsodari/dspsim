@@ -13,8 +13,6 @@ namespace dspsim::bindings
             .def(nb::init<const std::string &, const std::string &>(),
                  nb::arg("name"),
                  nb::arg("kind") = "model")
-            // Methods.
-            .def("finalize", &Model::finalize)
             // Properties
             .def_prop_ro("context", &Model::context)
             .def_prop_ro("name", &Model::name)

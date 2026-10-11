@@ -16,7 +16,7 @@ namespace benchmarks
         dspsim::Signal<T> sig{"sig"};
 
         M some_model{"some_model"};
-        NestedComb<M, T, DEPTH - 1> _nested{"nested"};
+        NestedComb<M, T, DEPTH - 1> nested{"nested"};
 
         DSPSIM_CTOR(NestedComb)
         {
@@ -24,9 +24,9 @@ namespace benchmarks
             some_model.in.bind(in);
             some_model.out.bind(sig);
 
-            _nested.clk.bind(clk);
-            _nested.in.bind(sig);
-            _nested.out.bind(out);
+            nested.clk.bind(clk);
+            nested.in.bind(sig);
+            nested.out.bind(out);
         }
     };
 
@@ -58,7 +58,7 @@ namespace benchmarks
         sc_core::sc_signal<T> sig{"sig"};
 
         M some_model{"some_model"};
-        NestedCombSC<M, T, DEPTH - 1> _nested{"nested"};
+        NestedCombSC<M, T, DEPTH - 1> nested{"nested"};
 
         SC_CTOR(NestedCombSC)
         {
@@ -66,9 +66,9 @@ namespace benchmarks
             some_model.in.bind(in);
             some_model.out.bind(sig);
 
-            _nested.clk.bind(clk);
-            _nested.in.bind(sig);
-            _nested.out.bind(out);
+            nested.clk.bind(clk);
+            nested.in.bind(sig);
+            nested.out.bind(out);
         }
     };
 

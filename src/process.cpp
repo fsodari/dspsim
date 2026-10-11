@@ -14,7 +14,7 @@ namespace dspsim
           id_(context->next_process_id()),
           coroutine_(coroutine),
           name_(name),
-          parent_module_(context->_active_module())
+          parent_module_(context->active_module())
     {
     }
 
@@ -28,11 +28,11 @@ namespace dspsim
         initialize_ = init;
         if (init)
         {
-            context_->_process_eval_stack.push_back(this);
+            context_->process_eval_stack_.push_back(this);
         }
         else
         {
-            context_->_process_eval_stack.erase(this);
+            context_->process_eval_stack_.erase(this);
         }
         return this;
     }
@@ -60,7 +60,7 @@ namespace dspsim
         }
         else
         {
-            context_->logger->error("Event not found: {}", event_name);
+            context_->logger_->error("Event not found: {}", event_name);
         }
     }
 
@@ -85,14 +85,14 @@ namespace dspsim
         }
         else
         {
-            context_->logger->error("Event not found: {}", event_name);
+            context_->logger_->error("Event not found: {}", event_name);
         }
     }
 
     void ProcessBase::schedule_time_wait(uint64_t time_delta)
     {
         // Tagged with the wake count: if anything else resumes the process first, the wakeup is stale.
-        context_->_time_event_stack.emplace(context_->time() + time_delta, this, wake_count_);
+        context_->time_event_stack_.emplace(context_->time() + time_delta, this, wake_count_);
         static_sensitivity_disabled_ = true;
     }
 

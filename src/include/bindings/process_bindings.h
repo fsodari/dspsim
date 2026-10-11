@@ -6,21 +6,21 @@ namespace dspsim::bindings
 {
     namespace nb = nanobind;
 
-    static inline Process *_process_always_func(Process *self, nb::args args)
+    static inline Process *process_always_func(Process *self, nb::args args)
     {
         for (auto arg : args)
         {
             if (nb::isinstance<SensitivityEvent &>(arg))
             {
-                self->schedule_static_event(nb::cast<SensitivityEvent &>(arg));
+                self->always(nb::cast<SensitivityEvent &>(arg));
             }
             else if (nb::isinstance<PortBase>(arg))
             {
-                self->schedule_static_event(nb::cast<PortBase &>(arg).change());
+                self->always(nb::cast<PortBase &>(arg).change());
             }
             else if (nb::isinstance<SignalBase>(arg))
             {
-                self->schedule_static_event(nb::cast<SignalBase &>(arg).change());
+                self->always(nb::cast<SignalBase &>(arg).change());
             }
             else
             {
@@ -36,9 +36,11 @@ namespace dspsim::bindings
             .def_prop_ro("context", &ProcessBase::context, nb::rv_policy::reference_internal)
             .def_prop_ro("id", &ProcessBase::id)
             .def_prop_ro("name", &ProcessBase::name)
-            .def("initialize", &ProcessBase::_set_initialize, nb::arg("init"), nb::rv_policy::reference_internal)
-            .def("always", &ProcessBase::_always_str, nb::arg("event_name"), nb::rv_policy::reference_internal)
-            .def("always", &_process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> ProcessBase"))
+            .def("initialize", [](ProcessBase *self, bool init)
+                 { return self->initialize(init); }, nb::arg("init"), nb::rv_policy::reference_internal)
+            .def("always", [](ProcessBase *self, const std::string &event_name)
+                 { return self->always(event_name); }, nb::arg("event_name"), nb::rv_policy::reference_internal)
+            .def("always", &process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | InputBase | SignalBase) -> ProcessBase"))
             .def_prop_ro("done", &ProcessBase::done);
     }
 

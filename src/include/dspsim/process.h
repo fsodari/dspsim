@@ -13,23 +13,40 @@ namespace dspsim
     class Context;
     class SensitivityEvent;
     class Module;
+    class WaitBase;
+    template <typename T>
+    class FlaggedStack;
+
+    namespace detail
+    {
+        struct EngineAccess;
+    }
+    namespace testing
+    {
+        struct EngineInspector;
+    }
 
     class ProcessBase
     {
         // Only the scheduler resumes a process and tells it what woke it.
         friend class Context;
         friend class SensitivityEvent;
+        // Module::next_trigger() schedules dynamic events for the running process.
+        friend class Module;
+        // Leaf awaitables schedule the process's waits and record its resume point.
+        friend class WaitBase;
+        // The scheduling stacks keep their "is scheduled" flag in the process.
+        template <typename T>
+        friend class FlaggedStack;
+        friend struct detail::EngineAccess;
+        friend struct testing::EngineInspector;
 
     public:
-        /// Processes belong to the context that registers them, not the global active context.
-        /// A coroutine process (`coroutine` = true) runs once to completion instead of being evaluated repeatedly.
-        ProcessBase(Context *context, const std::string &name = "", bool coroutine = false);
         virtual ~ProcessBase() = default;
 
         Context *context() const { return context_; }
         uint32_t id() const { return id_; }
         const std::string &name() const { return name_; }
-        bool &scheduled_flag() { return scheduled_; }
         // True for a coroutine process: it waits with wait(...) instead of next_trigger(...), and it completes.
         bool is_coroutine() const { return coroutine_; }
 
@@ -47,15 +64,72 @@ namespace dspsim
         */
         ProcessBase *initialize(bool init);
 
-        // Python/nanobind will need getter/setters with different names.
-        bool _get_initialize() const { return initialize(); }
-        ProcessBase *_set_initialize(bool init) { return initialize(init); }
+        /*
+            Add events to the static sensitivity list: the process is evaluated whenever one of them occurs.
+            Accepts events, signals, ports, signal/port arrays (every element), and "*" for a change of any
+            input of the parent module.
+        */
+        template <typename... Args>
+        ProcessBase *always(Args &&...args)
+        {
+            (this->schedule_static_item(std::forward<Args>(args)), ...);
+            return this;
+        }
+
+        // Indicates if the coroutine or process has completed.
+        virtual bool done() const = 0;
+
+    protected:
+        /// Processes belong to the context that registers them, not the global active context.
+        /// A coroutine process (`coroutine` = true) runs once to completion instead of being evaluated repeatedly.
+        ProcessBase(Context *context, const std::string &name = "", bool coroutine = false);
+
+        /*
+            Stop waiting on everything: unsubscribes from the static and dynamic events and makes pending time
+            waits stale. Called when the process completes or is removed, so that nothing schedules it again.
+        */
+        void unschedule();
+
+        // The suspended coroutine to resume next: the innermost one awaiting a leaf awaitable.
+        std::coroutine_handle<> resume_point() const { return resume_point_; }
+        void set_resume_point(std::coroutine_handle<> handle) { resume_point_ = handle; }
+
+    private:
+        /*
+            Scheduler interface. Processes will call their bound eval() func. Coroutines will be resumed with
+            their handle. A completed coroutine is never resumed: it unschedules itself when it completes.
+        */
+        virtual void resume() = 0;
+        // Called by the scheduler before each resume().
+        void mark_woken() { ++wake_count_; }
+        // Number of times the scheduler has resumed this process. Pending time waits are tagged with it.
+        uint64_t wake_count() const { return wake_count_; }
+        // Set while the process sits in Context::process_eval_stack_; used by FlaggedStack.
+        bool &scheduled_flag() { return scheduled_; }
 
         // True while the process waits on a dynamic event or a time wait.
-        bool static_sensitivity_disabled() { return static_sensitivity_disabled_; }
+        bool static_sensitivity_disabled() const { return static_sensitivity_disabled_; }
 
         void schedule_static_event(SensitivityEvent &event);
+        // "*" is sensitive to a change of any input of the parent module.
         void schedule_static_event(const std::string &event_name);
+
+        // Signal/port arrays: be sensitive to every element.
+        template <typename Arr>
+            requires requires(Arr &a) { a.size(); a.flat(0); }
+        void schedule_static_item(Arr &array)
+        {
+            for (std::size_t i = 0; i < array.size(); ++i)
+            {
+                this->schedule_static_event(array.flat(i));
+            }
+        }
+        template <typename Arg>
+            requires(!requires(Arg &a) { a.size(); a.flat(0); })
+        void schedule_static_item(Arg &&arg)
+        {
+            this->schedule_static_event(std::forward<Arg>(arg));
+        }
 
         /*
             Wait on a dynamic event. Static sensitivity is disabled until a dynamic event triggers the process.
@@ -73,61 +147,6 @@ namespace dspsim
         */
         void schedule_time_wait(uint64_t time_delta);
 
-        // Number of times the scheduler has resumed this process. Pending time waits are tagged with it.
-        uint64_t wake_count() const { return wake_count_; }
-
-        // The suspended coroutine to resume next: the innermost one awaiting a leaf awaitable.
-        std::coroutine_handle<> resume_point() const { return resume_point_; }
-        void set_resume_point(std::coroutine_handle<> handle) { resume_point_ = handle; }
-
-        // void always(SensitivityEvent *event, Process *process = nullptr) { _always.link_process(event, process); }
-        template <typename... Args>
-        ProcessBase *always(Args &&...args)
-        {
-            // The comma operator executes print_item for each argument in sequence
-            (this->schedule_static_item(std::forward<Args>(args)), ...);
-            return this;
-        }
-
-        // Signal/port arrays: be sensitive to every element.
-        template <typename Arr>
-            requires requires(Arr &a) { a.size(); a.flat(0); }
-        void schedule_static_item(Arr &array)
-        {
-            for (std::size_t i = 0; i < array.size(); ++i)
-                this->schedule_static_event(array.flat(i));
-        }
-        template <typename Arg>
-            requires(!requires(Arg &a) { a.size(); a.flat(0); })
-        void schedule_static_item(Arg &&arg)
-        {
-            this->schedule_static_event(std::forward<Arg>(arg));
-        }
-
-        ProcessBase *_always_str(const std::string &event_name)
-        {
-            this->schedule_static_event(event_name);
-            return this;
-        }
-
-        // Indicates if the coroutine or process has completed.
-        virtual bool done() const = 0;
-
-    protected:
-        /*
-            Stop waiting on everything: unsubscribes from the static and dynamic events and makes pending time
-            waits stale. Called when the process completes or is removed, so that nothing schedules it again.
-        */
-        void unschedule();
-
-    private:
-        /*
-            Scheduler interface. Processes will call their bound eval() func. Coroutines will be resumed with
-            their handle. A completed coroutine is never resumed: it unschedules itself when it completes.
-        */
-        virtual void resume() = 0;
-        // Called by the scheduler before each resume().
-        void mark_woken() { ++wake_count_; }
         /*
             Called by a SensitivityEvent that triggered this process's dynamic sensitivity.
             Unsubscribes from the other dynamic events and restores static sensitivity.

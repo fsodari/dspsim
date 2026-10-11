@@ -1,55 +1,57 @@
+#include <format>
 #include <dspsim/dspsim.h>
 #include <dspsim/coro.h>
-#include <spdlog/spdlog.h>
 #include <print>
 #include <stdexcept>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include "engine_inspector.h"
 
 using namespace dspsim;
+using dspsim::testing::EngineInspector;
 
 class SomeModule : public Module
 {
 public:
-    ProcessBase *_coro_process;
-    ProcessBase *_one_shot_process;
-    ProcessBase *_clocked_task_process;
+    ProcessBase *coro_process;
+    ProcessBase *one_shot_process;
+    ProcessBase *clocked_task_process;
 
     Input<uint8_t> clk{"clk"};
 
     DSPSIM_CTOR(SomeModule)
     {
         // context()->register_coro_task(some_task(), "some_task");
-        _coro_process = DSPSIM_CORO(some_task);
-        _one_shot_process = DSPSIM_CORO(one_shot);
-        _clocked_task_process = DSPSIM_CORO(clocked_task);
+        coro_process = DSPSIM_CORO(some_task);
+        one_shot_process = DSPSIM_CORO(one_shot);
+        clocked_task_process = DSPSIM_CORO(clocked_task);
     }
 
     Task<> some_task()
     {
-        context()->logger->info("Starting some_task, t={}", context()->time());
+        context()->log("info", std::format("Starting some_task, t={}", context()->time()));
         while (true)
         {
-            co_await WaitTimeEvent{10, _coro_process};
-            context()->logger->info("After wait(10), t={}", context()->time());
-            co_await WaitTimeEvent{10, _coro_process};
-            context()->logger->info("After second wait(10), t={}", context()->time());
+            co_await WaitTimeEvent{10, coro_process};
+            context()->log("info", std::format("After wait(10), t={}", context()->time()));
+            co_await WaitTimeEvent{10, coro_process};
+            context()->log("info", std::format("After second wait(10), t={}", context()->time()));
         }
-        context()->logger->info("Exiting some_task loop, t={}", context()->time());
+        context()->log("info", std::format("Exiting some_task loop, t={}", context()->time()));
     }
 
     Task<> one_shot()
     {
         // Tasks will be run at t=0 by default unless initialize(false) is called.
-        context()->logger->info("Starting one_shot");
+        context()->log("info", "Starting one_shot");
         REQUIRE(context()->time() == 0);
 
         co_await context()->wait(5);
 
         REQUIRE(context()->time() == 5);
-        context()->logger->info("After one_shot wait(5), t={}", context()->time());
+        context()->log("info", std::format("After one_shot wait(5), t={}", context()->time()));
 
         // Task ends and can no longer be resumed. It is unsubscribed from its static events.
         co_return;
@@ -57,13 +59,13 @@ public:
 
     Task<> clocked_task()
     {
-        context()->logger->info("Starting clocked_task");
+        context()->log("info", "Starting clocked_task");
         while (true)
         {
             co_await wait(clk.pos());
 
             REQUIRE(clk.pos());
-            context()->logger->info("clk.pos() event at t={}, posedge?={:s}", context()->time(), clk.pos().has_happened());
+            context()->log("info", std::format("clk.pos() event at t={}, posedge?={:s}", context()->time(), clk.pos().has_happened()));
         }
     }
 };
@@ -146,7 +148,7 @@ public:
 TEST_CASE("test coro basic", "[coro]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::debug);
+    ctx->set_log_level("debug");
 
     Clock clk{"clk", 10};
     SomeModule some_module{"some_module"};
@@ -157,13 +159,13 @@ TEST_CASE("test coro basic", "[coro]")
     ctx->run(21);
 
     // one_shot has completed. Only the scheduler resumes processes, and it no longer has a reference to it.
-    REQUIRE(some_module._one_shot_process->done());
+    REQUIRE(some_module.one_shot_process->done());
 }
 
 TEST_CASE("test coro static sensitivity", "[coro]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::debug);
+    ctx->set_log_level("debug");
 
     Signal<uint8_t> a{"a"};
     Signal<uint8_t> b{"b"};
@@ -271,28 +273,28 @@ TEST_CASE("a completed coroutine unsubscribes from its static events", "[coro]")
 
     ctx->run(1);
     REQUIRE(m.count == 0);
-    REQUIRE(s.change().has_static_subscribers());
-    REQUIRE(direct.pos().has_static_subscribers());
+    REQUIRE(EngineInspector::has_static_subscribers(s.change()));
+    REQUIRE(EngineInspector::has_static_subscribers(direct.pos()));
 
     s.write(1);
     ctx->run(1);
     REQUIRE(m.count == 1);
-    REQUIRE(s.change().has_static_subscribers());
+    REQUIRE(EngineInspector::has_static_subscribers(s.change()));
 
     s.write(2);
     ctx->run(1);
     REQUIRE(m.count == 2);
     REQUIRE(process->done());
-    REQUIRE_FALSE(s.change().has_static_subscribers());
-    REQUIRE_FALSE(direct.pos().has_static_subscribers());
-    const uint64_t wake_count = process->wake_count();
+    REQUIRE_FALSE(EngineInspector::has_static_subscribers(s.change()));
+    REQUIRE_FALSE(EngineInspector::has_static_subscribers(direct.pos()));
+    const uint64_t wake_count = EngineInspector::wake_count(*process);
 
     // Further events do not schedule the completed process.
     s.write(3);
     direct.write(1);
     ctx->run(1);
     REQUIRE(m.count == 2);
-    REQUIRE(process->wake_count() == wake_count);
+    REQUIRE(EngineInspector::wake_count(*process) == wake_count);
 }
 
 TEST_CASE("a coroutine that throws unsubscribes from its static events", "[coro]")
@@ -307,7 +309,7 @@ TEST_CASE("a coroutine that throws unsubscribes from its static events", "[coro]
 
     s.write(1);
     REQUIRE_THROWS_WITH(ctx->run(1), "coro boom");
-    REQUIRE_FALSE(s.neg().has_static_subscribers());
+    REQUIRE_FALSE(EngineInspector::has_static_subscribers(s.neg()));
 }
 
 namespace
@@ -325,9 +327,9 @@ namespace
 
         Task<> body()
         {
-            // Scheduled, but never awaited.
-            process->schedule_dynamic_event(s.change());
-            process->schedule_time_wait(5);
+            // Constructing a leaf awaitable schedules its wait. These are scheduled, but never awaited.
+            wait(s.change());
+            wait(5);
             co_return;
         }
     };
@@ -369,7 +371,7 @@ TEST_CASE("next_trigger() is not allowed in a coroutine process", "[coro]")
 
     REQUIRE_THROWS_AS(ctx->run(1), std::logic_error);
     // Nothing was scheduled, so the completed coroutine is not woken.
-    REQUIRE_FALSE(s.change().has_dynamic_subscribers());
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(s.change()));
     s.write(1);
     ctx->run(10);
 }
@@ -402,10 +404,10 @@ TEST_CASE("a completed coroutine is not woken by leftover waits", "[coro]")
 
     ctx->run(1);
     REQUIRE(m.process->done());
-    REQUIRE_FALSE(s.change().has_dynamic_subscribers());
-    const uint64_t wake_count = m.process->wake_count();
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(s.change()));
+    const uint64_t wake_count = EngineInspector::wake_count(*m.process);
 
     s.write(1);
     ctx->run(10);
-    REQUIRE(m.process->wake_count() == wake_count);
+    REQUIRE(EngineInspector::wake_count(*m.process) == wake_count);
 }

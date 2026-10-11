@@ -1,6 +1,6 @@
+#include <format>
 #include <dspsim/dspsim.h>
 
-#include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -25,7 +25,7 @@ namespace
         {
             while (true)
             {
-                context()->logger->debug("Sub eval() called, time: {}", context()->time());
+                context()->log("debug", std::format("Sub eval() called, time: {}", context()->time()));
                 out.write(in.read());
                 co_await wait();
             }
@@ -56,7 +56,7 @@ namespace
         {
             while (true)
             {
-                context()->logger->debug("Parent eval() called, time: {}", context()->time());
+                context()->log("debug", std::format("Parent eval() called, time: {}", context()->time()));
                 co_await wait();
             }
         }
@@ -66,7 +66,7 @@ namespace
 TEST_CASE("test_submodule", "[submodule]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::debug);
+    ctx->set_log_level("debug");
 
     Clock clk{"clk", 10};
     Signal<uint8_t> in_signal{"in_signal"};

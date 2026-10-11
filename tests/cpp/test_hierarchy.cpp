@@ -1,3 +1,4 @@
+#include <format>
 #include <dspsim/context.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
@@ -5,7 +6,6 @@
 #include <dspsim/signal.h>
 #include <dspsim/clock.h>
 
-#include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -30,7 +30,7 @@ namespace
         {
             while (true)
             {
-                context()->logger->debug("SomeModule eval(), time: {}", context()->time());
+                context()->log("debug", std::format("SomeModule eval(), time: {}", context()->time()));
                 c.write(a.read() + b.read());
                 co_await wait();
             }
@@ -65,12 +65,12 @@ namespace
             {
                 if (clk.pos())
                 {
-                    context()->logger->debug("SyncModel eval() on posedge, time: {}", context()->time());
+                    context()->log("debug", std::format("SyncModel eval() on posedge, time: {}", context()->time()));
                     q.write(sig.read());
                 }
                 else
                 {
-                    context()->logger->error("SyncModel eval() on negedge, time: {}", context()->time());
+                    context()->log("error", std::format("SyncModel eval() on negedge, time: {}", context()->time()));
                 }
                 co_await wait();
             }
@@ -84,7 +84,7 @@ namespace
 TEST_CASE("test_hierarchy", "[hierarchy]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->set_log_level("warn");
     Clock clk_top{"clk_top", 10};
     Signal<uint8_t> d_top{"d_top"};
     Signal<uint8_t> q_top{"q_top"};
@@ -95,7 +95,7 @@ TEST_CASE("test_hierarchy", "[hierarchy]")
     sync_model.d.bind(d_top);
     sync_model.q.bind(q_top);
 
-    ctx->logger->info("Here");
+    ctx->log("info", "Here");
 
     Signal<uint8_t> foo{"foo"};
 
@@ -103,6 +103,6 @@ TEST_CASE("test_hierarchy", "[hierarchy]")
 
     for (auto m : ctx->models())
     {
-        ctx->logger->debug("Model: {}, hier_name: {}", m->name(), m->hier_name());
+        ctx->log("debug", std::format("Model: {}, hier_name: {}", m->name(), m->hier_name()));
     }
 }

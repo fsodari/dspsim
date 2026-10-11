@@ -4,45 +4,50 @@
 #include <format>
 namespace dspsim
 {
-    void _own_model_helper(Context *context, std::shared_ptr<Model> model)
+    void detail::own_model(Context *context, std::shared_ptr<Model> model)
     {
-        context->_own_model(model);
+        context->own_model(model);
     }
 
     Model::Model(const std::string &name, const std::string &kind)
-        : _context(Context::obtain().get()),
-          _id(_context->next_model_id()),
-          _name(name),
-          _parent(nullptr),
-          _kind(kind)
+        : context_(Context::obtain().get()),
+          id_(context_->next_model_id()),
+          name_(name),
+          parent_(nullptr),
+          kind_(kind)
     {
         // Set a default name if none is provided.
-        if (_name.empty())
+        if (name_.empty())
         {
-            _name = _kind + std::to_string(_id);
+            name_ = kind_ + std::to_string(id_);
         }
 
         // Register this model with the context.
-        _parent = _context->_active_module();
-        _context->_add_model(this);
+        parent_ = context_->active_module();
+        context_->add_model(this);
     }
 
     void Model::finalize()
     {
     }
 
+    void Model::request_trace()
+    {
+        context_->trace_model(this);
+    }
+
     const std::string &Model::kind() const
     {
-        return _kind;
+        return kind_;
     }
 
     const std::string Model::hier_name() const
     {
-        return _hier_name;
+        return hier_name_;
     }
     Model *Model::parent() const
     {
-        return _parent;
+        return parent_;
     }
 
     const std::string Model::repr() const

@@ -10,7 +10,7 @@ using TraceType = VerilatedVcdC;
 using TraceType = VerilatedFstC;
 #endif
 
-void VModType::_dump_trace()
+void VModType::dump_trace_impl()
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (tracep)
@@ -19,7 +19,7 @@ void VModType::_dump_trace()
     }
 #endif
 }
-void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, int options)
+void VModType::open_trace_impl(const std::filesystem::path &trace_path, int levels, int options)
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (!tracep)
@@ -38,7 +38,7 @@ void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, 
 #endif
 }
 
-void VModType::_close_trace()
+void VModType::close_trace_impl()
 {
 #if VM_TRACE_VCD || VM_TRACE_FST
     if (tracep)

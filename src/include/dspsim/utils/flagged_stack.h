@@ -5,8 +5,8 @@
 namespace dspsim
 {
     // Like UniqueStack, but membership is tracked via a bool flag stored directly on the
-    // pointee (through ptr->_scheduled_flag()) instead of a side array indexed by id().
-    // ptr->_scheduled_flag() is already-loaded memory (the caller just dereferenced ptr to
+    // pointee (through ptr->scheduled_flag()) instead of a side array indexed by id().
+    // ptr->scheduled_flag() is already-loaded memory (the caller just dereferenced ptr to
     // get here), so this avoids the extra, dependent load into a separate id-indexed array
     // that UniqueStack needs on every push_back/find - that indirection was measured to be
     // a real latency bottleneck in the delta-cycle hot path (see perf notes in git history).
@@ -23,12 +23,12 @@ namespace dspsim
 
         explicit FlaggedStack(size_t initial_capacity = 1000)
         {
-            _stack.reserve(initial_capacity);
+            stack_.reserve(initial_capacity);
         }
 
-        bool empty() const { return _stack.empty(); }
-        size_t size() const { return _stack.size(); }
-        const T &back() const { return _stack.back(); }
+        bool empty() const { return stack_.empty(); }
+        size_t size() const { return stack_.size(); }
+        const T &back() const { return stack_.back(); }
 
         void push_back(const T &element)
         {
@@ -36,24 +36,24 @@ namespace dspsim
             if (!scheduled)
             {
                 scheduled = true;
-                _stack.push_back(element);
+                stack_.push_back(element);
             }
         }
 
         void pop_back()
         {
-            T element = _stack.back();
-            _stack.pop_back();
+            T element = stack_.back();
+            stack_.pop_back();
             element->scheduled_flag() = false;
         }
 
         void clear()
         {
-            for (auto &element : _stack)
+            for (auto &element : stack_)
             {
                 element->scheduled_flag() = false;
             }
-            _stack.clear();
+            stack_.clear();
         }
 
         // Fast rejection via the flag; falls back to a linear scan only when the element
@@ -63,35 +63,35 @@ namespace dspsim
         {
             if (!element->scheduled_flag())
             {
-                return _stack.end();
+                return stack_.end();
             }
-            auto it = std::find(_stack.rbegin(), _stack.rend(), element);
-            return it == _stack.rend() ? _stack.end() : std::next(it).base();
+            auto it = std::find(stack_.rbegin(), stack_.rend(), element);
+            return it == stack_.rend() ? stack_.end() : std::next(it).base();
         }
 
         iterator erase(iterator it)
         {
-            if (it != _stack.end())
+            if (it != stack_.end())
             {
                 (*it)->scheduled_flag() = false;
-                return _stack.erase(it);
+                return stack_.erase(it);
             }
-            return _stack.end();
+            return stack_.end();
         }
         iterator erase(const T &element)
         {
             return erase(find(element));
         }
 
-        auto begin() { return _stack.begin(); }
-        auto end() { return _stack.end(); }
-        auto begin() const { return _stack.begin(); }
-        auto end() const { return _stack.end(); }
+        auto begin() { return stack_.begin(); }
+        auto end() { return stack_.end(); }
+        auto begin() const { return stack_.begin(); }
+        auto end() const { return stack_.end(); }
 
-        std::vector<T> &stack() { return _stack; }
+        std::vector<T> &stack() { return stack_; }
 
     private:
-        std::vector<T> _stack;
+        std::vector<T> stack_;
     };
 
 } // namespace dspsim

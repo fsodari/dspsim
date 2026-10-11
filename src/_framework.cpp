@@ -15,8 +15,6 @@ NB_MODULE(_framework, m)
     // Bind Model base class
     bindings::bind_model(m, "Model");
 
-    // Bind TimeEvent
-    bindings::bind_time_event(m, "TimeEvent");
     // Bind SensitivityEvent
     bindings::bind_sensitivity_event(m, "SensitivityEvent");
 

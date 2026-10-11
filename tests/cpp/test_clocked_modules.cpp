@@ -1,5 +1,5 @@
+#include <format>
 #include <dspsim/dspsim.h>
-#include <spdlog/spdlog.h>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
@@ -60,16 +60,16 @@ namespace
         {
             while (true)
             {
-                context()->logger->info("multi.eval()");
+                context()->log("info", "multi.eval()");
                 if (clk1.pos())
                 {
                     clk1_counts++;
-                    context()->logger->info("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                    context()->log("info", std::format("multi.eval(), clk1_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts));
                 }
                 if (clk2.pos())
                 {
                     clk2_counts++;
-                    context()->logger->info("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts);
+                    context()->log("info", std::format("multi.eval(), clk2_posedge,clk1_counts: {}, clk2_counts: {}", clk1_counts, clk2_counts));
                 }
                 co_await wait();
             }
@@ -81,7 +81,7 @@ namespace
 TEST_CASE("Clocked module", "[clock][clock1]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->set_log_level("warn");
 
     Clock clk{"clk", 10};
     Signal<int> a{"a"};
@@ -119,7 +119,7 @@ TEST_CASE("Clocked module", "[clock][clock1]")
 TEST_CASE("multi clocks", "[clock][clock2]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->set_log_level("warn");
 
     Clock clk1{"clk1", 6};
     Clock clk2{"clk2", clk1.period() * 2};

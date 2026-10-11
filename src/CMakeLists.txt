@@ -2,6 +2,7 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/bitsel.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
     ${DSPSIM_SRC_DIR}/context.cpp
+    ${DSPSIM_SRC_DIR}/engine_access.cpp
     ${DSPSIM_SRC_DIR}/coro.cpp
     ${DSPSIM_SRC_DIR}/derived_signal.cpp
     ${DSPSIM_SRC_DIR}/event.cpp
@@ -63,6 +64,7 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/coro.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/detail/engine_access.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/derived_signal.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/dspsim.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/event.h

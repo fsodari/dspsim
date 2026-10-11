@@ -1,5 +1,4 @@
 #include <dspsim/dspsim.h>
-#include <spdlog/spdlog.h>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
@@ -87,7 +86,7 @@ namespace
 TEST_CASE("Better binding test", "[better_binding]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::trace);
+    ctx->set_log_level("trace");
 
     Signal<int> a{"a"};
     Signal<int> b{"b"};

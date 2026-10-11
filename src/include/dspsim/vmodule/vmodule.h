@@ -47,41 +47,41 @@ namespace dspsim
         // This should be called after the context's time resolution has been set/finalized.
         void open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0)
         {
-            context()->trace_model(this);
-            static_cast<Derived *>(this)->_open_trace(trace_path, levels, options);
-        }
-
-        // Context will call this at the end of a delta cycle.
-        void dump_trace() override
-        {
-            static_cast<Derived *>(this)->_dump_trace();
+            this->request_trace();
+            static_cast<Derived *>(this)->open_trace_impl(trace_path, levels, options);
         }
 
         // Close the trace file.
         void close_trace()
         {
-            static_cast<Derived *>(this)->_close_trace();
+            static_cast<Derived *>(this)->close_trace_impl();
         }
 
     protected:
+        // Context will call this at the end of a delta cycle.
+        void dump_trace() override
+        {
+            static_cast<Derived *>(this)->dump_trace_impl();
+        }
+
         // Default implementations if inherited class does not override them.
-        void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0)
+        void open_trace_impl(const std::filesystem::path &trace_path, int levels = 99, int options = 0)
         {
             this->context()->log("warn", "Tracing not implemented for module: " + this->hier_name());
         }
-        void _dump_trace() {}
-        void _close_trace() {}
+        void dump_trace_impl() {}
+        void close_trace_impl() {}
     };
 } // namespace dspsim
 
 // Macro to declare a VModule subclass.
-#define DSPSIM_VMOD(_name, _vtype) \
-    struct _name : public ::dspsim::VModule<_vtype, _name>
+#define DSPSIM_VMOD(name, vtype) \
+    struct name : public ::dspsim::VModule<vtype, name>
 
 // Macro to declare a VModule parameter.
 // TODO: pass the underlying model's name, regardless of the prefix. This must be read from the json file so this can only be used in generated code.
-#define DSPSIM_VPARAM(_name, _vtype, _param) \
-    static constexpr auto _param = _vtype##___024root::_name##__DOT__##_param;
+#define DSPSIM_VPARAM(name, vtype, param) \
+    static constexpr auto param = vtype##___024root::name##__DOT__##param;
 
 // Constructor macro for a module subclass. Uses ModuleName as the constructor argument. A string can be passed as an argument.
 #define DSPSIM_CTOR_REF(module_name) module_name(::dspsim::ModuleName &)

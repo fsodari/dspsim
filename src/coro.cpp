@@ -4,13 +4,35 @@
 
 namespace dspsim
 {
+    void WaitBase::await_suspend(std::coroutine_handle<> handle) noexcept
+    {
+        process_->set_resume_point(handle);
+    }
+
+    bool WaitBase::py_step_done() noexcept
+    {
+        bool done = suspended_;
+        suspended_ = true;
+        return done;
+    }
+
+    void WaitBase::schedule_event(SensitivityEvent &event)
+    {
+        process_->schedule_dynamic_event(event);
+    }
+
+    void WaitBase::schedule_time(uint64_t time_delta)
+    {
+        process_->schedule_time_wait(time_delta);
+    }
+
     /*
         Time Event awaitable.
     */
     WaitTimeEvent::WaitTimeEvent(uint64_t time_delta, ProcessBase *process)
         : WaitBase(process)
     {
-        process->schedule_time_wait(time_delta);
+        schedule_time(time_delta);
     }
 
     /*
@@ -25,7 +47,7 @@ namespace dspsim
     WaitSensitivityEvent::WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process, uint64_t timeout)
         : WaitBase(process)
     {
-        process->schedule_dynamic_event(event);
+        schedule_event(event);
         schedule_timeout(timeout);
     }
 
@@ -34,7 +56,7 @@ namespace dspsim
     {
         for (auto &event : events)
         {
-            process->schedule_dynamic_event(event.get());
+            schedule_event(event.get());
         }
         schedule_timeout(timeout);
     }
@@ -44,7 +66,7 @@ namespace dspsim
     {
         for (auto *event : events)
         {
-            process->schedule_dynamic_event(*event);
+            schedule_event(*event);
         }
         schedule_timeout(timeout);
     }
@@ -57,7 +79,7 @@ namespace dspsim
         }
         has_timeout_ = true;
         deadline_ = process()->context()->time() + timeout;
-        process()->schedule_time_wait(timeout);
+        schedule_time(timeout);
     }
 
     WaitResult WaitSensitivityEvent::await_resume() const noexcept

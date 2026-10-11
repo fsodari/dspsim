@@ -10,15 +10,16 @@ namespace dspsim
     class ProcessBase;
     class Module : public Model
     {
+        // Ports register with the module they are declared in.
+        friend class PortBase;
+        // The ModuleName scope ends the module's construction.
+        friend class ModuleName;
+
     public:
         // A subclass of Module should use ModuleName with no reference so that the ModuleName goes out of scope at the end of the subclass constructor.
         Module(ModuleName &name);
         // If called with no arguments, the module will obtain its name from the active module name stack in the context.
         Module();
-
-        // Gets called automatically after the subclass constructor finishes.
-        // Removes the module from the active module stack in the context.
-        void _end_construction();
 
         // next_trigger() is for method processes. In a coroutine process it throws std::logic_error: use wait().
         // Schedule a process to be evaluated after the given time delta relative to the current simulation time.
@@ -42,20 +43,32 @@ namespace dspsim
         WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
-        // Information about a module's ports.
-        std::vector<PortBase *> &ports() { return _ports; }
-        std::vector<PortBase *> &inputs() { return _inputs; }
-        std::vector<PortBase *> &outputs() { return _outputs; }
+        // The ports declared in this module, in declaration order.
+        const std::vector<PortBase *> &ports() const { return ports_; }
+        const std::vector<PortBase *> &inputs() const { return inputs_; }
+        const std::vector<PortBase *> &outputs() const { return outputs_; }
+
+    private:
+        // Name of the innermost ModuleName scope, for modules constructed without a ModuleName argument.
+        static std::string current_module_name();
+        // The running process, for next_trigger(event): a coroutine process must wait(event) instead.
+        static ProcessBase *method_process(Context *context);
+
+        // Called by the ModuleName scope once the most derived constructor has finished.
+        // Removes the module from the active module stack in the context.
+        void end_construction();
+        // Called by a port constructed in this module. The port's kind says if it is an input or an output.
+        void add_port(PortBase *port);
 
     private:
         // Information about the module's ports.
-        std::vector<PortBase *> _ports;
-        std::vector<PortBase *> _inputs;
-        std::vector<PortBase *> _outputs;
+        std::vector<PortBase *> ports_;
+        std::vector<PortBase *> inputs_;
+        std::vector<PortBase *> outputs_;
     };
 
     template <typename M>
-    static inline auto _create_module(ModuleName &name)
+    inline auto create_module(ModuleName &name)
     {
         return Model::create<M>(name);
     }

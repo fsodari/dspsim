@@ -8,9 +8,9 @@ namespace dspsim
 {
 
     // Name of the innermost ModuleName scope, for modules constructed without a ModuleName argument.
-    static std::string current_module_name()
+    std::string Module::current_module_name()
     {
-        auto &names = Context::obtain()->_active_module_name_stack;
+        auto &names = Context::obtain()->active_module_name_stack_;
         if (names.empty())
         {
             throw std::logic_error("Module() requires an active ModuleName. Construct the module with a ModuleName.");
@@ -19,7 +19,7 @@ namespace dspsim
     }
 
     // The running process, for next_trigger(event): a coroutine process must wait(event) instead.
-    static ProcessBase *method_process(Context *context)
+    ProcessBase *Module::method_process(Context *context)
     {
         ProcessBase *process = context->current_process();
         if (process->is_coroutine()) [[unlikely]]
@@ -32,26 +32,21 @@ namespace dspsim
 
     Module::Module() : Model(current_module_name(), "module")
     {
-        SPDLOG_LOGGER_DEBUG(context()->logger, "Constructing Module with default name = {}", name());
-        context()->_active_module_stack.push_back(this);
-        context()->_add_module(this);
+        SPDLOG_LOGGER_DEBUG(context()->logger_, "Constructing Module with default name = {}", name());
+        context()->active_module_stack_.push_back(this);
+        context()->add_module(this);
     }
 
     Module::Module(ModuleName &name) : Model(name.name(), "module")
     {
-        SPDLOG_LOGGER_DEBUG(context()->logger, "Constructing Module with name = {}", name.name());
-        context()->_active_module_stack.push_back(this);
-        context()->_add_module(this);
-    }
-
-    void Module::_end_construction()
-    {
-        context()->_active_module_stack.pop_back();
+        SPDLOG_LOGGER_DEBUG(context()->logger_, "Constructing Module with name = {}", name.name());
+        context()->active_module_stack_.push_back(this);
+        context()->add_module(this);
     }
 
     void Module::next_trigger(uint64_t time_delta)
     {
-        context()->_schedule_time_delta_event(time_delta);
+        context()->schedule_time_delta_event(time_delta);
     }
 
     void Module::next_trigger(SensitivityEvent &event)
@@ -103,4 +98,21 @@ namespace dspsim
         return context()->wait(events, timeout);
     }
 
+    void Module::end_construction()
+    {
+        context()->active_module_stack_.pop_back();
+    }
+
+    void Module::add_port(PortBase *port)
+    {
+        ports_.push_back(port);
+        if (port->kind() == "input")
+        {
+            inputs_.push_back(port);
+        }
+        else if (port->kind() == "output")
+        {
+            outputs_.push_back(port);
+        }
+    }
 } // namespace dspsim

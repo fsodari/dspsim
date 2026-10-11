@@ -84,8 +84,8 @@ belongs to signals (see below).
 
 ### `Context` ([context.h](../src/include/dspsim/context.h) / [context.cpp](../src/context.cpp))
 Owns a simulation: the registered models, the processes, the delta-cycle scheduling
-stacks (`_process_eval_stack`, `_signal_update_stack`, `_derived_update_stack`,
-`_sensitivity_event_stack`), and a time-ordered `_time_event_stack` for scheduled future
+stacks (`process_eval_stack_`, `signal_update_stack_`, `derived_update_stack_`,
+`sensitivity_event_stack_`), and a time-ordered `time_event_stack_` for scheduled future
 events (clock edges, time waits).
 
 A global `ContextFactory` tracks the context under construction. `Context::create()`
@@ -118,7 +118,7 @@ Key methods:
 Holds a committed value `q_` and a pending value `d_`. `SignalBase` owns three
 `SensitivityEvent`s: `change()`, `pos()`, and `neg()`.
 - `write(value)` sets `d_` and, if it differs from `q_`, pushes the signal onto the
-  context's `_signal_update_stack`.
+  context's `signal_update_stack_`.
 - `read()` returns `q_` (the last committed value).
 - `update()` runs in the update phase. If the value actually changed, it notifies
   `pos()` or `neg()` (for a rising or falling value) and `change()`, then commits
@@ -134,9 +134,9 @@ subscribers (scheduled every time the event occurs) and dynamic subscribers (sch
 once, on the next occurrence). The lists are allocated on first subscription, so an event
 nobody subscribed to costs a null check in `notify()`.
 
-`notify()` queues the event on the context's `_sensitivity_event_stack`. Once all signals
+`notify()` queues the event on the context's `sensitivity_event_stack_`. Once all signals
 of the round have updated, the context calls `trigger()` on each queued event, which
-pushes the subscribed processes onto `_process_eval_stack`.
+pushes the subscribed processes onto `process_eval_stack_`.
 
 A `TimeEvent` is a `{time, process, wake_count}` entry in the context's time-event queue.
 
@@ -224,15 +224,51 @@ model is evaluated whenever one of its inputs changes. `open_trace()` asks the c
 call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
 the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
 
+## Public interface and access
+
+The core classes depend on each other, but only a small part of each class is for users. Each class
+has three tiers:
+
+- **User API (`public`)**: what a testbench or model author calls. `Context`: `create`/`obtain`/`reset`,
+  `elaborate`, `release`, `run`, `run_until`, `wait`, `register_process_func` / `register_method` /
+  `register_coro_task`, `log` / `set_log_level`, `own_model`, and the read-only queries (`time`, `models`,
+  `children`, ...). `ProcessBase`: `always`, `initialize`, `done`, `name`, `id`. `SensitivityEvent`:
+  `notify`, `has_happened`. Signals and ports: `read`, `write`, `bind`, `slice`, `change`/`pos`/`neg`.
+- **Extension API (`protected`)**: what a new process type, leaf awaitable, port kind or model overrides
+  or calls. `ProcessBase`: the constructor, `unschedule()`, `resume_point()`. `WaitBase`:
+  `schedule_event()` / `schedule_time()`. `Model`: `finalize()`, `dump_trace()`, `request_trace()`.
+  `PortBase`: `bind_base()`, `sync()`.
+- **Engine internals (`private`)**: the scheduling stacks, id counters, subscriber lists and the
+  registration functions. The engine classes reach each other's internals as `friend`s, and each friend
+  declaration says why it is there.
+
+Two named friends cover everything outside the core classes:
+
+- `detail::EngineAccess` ([detail/engine_access.h](../src/include/dspsim/detail/engine_access.h)) is for code
+  that extends the engine from outside `dspsim-core`. The Python bindings use it to register `PyTask`
+  processes and to step C++ tasks from Python coroutines.
+- `testing::EngineInspector` is declared by the core headers and defined in
+  [tests/cpp/engine_inspector.h](../tests/cpp/engine_inspector.h), so it is not shipped. It only has const
+  queries (process count, pending time events, wake count, subscriber presence). Tests assert on observable
+  behavior, and use the inspector only for invariants with no observable effect: cleanup and
+  "this process did not run".
+
+spdlog is an implementation detail of `dspsim-core`: the logger is a private member of `Context`, and
+user code logs with `Context::log(level, message)`.
+
+In Python, a binding that is not part of the user API has a leading underscore (`Context._own_model`,
+`_get_global_context_factory`). The stubs are generated with `INCLUDE_PRIVATE`, so these are typed too.
+`dspsim.framework.__all__` lists the public names.
+
 ## Delta-cycle execution model
 
-`Context::eval()` repeats the following round until both `_process_eval_stack` and
-`_signal_update_stack` are empty:
-1. **Evaluate.** Pop and resume processes until `_process_eval_stack` is empty, last
+`Context::eval()` repeats the following round until both `process_eval_stack_` and
+`signal_update_stack_` are empty:
+1. **Evaluate.** Pop and resume processes until `process_eval_stack_` is empty, last
    scheduled first. A process may call `Signal::write()`, which only sets the pending
    value and schedules the signal for update (deferred, not committed yet). A process
    that registers another process pushes it onto the stack, so it runs in this round.
-2. **Update.** Call `update()` on every signal in `_signal_update_stack`. This is where
+2. **Update.** Call `update()` on every signal in `signal_update_stack_`. This is where
    values commit and the signals' events are notified. Then recompute the derived signals
    (slices and packs) of the signals that changed.
 3. **Trigger.** Call `trigger()` on every notified event, which schedules the subscribed
@@ -261,14 +297,14 @@ After the last round, models that requested tracing dump their traces.
    remainder.
 4. It pops every event scheduled for that exact timestamp (there can be more than one,
    e.g. several clocks with the same period) and pushes each event's process onto
-   `_process_eval_stack`.
+   `process_eval_stack_`.
 5. It runs another delta cycle so those processes, and anything they trigger
    transitively, settle before time advances again. The exception is the step that uses
    up `time_inc`: its processes stay queued and are evaluated by the delta cycle at the
    start of the next `run()`.
 
 ### The time-event queue
-`_time_event_stack` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
+`time_event_stack_` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
 returns the soonest-scheduled event, independent of push order. Events are added by
 `Module::next_trigger(time_delta)` (method processes only), by a
 coroutine's `co_await wait(time_delta)`, and by `Clock`.
@@ -284,7 +320,7 @@ wait), the time event is stale and is dropped when it comes due.
 void Clock::tick()
 {
     this->write(!this->read());
-    context()->_time_event_stack.emplace(context()->time() + _half_period, _process);
+    context()->time_event_stack_.emplace(context()->time() + half_period_, process_);
 }
 ```
 

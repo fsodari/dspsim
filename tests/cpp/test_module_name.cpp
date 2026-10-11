@@ -2,6 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <optional>
+
 using namespace dspsim;
 
 namespace
@@ -45,27 +47,28 @@ TEST_CASE("derived modules keep the hierarchy open until the most derived ctor r
     REQUIRE(top.d.c.hier_name() == "root.top.d.c");
     REQUIRE(top.after_d.hier_name() == "root.top.after_d");
     REQUIRE(root_signal.hier_name() == "root.root_signal");
-    REQUIRE(ctx->_active_module_stack.empty());
-    REQUIRE(ctx->_active_module_name_stack.empty());
+    REQUIRE(root_signal.parent() == nullptr);
     ctx->elaborate();
 }
 
 TEST_CASE("ModuleName copies share one scope", "[module_name]")
 {
     auto ctx = Context::create();
+    std::optional<ModuleName> name{"m"};
+    Module m{*name};
     {
-        ModuleName name{"m"};
-        Module m{name};
-        {
-            ModuleName copy = name;
-            REQUIRE(copy.name() == "m");
-        }
-        // The copy is gone, but the original still holds the scope open.
-        REQUIRE(ctx->_active_module() == &m);
-        Signal<uint8_t> inner{"inner"};
-        REQUIRE(inner.hier_name() == "root.m.inner");
+        ModuleName copy = *name;
+        REQUIRE(copy.name() == "m");
     }
-    REQUIRE(ctx->_active_module() == nullptr);
+    // The copy is gone, but the original still holds the scope open.
+    Signal<uint8_t> inner{"inner"};
+    REQUIRE(inner.parent() == &m);
+    REQUIRE(inner.hier_name() == "root.m.inner");
+
+    // The scope ends with the last copy: new models are at the root again.
+    name.reset();
+    Signal<uint8_t> outer{"outer"};
+    REQUIRE(outer.parent() == nullptr);
     ctx->elaborate();
 }
 
@@ -75,10 +78,11 @@ TEST_CASE("ModuleName::end is explicit and idempotent", "[module_name]")
     ModuleName name{"m"};
     Module m{name};
     name.end();
-    REQUIRE(ctx->_active_module() == nullptr);
-    REQUIRE(ctx->_active_module_name_stack.empty());
+    Signal<uint8_t> after_end{"after_end"};
+    REQUIRE(after_end.parent() == nullptr);
     name.end();
     Signal<uint8_t> outer{"outer"};
+    REQUIRE(outer.parent() == nullptr);
     REQUIRE(outer.hier_name() == "root.outer");
     ctx->elaborate();
 }
@@ -92,8 +96,10 @@ TEST_CASE("ending a scope without a module leaves the parent active", "[module_n
         // No Module is constructed in this scope, so ending it must not pop the parent.
         ModuleName orphan{"orphan"};
     }
-    REQUIRE(ctx->_active_module() == &parent);
+    Signal<uint8_t> in_parent{"in_parent"};
+    REQUIRE(in_parent.parent() == &parent);
     parent_name.end();
-    REQUIRE(ctx->_active_module() == nullptr);
+    Signal<uint8_t> at_root{"at_root"};
+    REQUIRE(at_root.parent() == nullptr);
     ctx->elaborate();
 }
