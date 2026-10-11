@@ -47,9 +47,3 @@ void VModType::close_trace_impl()
     }
 #endif
 }
-
-// Verilator on windows won't build unless this is defined.
-double sc_time_stamp()
-{
-    return 0;
-}

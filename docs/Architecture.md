@@ -322,6 +322,9 @@ How `dspsim-core` is compiled decides how fast the run cycle is. The settings ar
   translation unit, so it is only recompiled when the logging code changes. The rest of the core logs
   through `detail::Logger` and the `DSPSIM_LOG_*` macros in [src/log.h](../src/log.h), with messages built
   by string concatenation: `std::format` costs about 2 seconds per source file that uses it.
+  Because spdlog's code is compiled into `log.cpp`, a program that links `dspsim-core` must not link the
+  compiled spdlog library as well: MSVC reports the functions as defined twice, and other linkers silently
+  pick one of two definitions that may have been compiled with different settings.
 - **No C++ modules.** `CMAKE_CXX_SCAN_FOR_MODULES` is off, here and in the generated model projects. From
   C++20 on, CMake otherwise preprocesses every source file an extra time to scan it for module dependencies.
 

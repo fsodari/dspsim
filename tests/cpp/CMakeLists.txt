@@ -49,7 +49,7 @@ endif()
 # (verilated.cpp and the tracing and threading support) to the target it is given, so calling it several
 # times on one target compiles the runtime once, where a target per model compiles it once per model.
 # All models in a target must use the same trace format: it sets VM_TRACE_VCD / VM_TRACE_FST for the target.
-add_library(test_models Skid.cpp Skid2.cpp NDArrayModel.cpp)
+add_library(test_models Skid.cpp Skid2.cpp NDArrayModel.cpp sc_time_stamp.cpp)
 target_link_libraries(test_models PUBLIC dspsim::dspsim-core)
 target_link_libraries(tests PRIVATE test_models)
 

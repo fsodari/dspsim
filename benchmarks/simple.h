@@ -3,7 +3,6 @@
 #include <systemc>
 #include "eval_funcs.h"
 #include <iostream>
-#include <spdlog/spdlog.h>
 namespace benchmarks
 {
     // Same model with dspsim
