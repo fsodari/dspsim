@@ -21,7 +21,7 @@ namespace dspsim
 
     public:
         Model(const std::string &name, const std::string &kind = "model");
-
+        ~Model() = default;
         /*
             Properties
         */
