@@ -11,14 +11,14 @@ using TraceType = VerilatedFstC;
 using TraceType = dspsim::NoTrace;
 #endif
 
-void VModType::_dump_trace()
+void VModType::dump_trace_impl()
 {
     if (tracep)
     {
         static_cast<TraceType *>(tracep.get())->dump(context()->time());
     }
 }
-void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, int options)
+void VModType::open_trace_impl(const std::filesystem::path &trace_path, int levels, int options)
 {
     if (!tracep)
     {
@@ -33,7 +33,7 @@ void VModType::_open_trace(const std::filesystem::path &trace_path, int levels, 
     }
 }
 
-void VModType::_close_trace()
+void VModType::close_trace_impl()
 {
     if (tracep)
     {

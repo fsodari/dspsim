@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -26,7 +25,7 @@ namespace dspsim
     {
     public:
         ModuleName(const std::string &name);
-        ModuleName(const char *name) : ModuleName(std::string(name)) {}
+        ModuleName(const char *name);
 
         /// Copies share the construction scope.
         ModuleName(const ModuleName &) = default;
@@ -36,8 +35,8 @@ namespace dspsim
         void end();
 
         const std::string &name() const;
-        operator const char *() const { return name().c_str(); }
-        operator const std::string &() const { return name(); }
+        operator const char *() const;
+        operator const std::string &() const;
 
     private:
         struct Scope;

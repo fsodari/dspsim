@@ -1,8 +1,10 @@
 #include <dspsim/dspsim.h>
 
 #include <catch2/catch_test_macros.hpp>
+#include "engine_inspector.h"
 
 using namespace dspsim;
+using dspsim::testing::EngineInspector;
 
 namespace
 {
@@ -93,7 +95,7 @@ TEST_CASE("waiting on several events unsubscribes from the others", "[coro][dyna
     a.write(1);
     ctx->run(1);
     REQUIRE(m.wakeups == 1);
-    REQUIRE(b.change().dynamic_subscribers().empty());
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(b.change()));
 
     // The process now waits on c only, so b must not wake it.
     b.write(1);

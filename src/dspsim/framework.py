@@ -124,18 +124,14 @@ from dspsim._framework import (
     TaskListU16,
     TaskListU32,
     TaskListU64,
-    TimeoutError,
     Wait,
-    WaitBase,
     WaitResult,
     WaitSensitivityEvent,
     WaitTimeEvent,
+    _reset_global_context_factory,
     bits,
-    get_global_context_factory,
     mask,
     pack,
-    reset_global_context_factory,
-    # set_global_context_factory,
     sext,
     zext,
 )
@@ -143,7 +139,7 @@ from dspsim._framework import Context as _Context
 from dspsim._framework import Module as _Module
 
 # Prevent nb leak warnings.
-atexit.register(reset_global_context_factory)
+atexit.register(_reset_global_context_factory)
 
 
 class Context(_Context):
@@ -159,20 +155,6 @@ class Context(_Context):
     - The same thread creating a second Context before elaborating the first would deadlock,
       so it raises ContextConstructionError instead.
     """
-
-    @classmethod
-    def obtain_lock(cls, name: str = ""):
-        """Deprecated: creating a Context takes the construction lock."""
-        return cls(name)
-
-    def detach(self):
-        """Deprecated: use release()."""
-        self.release()
-
-    @property
-    def locked(self) -> bool:
-        """Deprecated: use constructing."""
-        return self.constructing
 
     def __del__(self):
         self.release()
@@ -236,7 +218,7 @@ def _wrap_module_init(init):
                 init(self, *args, **kwargs)
             finally:
                 self._dspsim_constructing = False
-        self.context.own_model(self)
+        self.context._own_model(self)
 
     return __init__
 
@@ -414,18 +396,14 @@ __all__ = [
     "TaskListU16",
     "TaskListU32",
     "TaskListU64",
-    "TimeoutError",
     "Wait",
-    "WaitBase",
     "WaitResult",
     "WaitSensitivityEvent",
     "WaitTimeEvent",
     "bits",
-    "get_global_context_factory",
     "mask",
     "pack",
     "sext",
-    # "set_global_context_factory",
     "signal",
     "zext",
 ]

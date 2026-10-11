@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/coro.h>
 #include <dspsim/context.h>
+#include <dspsim/detail/engine_access.h>
 #include "nb_include.h"
 
 #include <stdexcept>
@@ -28,7 +29,7 @@ namespace dspsim::bindings
 
         void start()
         {
-            process_ = context_->_current_process;
+            process_ = detail::EngineAccess::current_process(*context_);
             if (process_ == nullptr)
             {
                 throw std::runtime_error(
@@ -38,7 +39,7 @@ namespace dspsim::bindings
             task_.handle.resume();
         }
         bool done() const { return task_.done(); }
-        void step() { process_->resume_point().resume(); }
+        void step() { detail::EngineAccess::resume_point(*process_).resume(); }
         T result() { return task_.result(); }
 
     private:
@@ -108,27 +109,23 @@ namespace dspsim::bindings
 
         return nb::class_<WaitBase>(m, name)
             .def("_py_step_done", &WaitBase::py_step_done)
+            // Typed as object so that subclasses can override it with their own result type.
             .def("_py_result", [](WaitBase &)
-                 { return nb::none(); })
+                 { return nb::none(); }, nb::sig("def _py_result(self) -> object"))
             .def("__await__", [wait_await](nb::object self)
                  { return wait_await(self); }, nb::sig("def __await__(self) -> typing.Generator[typing.Any, typing.Any, typing.Any]"));
     }
     static inline auto bind_wait(nb::module_ &m, const char *name)
     {
-        return nb::class_<Wait, WaitBase>(m, name)
-            .def(nb::init<ProcessBase *>(), nb::arg("process"));
+        return nb::class_<Wait, WaitBase>(m, name);
     }
     static inline auto bind_wait_time_event(nb::module_ &m, const char *name)
     {
-        return nb::class_<WaitTimeEvent, WaitBase>(m, name)
-            .def(nb::init<uint64_t, ProcessBase *>(), nb::arg("time_delta"), nb::arg("process"));
+        return nb::class_<WaitTimeEvent, WaitBase>(m, name);
     }
     static inline auto bind_wait_sensitivity_event(nb::module_ &m, const char *name)
     {
         return nb::class_<WaitSensitivityEvent, WaitBase>(m, name)
-            .def(nb::init<SensitivityEvent &, ProcessBase *, uint64_t>(), nb::arg("event"), nb::arg("process"), nb::arg("timeout") = 0)
-            .def(nb::init<const std::vector<SensitivityEvent *> &, ProcessBase *, uint64_t>(), nb::arg("events"), nb::arg("process"), nb::arg("timeout") = 0)
-            .def(nb::init<ProcessBase *>(), nb::arg("process"))
             .def("_py_result", &WaitSensitivityEvent::await_resume);
     }
 

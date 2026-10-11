@@ -1,25 +1,16 @@
 #pragma once
-#include <dspsim/model.h>
 #include <dspsim/event.h>
-#include <dspsim/process.h>
-#include <dspsim/coro.h>
-#include <dspsim/utils/unique_stack.h>
 #include <dspsim/utils/flagged_stack.h>
 #include <dspsim/utils/priority_queue.h>
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include <string>
-#include <condition_variable>
+#include <coroutine>
+#include <cstdint>
 #include <functional>
-#include <mutex>
+#include <memory>
 #include <stdexcept>
-#include <thread>
-
-namespace spdlog
-{
-    class logger;
-}
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace dspsim
 {
@@ -28,6 +19,26 @@ namespace dspsim
     class ModuleName;
     class SignalBase;
     class DerivedSignalBase;
+    class PortBase;
+    class ProcessBase;
+    // Coroutine types, defined in <dspsim/coro.h>. Include it to call wait() or run_until().
+    template <typename T>
+    struct Task;
+    class Wait;
+    class WaitTimeEvent;
+    class WaitSensitivityEvent;
+
+    namespace detail
+    {
+        struct EngineAccess;
+        // The engine's logger. Defined in src/log.h, which is internal to the core library.
+        class Logger;
+    }
+    namespace testing
+    {
+        // Read-only view of engine internals for the tests. Defined in tests/cpp/engine_inspector.h.
+        struct EngineInspector;
+    }
 
     /// Thrown when a new context is created while the active context has not been elaborated.
     class ContextConstructionError : public std::runtime_error
@@ -58,11 +69,20 @@ namespace dspsim
     */
     class Context
     {
+        // The engine classes schedule themselves on the context and register with it on construction.
         friend class ContextFactory;
-
-    private:
-        // Can't create context directly. Use create() to make a new global context, and obtain() to get the active one.
-        Context(const std::string &name, int id);
+        friend class Model;
+        friend class Module;
+        friend class ModuleName;
+        friend class PortBase;
+        friend class SignalBase;
+        template <typename T>
+        friend class Signal;
+        friend class ProcessBase;
+        friend class SensitivityEvent;
+        // Engine access for code outside the core library (the Python bindings) and for the tests.
+        friend struct detail::EngineAccess;
+        friend struct testing::EngineInspector;
 
     public:
         // Explicitly delete copy constructor and assignment
@@ -70,10 +90,16 @@ namespace dspsim
         Context &operator=(const Context &) = delete;
 
         // Move operations can be kept if desired
-        Context(Context &&) noexcept = default;
+        Context(Context &&) noexcept;
         ~Context();
 
-        // Methods
+        // Obtain the active global context. Throws ContextConstructionError if there is none.
+        static std::shared_ptr<Context> obtain();
+        // Set the global context to nullptr. New designs must call create().
+        static void reset();
+        // Create a new global context. Throws ContextConstructionError if the active context is not elaborated.
+        static std::shared_ptr<Context> create(const std::string &name = "");
+
         /*
             Clear all models from the context.
         */
@@ -99,12 +125,9 @@ namespace dspsim
         // True while this context is the active context under construction.
         bool constructing() const;
 
-        // Compute a single delta cycle.
-        int eval();
-
         /*
             Run the simulation for the given time increment.
-            If time_inc is 0, it will run a delta cycle without advancing time.
+            If time_inc is 0, it runs delta cycles until the design settles without advancing time.
         */
         void run(uint64_t time_inc = 0);
 
@@ -125,32 +148,29 @@ namespace dspsim
         // Run the simulation until the event triggers. Returns false if the timeout (0 = none) elapsed first.
         bool run_until(SensitivityEvent &event, uint64_t timeout = 0);
 
-        // Schedule the process to be evaluated after the given time delta relative to the current simulation time.
-        void schedule_time_delta_event(uint64_t time_delta, ProcessBase *process = nullptr);
-
         /*
             Coroutine awaitables. The process defaults to the one currently being evaluated, so inside a
             coroutine process these can be awaited directly: `co_await ctx->wait(10);`.
         */
         // wait on all events in the static sensitivity list.
-        Wait wait(ProcessBase *process = nullptr);
+        Wait wait();
         // Wait on a time event.
-        WaitTimeEvent wait(uint64_t time_delta, ProcessBase *process = nullptr);
+        WaitTimeEvent wait(uint64_t time_delta);
 
         // wait on a dynamic event.
-        WaitSensitivityEvent wait(SensitivityEvent &event, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event);
         // wait on multiple dynamic events.
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events);
         // wait on multiple dynamic events, given by pointer.
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events);
 
         /*
             Wait on dynamic events with a timeout (> 0). The result says whether an event triggered or the
             timeout elapsed. A literal 0 timeout is ambiguous with the process argument: use the overloads above.
         */
-        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process = nullptr);
-        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process = nullptr);
+        WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout);
+        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
+        WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
         void print_hierarchy(Model *parent = nullptr, int depth = 0) const;
@@ -164,7 +184,6 @@ namespace dspsim
 
         // List of all registered models in the context.
         const std::vector<Model *> &models() const;
-        const std::vector<std::shared_ptr<Model>> &owned_models() const { return _owned_models; }
 
         // List of all registered modules in the context.
         const std::vector<Module *> &modules() const;
@@ -193,40 +212,15 @@ namespace dspsim
         void log(const std::string &level, const std::string &message);
 
         /*
-            Pseudo-Private Methods.
-            Not intended to be called,
-            but I haven't set friend classes yet.
-        */
-
-        // Register a model with the context. This will automatically add it to the appropriate lists (modules, signals, etc.) with a dynamic_cast.
-        void _add_model(Model *model);
-        void _add_module(Module *module);
-        void _add_signal(SignalBase *signal);
-
-        /*
             Take shared ownership of a model. The model will stay alive as long as the context does.
             Useful in python if a design is constructed in a function and the context is returned.
         */
-        void _own_model(std::shared_ptr<Model> model);
-        // void _own_module(std::shared_ptr<Module> module);
+        void own_model(std::shared_ptr<Model> model);
+        // Models the context has taken shared ownership of.
+        const std::vector<std::shared_ptr<Model>> &owned_models() const;
 
-        void trace_model(Model *model) { _trace_stack.push_back(model); }
-
-        uint32_t next_event_id() { return _next_event_id++; }
-
-        // Each model is assigned a unique id from its context on construction.
-        uint32_t next_model_id() { return _next_model_id++; }
-
-        uint32_t next_process_id() { return _next_process_id++; }
-        // Register a process with the context. This will create a Process object and set it as the active process.
+        // Register a function as a process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
-
-        // Register a member function bound at run time (goes through std::function).
-        template <typename MemberFunc, typename ClassType>
-        ProcessBase *register_method(MemberFunc mem_ptr, ClassType *instance, const std::string &name = "")
-        {
-            return register_process_func(method_to_function(mem_ptr, instance), name);
-        }
 
         /*
             Register a member function bound at compile time: register_method<&MyModule::eval>(this).
@@ -235,121 +229,138 @@ namespace dspsim
         template <auto Method, typename ClassType>
         ProcessBase *register_method(ClassType *instance, const std::string &name = "")
         {
-            return _register_method(
+            return register_trampoline(
                 instance, [](void *p)
                 { (static_cast<ClassType *>(p)->*Method)(); },
                 name);
         }
-        ProcessBase *_register_method(void *instance, MethodProcess::Trampoline call, const std::string &name);
 
         // Register a coroutine task as a process. The process owns the coroutine frame.
         template <typename T>
         ProcessBase *register_coro_task(Task<T> task, const std::string &name = "")
         {
-            return _register_coro(task.release(), name);
+            return register_coro(task.release(), name);
         }
-        ProcessBase *_register_coro(std::coroutine_handle<> root, const std::string &name);
+
+    private:
+        // Can't create context directly. Use create() to make a new global context, and obtain() to get the active one.
+        Context(const std::string &name, int id);
+
+        // Register a model with the context. This will automatically add it to the appropriate lists (modules, signals, etc.) with a dynamic_cast.
+        void add_model(Model *model);
+        void add_module(Module *module);
+        void add_signal(SignalBase *signal);
+
+        // Request dump_trace() calls on the model at the end of each delta cycle. See Model::request_trace().
+        void trace_model(Model *model);
+
+        // Each model is assigned a unique id from its context on construction.
+        uint32_t next_model_id();
+        uint32_t next_process_id();
+
+        /*
+            Take ownership of a process and schedule it for evaluation in the next delta cycle
+            (see ProcessBase::initialize()). Processes can be registered at any time: during construction,
+            between run() calls, or from a running process.
+        */
+        ProcessBase *add_process(std::unique_ptr<ProcessBase> process);
+        ProcessBase *register_trampoline(void *instance, void (*call)(void *), const std::string &name);
+        ProcessBase *register_coro(std::coroutine_handle<> root, const std::string &name);
 
         /*
             Run the simulation until the (already registered) process is done. See run_until().
-            The process is scheduled immediately; the caller removes it afterwards with _remove_process().
+            Registering the process scheduled it; the caller removes it afterwards with remove_process().
         */
-        void _run_until_done(ProcessBase *process, uint64_t timeout = 0);
+        void run_until_done(ProcessBase *process, uint64_t timeout = 0);
 
         // Unregister a process: unsubscribe it from its dynamic events, drop its pending time events, destroy it.
-        void _remove_process(ProcessBase *process);
+        void remove_process(ProcessBase *process);
+
+        // The process being evaluated, or nullptr outside the eval phase.
+        // Inline, like update_count(): read by the scheduler and the awaitables for every evaluation.
+        ProcessBase *current_process() const { return current_process_; }
 
         /*
             The current hierarchal module being constructed.
         */
-        Module *_active_module() const;
+        Module *active_module() const;
 
         /*
             The current, expanded hierarchy name.
         */
-        const std::string _current_hierarchy() const;
+        const std::string current_hierarchy() const;
 
+        // Number of delta cycles so far. Used to handle event flags.
         int64_t update_count() const { return update_count_; }
 
-    private:
-        void _do_initialize();
+        // Run delta cycles until no process or signal is scheduled. Returns the number of delta cycles.
+        int eval();
+        // Commit the initial signal values before the first evaluation.
+        void do_initialize();
         // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed.
-        void _update_signals();
+        void update_signals();
         // Queue the process of a due time event, unless the event is a stale coroutine time wait.
-        void _schedule_time_event(const TimeEvent &event);
-
-    public:
-        /*
-            Static Methods
-        */
-        // Obtain the active global context. Throws ContextConstructionError if there is none.
-        static std::shared_ptr<Context> obtain();
-        // Set the global context to nullptr. New designs must call create().
-        static void reset();
-        // Create a new global context. Throws ContextConstructionError if the active context is not elaborated.
-        static std::shared_ptr<Context> create(const std::string &name = "");
-        // Members
+        void schedule_time_event(const TimeEvent &event);
+        // Module::next_trigger(time_delta): evaluate the running process again after the given time delta.
+        // Throws std::logic_error in a coroutine process: use wait(time_delta) instead.
+        void schedule_time_delta_event(uint64_t time_delta);
 
     private:
         // Context info
-        std::string _name;
-        int _id;
+        std::string name_;
+        int id_;
         // Each model is assigned a unique ID, starting from 0.
-        uint32_t _next_model_id;
+        uint32_t next_model_id_;
         // List of all registered models, modules, and signals.
-        std::vector<Model *> _registered_models;
-        std::vector<Module *> _modules;
-        std::vector<SignalBase *> _signals;
+        std::vector<Model *> registered_models_;
+        std::vector<Module *> modules_;
+        std::vector<SignalBase *> signals_;
 
         // Each process is assigned a unique ID, starting from 0.
-        uint32_t _next_process_id;
+        uint32_t next_process_id_;
 
-        uint32_t _next_event_id;
-
-    public:
         // Processes are allocated from functions, so they need to live somewhere.
-        std::vector<std::unique_ptr<ProcessBase>> _processes;
+        std::vector<std::unique_ptr<ProcessBase>> processes_;
 
-    private:
         // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
         // More likely to be used in Python
-        std::vector<std::shared_ptr<Model>> _owned_models;
+        std::vector<std::shared_ptr<Model>> owned_models_;
 
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
-        std::unordered_map<Model *, std::vector<Model *>> _children;
+        std::unordered_map<Model *, std::vector<Model *>> children_;
 
         // Current simulation time.
-        uint64_t _time;
+        uint64_t time_;
         // Time unit used for tracing.
-        std::string _time_unit;
-        bool _initialized = false;
+        std::string time_unit_;
+        bool initialized_ = false;
         // Set by elaborate(). The design is locked once elaborated.
-        bool _elaborated = false;
+        bool elaborated_ = false;
         // Incremented every time a delta cycle occurs. Used to handle event flags.
         int64_t update_count_;
 
-    public:
         // All processes that need to run in the current delta cycle.
-        FlaggedStack<ProcessBase *> _process_eval_stack;
-        ProcessBase *_current_process;
+        FlaggedStack<ProcessBase *> process_eval_stack_;
+        ProcessBase *current_process_;
 
         // All signals that need to be updated in the current delta cycle.
-        FlaggedStack<SignalBase *> _signal_update_stack;
+        FlaggedStack<SignalBase *> signal_update_stack_;
         // Derived signals to recompute after the signal updates in the current delta cycle.
-        FlaggedStack<DerivedSignalBase *> _derived_update_stack;
+        FlaggedStack<DerivedSignalBase *> derived_update_stack_;
         // Scheduled sensitivity events.
-        std::vector<SensitivityEvent *> _sensitivity_event_stack;
+        std::vector<SensitivityEvent *> sensitivity_event_stack_;
         // Scheduled time events.
-        PriorityQueue<TimeEvent> _time_event_stack;
+        PriorityQueue<TimeEvent> time_event_stack_;
         // Stack of models that have requested tracing. Evaluated at end of a delta cycle.
-        std::vector<Model *> _trace_stack;
+        std::vector<Model *> trace_stack_;
 
-        std::shared_ptr<spdlog::logger> logger;
+        // The logging backend (spdlog) is an implementation detail: use log() and set_log_level().
+        std::unique_ptr<detail::Logger> logger_;
 
         // Keep track of the currently active module to build a hierarchy.
-        std::vector<Module *> _active_module_stack;
+        std::vector<Module *> active_module_stack_;
         // Names of the ModuleName scopes being constructed. Module() takes its name from the top.
-        std::vector<std::string> _active_module_name_stack;
+        std::vector<std::string> active_module_name_stack_;
     };
 
     /*
@@ -360,6 +371,7 @@ namespace dspsim
     {
     public:
         ContextFactory();
+        ~ContextFactory();
 
         /*
             Obtain the active context. Throws ContextConstructionError if this thread has no context under construction:
@@ -384,14 +396,10 @@ namespace dspsim
         void release_active(const std::function<bool(const Context *)> &if_active);
 
     private:
-        int _next_context_id;
-        std::shared_ptr<Context> _active_context;
-        // The thread constructing the active context.
-        std::thread::id _owner;
-        // Guards the active context and its owner. Never held while calling into models or contexts.
-        std::mutex _mutex;
-        // Notified when the active context is released.
-        std::condition_variable _released;
+        // The active context, the thread constructing it and the lock that guards them. Defined in context.cpp,
+        // which keeps <mutex>, <thread> and <condition_variable> out of every file that includes this header.
+        struct State;
+        std::unique_ptr<State> state_;
     };
 
     using ContextFactoryPtr = std::shared_ptr<ContextFactory>;
@@ -405,15 +413,15 @@ namespace dspsim
         // The process takes ownership of the frame. Keep the typed handle to read the result once done.
         auto handle = task.handle;
         ProcessBase *process = register_coro_task(std::move(task), "run_until");
-        // Remove the process however _run_until_done() exits. The frame is destroyed with the process.
+        // Remove the process however run_until_done() exits. The frame is destroyed with the process.
         struct Cleanup
         {
             Context *context;
             ProcessBase *process;
-            ~Cleanup() { context->_remove_process(process); }
+            ~Cleanup() { context->remove_process(process); }
         } cleanup{this, process};
 
-        _run_until_done(process, timeout);
+        run_until_done(process, timeout);
         return handle.promise().result();
     }
 }

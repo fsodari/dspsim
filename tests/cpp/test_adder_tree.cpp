@@ -1,6 +1,6 @@
+#include <format>
 #include <dspsim/dspsim.h>
 
-#include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -26,7 +26,7 @@ namespace
         {
             while (true)
             {
-                context()->logger->debug("Evaluating adder: {}", hier_name());
+                context()->log("debug", std::format("Evaluating adder: {}", hier_name()));
                 c.write(a.read() + b.read());
                 // Dynamic sensitivity for the next evaluation.
                 co_await wait({a.change(), b.change()});
@@ -194,7 +194,7 @@ namespace
 TEST_CASE("test_adder_tree", "[adder_tree]")
 {
     auto ctx = Context::create();
-    // ctx->logger->set_level(spdlog::level::debug);
+    // ctx->set_log_level("debug");
 
     // Clock clk{"clk", 10};
     Signal<int> ai1{"ai1"};

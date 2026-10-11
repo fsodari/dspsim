@@ -10,6 +10,12 @@ https://github.com/accellera-official/systemc.git
 
 Similar framework to dspsim. Used for benchmark comparisons.
 
+## cocotb
+https://github.com/cocotb/cocotb.git
+
+Python testbench framework for HDL simulators. Dev dependency, used for benchmark comparisons
+(`scripts/cocotb_benchmark.py`) with Verilator as its simulator.
+
 ## Catch2
 https://github.com/catchorg/Catch2.git
 

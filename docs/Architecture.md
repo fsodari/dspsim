@@ -30,7 +30,6 @@ classDiagram
     }
     class Context {
         +elaborate()
-        +eval()
         +run(time_inc)
         +run_until(task, timeout)
     }
@@ -63,7 +62,7 @@ classDiagram
     class ProcessBase {
         +always(events...)
         +initialize(bool)
-        +resume()
+        -resume()
     }
     Context --> Model : registers
     Context --> ProcessBase : owns
@@ -85,8 +84,8 @@ belongs to signals (see below).
 
 ### `Context` ([context.h](../src/include/dspsim/context.h) / [context.cpp](../src/context.cpp))
 Owns a simulation: the registered models, the processes, the delta-cycle scheduling
-stacks (`_process_eval_stack`, `_signal_update_stack`, `_derived_update_stack`,
-`_sensitivity_event_stack`), and a time-ordered `_time_event_stack` for scheduled future
+stacks (`process_eval_stack_`, `signal_update_stack_`, `derived_update_stack_`,
+`sensitivity_event_stack_`), and a time-ordered `time_event_stack_` for scheduled future
 events (clock edges, time waits).
 
 A global `ContextFactory` tracks the context under construction. `Context::create()`
@@ -100,13 +99,17 @@ Key methods:
 - `elaborate()`: calls `finalize()` on every registered model (this is what triggers lazy
   port-binding resolution, see below), locks the design, and releases the context from
   the global factory so a new, independent context can be created.
-- `eval()`: runs delta cycles until nothing is left to evaluate or update (see
-  [Delta-cycle execution model](#delta-cycle-execution-model)).
-- `run(time_inc)`: runs a delta cycle, then advances simulated time through the scheduled
-  time events, running a delta cycle at each time step. The first `run()` also schedules
-  the initial evaluation: every process is evaluated once so that combinational logic
-  settles from the initial signal values. A process opts out with `initialize(false)`,
-  which chains with `always(...)`.
+- `run(time_inc)`: runs delta cycles until nothing is left to evaluate or update (see
+  [Delta-cycle execution model](#delta-cycle-execution-model)), then advances simulated
+  time through the scheduled time events, settling the design at each time step.
+  `run(0)` settles the design without advancing time. The delta-cycle loop itself,
+  `eval()`, is private.
+- Registering a process schedules it, so every process is evaluated once in the next
+  delta cycle: at the start of the simulation, where it lets combinational logic settle
+  from the initial signal values, or when the simulation continues if the process was
+  registered later (between `run()` calls, or by a running process, which starts it in
+  the same delta cycle). A process opts out with `initialize(false)`, which takes it
+  off the evaluation stack and chains with `always(...)`.
 - `run_until(task, timeout)` / `run_until(event, timeout)`: run the simulation until a
   coroutine task completes (returning its value) or an event triggers. See
   [Coro.md](Coro.md).
@@ -115,7 +118,7 @@ Key methods:
 Holds a committed value `q_` and a pending value `d_`. `SignalBase` owns three
 `SensitivityEvent`s: `change()`, `pos()`, and `neg()`.
 - `write(value)` sets `d_` and, if it differs from `q_`, pushes the signal onto the
-  context's `_signal_update_stack`.
+  context's `signal_update_stack_`.
 - `read()` returns `q_` (the last committed value).
 - `update()` runs in the update phase. If the value actually changed, it notifies
   `pos()` or `neg()` (for a rising or falling value) and `change()`, then commits
@@ -131,9 +134,9 @@ subscribers (scheduled every time the event occurs) and dynamic subscribers (sch
 once, on the next occurrence). The lists are allocated on first subscription, so an event
 nobody subscribed to costs a null check in `notify()`.
 
-`notify()` queues the event on the context's `_sensitivity_event_stack`. Once all signals
+`notify()` queues the event on the context's `sensitivity_event_stack_`. Once all signals
 of the round have updated, the context calls `trigger()` on each queued event, which
-pushes the subscribed processes onto `_process_eval_stack`.
+pushes the subscribed processes onto `process_eval_stack_`.
 
 A `TimeEvent` is a `{time, process, wake_count}` entry in the context's time-event queue.
 
@@ -147,12 +150,15 @@ context owns them:
 
 Sensitivity is either static or dynamic:
 - Static: `process->always(clk.pos(), some_signal, ...)` subscribes the process to those
-  events for the whole simulation. Each argument can be a signal or a port (its change
+  events for as long as it lives. The process records its static events, and a coroutine
+  that completes (returns or throws) unschedules itself (`ProcessBase::unschedule()`:
+  it unsubscribes from its static and dynamic events and its pending time waits become
+  stale), so a one-shot coroutine is not scheduled again. Each argument can be a signal or a port (its change
   event), `.pos()`/`.neg()` of either, or an array of them. `always("*")` means every
   input of the enclosing module.
 - Dynamic: `next_trigger(event)` or `next_trigger(time_delta)` from a method process, and
   `co_await wait(...)` on a time delta, an event, or an event with a timeout from a
-  coroutine. While a process waits on a dynamic event, its static sensitivity is paused.
+  coroutine (`next_trigger` throws in a coroutine process). While a process waits on a dynamic event, its static sensitivity is paused.
 
 ```cpp
 DSPSIM_CTOR(Adder)
@@ -218,14 +224,126 @@ model is evaluated whenever one of its inputs changes. `open_trace()` asks the c
 call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
 the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
 
+## Public interface and access
+
+The core classes depend on each other, but only a small part of each class is for users. Each class
+has three tiers:
+
+- **User API (`public`)**: what a testbench or model author calls. `Context`: `create`/`obtain`/`reset`,
+  `elaborate`, `release`, `run`, `run_until`, `wait`, `register_process_func` / `register_method` /
+  `register_coro_task`, `log` / `set_log_level`, `own_model`, and the read-only queries (`time`, `models`,
+  `children`, ...). `ProcessBase`: `always`, `initialize`, `done`, `name`, `id`. `SensitivityEvent`:
+  `notify`, `has_happened`. Signals and ports: `read`, `write`, `bind`, `slice`, `change`/`pos`/`neg`.
+- **Extension API (`protected`)**: what a new process type, leaf awaitable, port kind or model overrides
+  or calls. `ProcessBase`: the constructor, `unschedule()`, `resume_point()`. `WaitBase`:
+  `schedule_event()` / `schedule_time()`. `Model`: `finalize()`, `dump_trace()`, `request_trace()`.
+  `PortBase`: `bind_base()`, `sync()`.
+- **Engine internals (`private`)**: the scheduling stacks, id counters, subscriber lists and the
+  registration functions. The engine classes reach each other's internals as `friend`s, and each friend
+  declaration says why it is there.
+
+Two named friends cover everything outside the core classes:
+
+- `detail::EngineAccess` ([detail/engine_access.h](../src/include/dspsim/detail/engine_access.h)) is for code
+  that extends the engine from outside `dspsim-core`. The Python bindings use it to register `PyTask`
+  processes and to step C++ tasks from Python coroutines.
+- `testing::EngineInspector` is declared by the core headers and defined in
+  [tests/cpp/engine_inspector.h](../tests/cpp/engine_inspector.h), so it is not shipped. It only has const
+  queries (process count, pending time events, wake count, subscriber presence). Tests assert on observable
+  behavior, and use the inspector only for invariants with no observable effect: cleanup and
+  "this process did not run".
+
+spdlog is an implementation detail of `dspsim-core`: the logger is a private member of `Context`, and
+user code logs with `Context::log(level, message)`. Inside the core, only `src/log.cpp` includes spdlog
+(see "Build configuration of the core library").
+
+In Python, a binding that is not part of the user API has a leading underscore (`Context._own_model`,
+`_get_global_context_factory`). The stubs are generated with `INCLUDE_PRIVATE`, so these are typed too.
+`dspsim.framework.__all__` lists the public names.
+
+### Headers and inline code
+The public headers are written to be cheap to include, since every model, test and binding parses them:
+
+- A header includes what its own declarations need and forward declares the rest. `signal.h` and `port.h`
+  do not include `context.h`; `context.h` forward declares the process and coroutine types.
+  `module.h` is the header for writing a module, so it includes `context.h`, `process.h` and `coro.h`
+  (`DSPSIM_METHOD`, `DSPSIM_CORO` and `wait()` need them). Include `port.h` for the ports.
+- Expensive standard headers stay in the `.cpp` files. `ContextFactory` keeps its mutex, condition variable
+  and owner thread in `ContextFactory::State`, and `SensitivityEvent` keeps its subscriber lists in
+  `SensitivityEvent::Subscribers`; both structs are defined in the `.cpp` file.
+- Definitions live in the `.cpp` files, except for templates over a user's type and the one-line accessors
+  on the run cycle, which stay inline in the headers. Each of those has a comment saying so.
+  - Model code calls these on every evaluation: `Signal::read()`, `Input::read()`, `Output::write()`, the
+    `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`, the
+    awaitables' `await_ready()`/`await_resume()` and `Task`. Model code is compiled outside of
+    `dspsim-core`, so the compiler cannot see their definitions unless they are in a header.
+  - The scheduler reads these on every evaluation: the `ProcessBase` flags and counters, `TimeEvent`'s
+    accessors and comparisons, `Context::current_process()`/`update_count()`, the `scheduled_flag()`
+    functions, `SignalBase::width()` and `BitPart::width()`. In the default build the compiler would inline
+    them from a `.cpp` file as well (see below), but not with `DSPSIM_UNITY_BUILD=OFF`.
+- `FlaggedStack` (the process and signal scheduling stacks) keeps its own end and capacity pointers
+  instead of calling `std::vector::push_back()`. `push_back()` takes its argument by reference, so when the
+  compiler does not inline the vector's growth path, the caller spills the pointer it pushes to the stack
+  on every call. In `Signal::write()` that was measurable (about 5% on the DFF chain benchmarks).
+
+### Build configuration of the core library
+How `dspsim-core` is compiled decides how fast the run cycle is. The settings are in
+[src/CMakeLists.txt](../src/CMakeLists.txt):
+
+- **Unity build, no link-time optimization.** All core sources are compiled as one translation unit
+  (`DSPSIM_UNITY_BUILD`, on by default), which lets the compiler inline across them. Link-time optimization
+  would do the same, but it stores compiler-specific intermediate code in the object files. The static
+  library is installed into the wheel and linked by every model extension that a user builds, so with LTO
+  that build needs the same compiler in the same version as the one that built the wheel (GCC rejects LTO
+  objects of another version; Clang and MSVC cannot read GCC's at all). A unity build produces ordinary
+  object code. File-local names (`static` functions, anonymous namespaces) in different core `.cpp` files
+  must therefore be unique. Configure with `-DDSPSIM_UNITY_BUILD=OFF` to compile each source file on its
+  own while working on the core: rebuilds after a one-file change are faster, the simulation is slower.
+  A C++ program that is built together with dspsim (the benchmarks, for example) can still use link-time
+  optimization for the whole program with the standard `-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON`, which
+  also inlines the core into the model code: `nested_dff` ran 13% faster that way. Do not build a wheel
+  like that.
+- **`-fno-semantic-interposition`** (GCC and Clang on ELF platforms, `PUBLIC`). On Linux, a function
+  exported from a shared library can be replaced at load time by a definition from another library
+  (interposition, the mechanism behind `LD_PRELOAD`). GCC keeps that possible: in position independent
+  code it does not inline an exported function into its callers, not even inside one source file. The
+  Python extensions are shared libraries and all of the core's functions are exported from them, so without
+  the flag the run cycle is compiled as if every function were in a different file. The flag tells GCC
+  that a replacement would behave like the original, which is the only kind dspsim could work with anyway.
+  It is `PUBLIC` because code that links the core has the same problem: a chain of verilated `Skid` models
+  ran 5.7% fewer instructions with the flag on the model code alone. macOS and Windows have no interposition,
+  and Clang never restricted inlining for it.
+- **`-fno-stack-protector`** (core only). Debian and Ubuntu compilers enable `-fstack-protector-strong`
+  by default, which adds a canary check to any function that passes the address of a local variable to a
+  function that was not inlined.
+- **Logging in one source file.** spdlog is used header-only (on purpose: linking the compiled spdlog
+  library caused problems when distributing the wheels), and a source file that includes it takes
+  7 to 10 seconds to compile. Only [src/log.cpp](../src/log.cpp) includes it. It is kept out of the unity
+  translation unit, so it is only recompiled when the logging code changes. The rest of the core logs
+  through `detail::Logger` and the `DSPSIM_LOG_*` macros in [src/log.h](../src/log.h), with messages built
+  by string concatenation: `std::format` costs about 2 seconds per source file that uses it.
+  Because spdlog's code is compiled into `log.cpp`, a program that links `dspsim-core` must not link the
+  compiled spdlog library as well: MSVC reports the functions as defined twice, and other linkers silently
+  pick one of two definitions that may have been compiled with different settings.
+- **No C++ modules.** `CMAKE_CXX_SCAN_FOR_MODULES` is off, here and in the generated model projects. From
+  C++20 on, CMake otherwise preprocesses every source file an extra time to scan it for module dependencies.
+
+Measure a change to any of this in two places. The C++ benchmarks are executables, and the Python
+extensions are shared libraries: the same source can compile differently for the two (that is how the
+interposition problem stayed hidden). Wall-clock times of the benchmarks vary by about 5% between runs and
+between builds that differ only in code layout, so compare instruction counts first
+(`perf stat -e instructions:u`), for a C++ benchmark and for a simulation driven from Python, and use
+wall-clock time with several repetitions to confirm.
+
 ## Delta-cycle execution model
 
-`Context::eval()` repeats the following round until both `_process_eval_stack` and
-`_signal_update_stack` are empty:
-1. **Evaluate.** Resume every process in `_process_eval_stack`. A process may call
-   `Signal::write()`, which only sets the pending value and schedules the signal for
-   update (deferred, not committed yet).
-2. **Update.** Call `update()` on every signal in `_signal_update_stack`. This is where
+`Context::eval()` repeats the following round until both `process_eval_stack_` and
+`signal_update_stack_` are empty:
+1. **Evaluate.** Pop and resume processes until `process_eval_stack_` is empty, last
+   scheduled first. A process may call `Signal::write()`, which only sets the pending
+   value and schedules the signal for update (deferred, not committed yet). A process
+   that registers another process pushes it onto the stack, so it runs in this round.
+2. **Update.** Call `update()` on every signal in `signal_update_stack_`. This is where
    values commit and the signals' events are notified. Then recompute the derived signals
    (slices and packs) of the signals that changed.
 3. **Trigger.** Call `trigger()` on every notified event, which schedules the subscribed
@@ -244,8 +362,8 @@ After the last round, models that requested tracing dump their traces.
 `eval()` alone only advances *delta cycles*. It never moves simulated time forward.
 `run(time_inc)` is what drives time:
 
-1. On the first call, it commits pending signal writes and schedules every process whose
-   `initialize()` flag is set (the default).
+1. On the first call, it commits the initial signal values. The processes were already
+   scheduled when they were registered, unless `initialize(false)` was called on them.
 2. It runs a delta cycle (`eval()`), settling anything already pending at the current
    time.
 3. While `time_inc` is not used up, it jumps straight to the timestamp of the *nearest*
@@ -254,16 +372,16 @@ After the last round, models that requested tracing dump their traces.
    remainder.
 4. It pops every event scheduled for that exact timestamp (there can be more than one,
    e.g. several clocks with the same period) and pushes each event's process onto
-   `_process_eval_stack`.
+   `process_eval_stack_`.
 5. It runs another delta cycle so those processes, and anything they trigger
    transitively, settle before time advances again. The exception is the step that uses
    up `time_inc`: its processes stay queued and are evaluated by the delta cycle at the
-   start of the next `run()` (or `eval()`).
+   start of the next `run()`.
 
 ### The time-event queue
-`_time_event_stack` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
+`time_event_stack_` is a `PriorityQueue<TimeEvent>` ordered so that `top()` always
 returns the soonest-scheduled event, independent of push order. Events are added by
-`Module::next_trigger(time_delta)` / `Context::schedule_time_delta_event()`, by a
+`Module::next_trigger(time_delta)` (method processes only), by a
 coroutine's `co_await wait(time_delta)`, and by `Clock`.
 
 A time event from a coroutine wait is tagged with the process's `wake_count`. If
@@ -277,7 +395,7 @@ wait), the time event is stale and is dropped when it comes due.
 void Clock::tick()
 {
     this->write(!this->read());
-    context()->_time_event_stack.emplace(context()->time() + _half_period, _process);
+    context()->time_event_stack_.emplace(context()->time() + half_period_, process_);
 }
 ```
 
@@ -293,10 +411,14 @@ it manually.
 
 - [`src/_framework.cpp`](../src/_framework.cpp) uses
   [nanobind](https://github.com/wjakob/nanobind) to define the `dspsim._framework`
-  extension module by calling the `bindings::bind_*` helpers in
-  `src/include/bindings/*.h`. Templates are instantiated per type with suffixed names:
-  `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`, `Input*`/`Output*`,
-  `Dff*`, and so on.
+  extension module. The bindings are compiled as several translation units so that they build in
+  parallel: `_framework.cpp` calls one `bindings::register_*` function per group of classes
+  (declared in `src/include/bindings/framework.h`, defined in `src/bindings/<group>.cpp`: `engine`,
+  `signals`, `signal_arrays`, `ports`, `input_arrays`, `output_arrays`, `modules`), and each of those
+  calls the `bindings::bind_*` helpers in `src/include/bindings/*.h`. Templates are instantiated per
+  type with suffixed names: `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`,
+  `Input*`/`Output*`, `Dff*`, and so on. The groups are registered in dependency order: a base class
+  before the classes derived from it.
 - [`src/dspsim/framework.py`](../src/dspsim/framework.py) is the public Python API. It
   re-exports `_framework`, subclasses `Context` and `Module`. A Python `Module` subclass takes a `name` argument in `__init__`;
   `Module.__init_subclass__` wraps `__init__` to open and close the `ModuleName` scope,

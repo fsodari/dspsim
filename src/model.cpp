@@ -1,52 +1,74 @@
 #include <dspsim/model.h>
 #include <dspsim/context.h>
 #include <dspsim/module.h>
-#include <format>
+
+#include <string>
 namespace dspsim
 {
-    void _own_model_helper(Context *context, std::shared_ptr<Model> model)
+    void detail::own_model(Context *context, std::shared_ptr<Model> model)
     {
-        context->_own_model(model);
+        context->own_model(model);
     }
 
     Model::Model(const std::string &name, const std::string &kind)
-        : _context(Context::obtain().get()),
-          _id(_context->next_model_id()),
-          _name(name),
-          _parent(nullptr),
-          _kind(kind)
+        : context_(Context::obtain().get()),
+          id_(context_->next_model_id()),
+          name_(name),
+          parent_(nullptr),
+          kind_(kind)
     {
         // Set a default name if none is provided.
-        if (_name.empty())
+        if (name_.empty())
         {
-            _name = _kind + std::to_string(_id);
+            name_ = kind_ + std::to_string(id_);
         }
 
         // Register this model with the context.
-        _parent = _context->_active_module();
-        _context->_add_model(this);
+        parent_ = context_->active_module();
+        context_->add_model(this);
+    }
+
+    uint32_t Model::id() const
+    {
+        return id_;
+    }
+
+    const std::string &Model::name() const
+    {
+        return name_;
+    }
+
+    const std::string &Model::kind() const
+    {
+        return kind_;
+    }
+
+    const std::string Model::hier_name() const
+    {
+        return hier_name_;
+    }
+    Model *Model::parent() const
+    {
+        return parent_;
+    }
+
+    const std::string Model::repr() const
+    {
+        return "Model(id=" + std::to_string(id()) + ", kind=" + kind() + ", name=" + name() +
+               ", parent=" + (parent() ? parent()->name() : std::string("root")) +
+               ", context=" + std::to_string(context()->id()) + ")";
     }
 
     void Model::finalize()
     {
     }
 
-    const std::string &Model::kind() const
+    void Model::dump_trace()
     {
-        return _kind;
     }
 
-    const std::string Model::hier_name() const
+    void Model::request_trace()
     {
-        return _hier_name;
-    }
-    Model *Model::parent() const
-    {
-        return _parent;
-    }
-
-    const std::string Model::repr() const
-    {
-        return std::format("Model(id={}, kind={}, name={}, parent={}, context={})", id(), kind(), name(), parent() ? parent()->name() : "root", context()->id());
+        context_->trace_model(this);
     }
 }

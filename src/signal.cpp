@@ -1,15 +1,12 @@
 #include <dspsim/signal.h>
 #include <dspsim/context.h>
-#include <dspsim/port.h>
-#include <dspsim/module.h>
 #include <dspsim/event.h>
 #include <dspsim/bits.h>
 #include <dspsim/derived_signal.h>
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 namespace dspsim
@@ -23,7 +20,7 @@ namespace dspsim
           posedge_event_(context()),
           negedge_event_(context())
     {
-        context()->_add_signal(this);
+        context()->add_signal(this);
     }
 
     BitSel SignalBase::slice(int hi, int lo)
@@ -31,20 +28,26 @@ namespace dspsim
         return BitSel(*this, hi, lo);
     }
 
-    void SignalBase::add_dependent(DerivedSignalBase *dependent)
+    BitSel SignalBase::operator[](BitRange range)
     {
-        if (std::find(dependents_.begin(), dependents_.end(), dependent) == dependents_.end())
-        {
-            dependents_.push_back(dependent);
-            has_dependents_ = true;
-        }
+        return slice(range.hi, range.lo);
+    }
+
+    BitSel SignalBase::operator[](int bit)
+    {
+        return slice(bit, bit);
+    }
+
+    const BitSel *SignalBase::source_selection() const
+    {
+        return source_selection_;
     }
 
     void SignalBase::schedule_dependents()
     {
         for (auto *dependent : dependents_)
         {
-            context()->_derived_update_stack.push_back(dependent);
+            context()->derived_update_stack_.push_back(dependent);
         }
     }
 
@@ -53,6 +56,15 @@ namespace dspsim
         for (auto *dependent : dependents_)
         {
             dependent->refresh();
+        }
+    }
+
+    void SignalBase::add_dependent(DerivedSignalBase *dependent)
+    {
+        if (std::find(dependents_.begin(), dependents_.end(), dependent) == dependents_.end())
+        {
+            dependents_.push_back(dependent);
+            has_dependents_ = true;
         }
     }
 
@@ -78,6 +90,12 @@ namespace dspsim
     }
 
     template <typename T>
+    const std::string Signal<T>::repr() const
+    {
+        return "";
+    }
+
+    template <typename T>
     void Signal<T>::write(const T &value)
     {
         if constexpr (std::is_integral_v<T>)
@@ -95,7 +113,7 @@ namespace dspsim
         if (d_ != q_) [[likely]]
         {
             // Schedule for update
-            context()->_signal_update_stack.push_back(this);
+            context()->signal_update_stack_.push_back(this);
         }
         // Erasing is probably more expensive than just ignoring a change during the update cycle.
         // else [[unlikely]]
@@ -103,13 +121,31 @@ namespace dspsim
         //     // If the signal is written more than once, and reset so that it no longer needs to be updated, remove it from the update stack.
         //     // This is an expensive operation. It would be ideal to avoid this, but some non-blocking assignment patterns
         //     // will write the same signal multiple times within the same update cycle.
-        //     auto it = context()->_signal_update_stack.find(this);
+        //     auto it = context()->signal_update_stack_.find(this);
 
-        //     if (it != context()->_signal_update_stack.end())
+        //     if (it != context()->signal_update_stack_.end())
         //     {
-        //         context()->_signal_update_stack.erase(it);
+        //         context()->signal_update_stack_.erase(it);
         //     }
         // }
+    }
+
+    template <typename T>
+    bool Signal<T>::is_integral() const
+    {
+        return std::is_integral_v<T>;
+    }
+
+    template <typename T>
+    std::shared_ptr<Signal<T>> Signal<T>::create(const std::string &name, int width, T init)
+    {
+        return Model::create<Signal<T>>(name, width, init);
+    }
+
+    template <typename T>
+    const T &Signal<T>::read_d_() const
+    {
+        return d_;
     }
 
     template <typename T>

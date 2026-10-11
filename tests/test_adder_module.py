@@ -66,7 +66,7 @@ def test_adder_module():
         b.d = 5
         d.d = 7
         e.d = 9
-        ctx.eval()
+        ctx.run(0)
         assert c.q == 8
         assert f.q == 16
 
@@ -139,7 +139,7 @@ def test_two_adder():
         b.d = 2
         d.d = 3
         e.d = 4
-        ctx.eval()
+        ctx.run(0)
         assert c.q == 3
         assert f.q == 7
 

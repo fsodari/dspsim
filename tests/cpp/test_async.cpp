@@ -11,8 +11,10 @@
 
 #include <stdexcept>
 #include <vector>
+#include "engine_inspector.h"
 
 using namespace dspsim;
+using dspsim::testing::EngineInspector;
 
 namespace
 {
@@ -156,7 +158,7 @@ TEST_CASE("run_until drives a task to completion and returns its value", "[async
     std::vector<int32_t> data{1, -2, 3, -4, 5};
     b.loop.rx.ready(1);
     b.loop.tx.push_range(data);
-    const size_t n_processes = b.ctx->_processes.size();
+    const size_t n_processes = EngineInspector::process_count(*b.ctx);
 
     auto rx = b.ctx->run_until(b.loop.rx.receive(data.size(), 1000));
     REQUIRE_THAT(rx, Catch::Matchers::RangeEquals(data));
@@ -164,7 +166,7 @@ TEST_CASE("run_until drives a task to completion and returns its value", "[async
     REQUIRE(b.loop.rx.empty());
 
     // The one-shot process was removed, and the simulation keeps working.
-    REQUIRE(b.ctx->_processes.size() == n_processes);
+    REQUIRE(EngineInspector::process_count(*b.ctx) == n_processes);
     b.loop.tx.push_range(std::vector<int32_t>{7, 8});
     REQUIRE_THAT(b.ctx->run_until(b.loop.rx.receive(2, 1000)), Catch::Matchers::RangeEquals(std::vector<int32_t>{7, 8}));
 }
@@ -179,18 +181,18 @@ TEST_CASE("receive returns what arrived when its timeout elapses", "[async][axis
     REQUIRE_THAT(rx, Catch::Matchers::RangeEquals(std::vector<int32_t>{1, 2, 3}));
     REQUIRE(b.ctx->time() == 200);
     // The receive's event subscription is gone.
-    REQUIRE(b.loop.rx.received().dynamic_subscribers().empty());
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(b.loop.rx.received()));
 }
 
 TEST_CASE("run_until throws TimeoutError and leaves the simulation usable", "[async][run_until]")
 {
     AxisBench b;
     b.loop.rx.ready(1);
-    const size_t n_processes = b.ctx->_processes.size();
+    const size_t n_processes = EngineInspector::process_count(*b.ctx);
     REQUIRE_THROWS_AS(b.ctx->run_until(b.loop.rx.receive(1), 100), TimeoutError);
     REQUIRE(b.ctx->time() == 100);
-    REQUIRE(b.ctx->_processes.size() == n_processes);
-    REQUIRE(b.loop.rx.received().dynamic_subscribers().empty());
+    REQUIRE(EngineInspector::process_count(*b.ctx) == n_processes);
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(b.loop.rx.received()));
 
     b.loop.tx.push_range(std::vector<int32_t>{42});
     REQUIRE_THAT(b.ctx->run_until(b.loop.rx.receive(1, 100)), Catch::Matchers::RangeEquals(std::vector<int32_t>{42}));
@@ -280,7 +282,7 @@ TEST_CASE("a wait with a timeout resumes on the timeout and unsubscribes from th
     ctx->run(60);
     REQUIRE(m.results == std::vector<WaitResult>{WaitResult::Timeout});
     REQUIRE(m.wakeups == 1);
-    REQUIRE(e.change().dynamic_subscribers().empty());
+    REQUIRE_FALSE(EngineInspector::has_dynamic_subscribers(e.change()));
 
     // e no longer wakes the coroutine.
     e.write(1);

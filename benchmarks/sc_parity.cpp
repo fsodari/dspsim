@@ -15,8 +15,6 @@ int sc_main(int argc, char *argv[])
     // Optional 3rd arg to isolate one engine for profiling: "dspsim", "systemc", or "both" (default).
     std::string which = argc > 3 ? argv[3] : "both";
 
-    spdlog::set_level(spdlog::level::err);
-
     constexpr size_t depth = 1; // Example depth for the nested module
 
     if (which == "dspsim" || which == "both")

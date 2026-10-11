@@ -29,35 +29,35 @@ namespace dspsim
         // explicit larger capacity since those can hold every process/signal in the design.
         explicit UniqueStack(size_t initial_capacity = 8)
         {
-            _stack.reserve(initial_capacity);
-            _in_stack.reserve(initial_capacity);
+            stack_.reserve(initial_capacity);
+            in_stack_.reserve(initial_capacity);
         }
         const T &back() const
         {
-            return _stack.back();
+            return stack_.back();
         }
 
         bool empty() const
         {
-            return _stack.empty();
+            return stack_.empty();
         }
 
         size_t size() const
         {
-            return _stack.size();
+            return stack_.size();
         }
 
         void push_back(const T &element)
         {
             uint32_t idx = element->id();
-            if (idx >= _in_stack.size())
+            if (idx >= in_stack_.size())
             {
-                _in_stack.resize(idx + 1, 0);
+                in_stack_.resize(idx + 1, 0);
             }
-            if (!_in_stack[idx])
+            if (!in_stack_[idx])
             {
-                _in_stack[idx] = 1;
-                _stack.push_back(element);
+                in_stack_[idx] = 1;
+                stack_.push_back(element);
             }
         }
 
@@ -77,62 +77,62 @@ namespace dspsim
 
         void pop_back()
         {
-            T element = _stack.back();
-            _stack.pop_back();
-            _in_stack[element->id()] = 0;
+            T element = stack_.back();
+            stack_.pop_back();
+            in_stack_[element->id()] = 0;
         }
 
         void clear()
         {
-            _stack.clear();
-            _in_stack.clear();
+            stack_.clear();
+            in_stack_.clear();
         }
 
         // Allow iterating the stack.
-        auto begin() { return _stack.begin(); }
-        auto end() { return _stack.end(); }
-        auto begin() const { return _stack.begin(); }
-        auto end() const { return _stack.end(); }
+        auto begin() { return stack_.begin(); }
+        auto end() { return stack_.end(); }
+        auto begin() const { return stack_.begin(); }
+        auto end() const { return stack_.end(); }
 
         // Find
         iterator find(const T &element)
         {
             uint32_t idx = element->id();
-            if (idx < _in_stack.size() && _in_stack[idx])
+            if (idx < in_stack_.size() && in_stack_[idx])
             {
-                return std::find(_stack.begin(), _stack.end(), element);
+                return std::find(stack_.begin(), stack_.end(), element);
             }
-            return _stack.end();
+            return stack_.end();
         }
 
         // Erasing operations.
         iterator erase(iterator it)
         {
-            if (it != _stack.end())
+            if (it != stack_.end())
             {
-                _in_stack[(*it)->id()] = 0;
-                return _stack.erase(it);
+                in_stack_[(*it)->id()] = 0;
+                return stack_.erase(it);
             }
-            return _stack.end();
+            return stack_.end();
         }
         iterator erase(const T &element)
         {
             auto it = find(element);
-            if (it != _stack.end())
+            if (it != stack_.end())
             {
-                _in_stack[(*it)->id()] = 0;
-                return _stack.erase(it);
+                in_stack_[(*it)->id()] = 0;
+                return stack_.erase(it);
             }
-            return _stack.end();
+            return stack_.end();
         }
 
-        std::vector<T> &stack() { return _stack; }
-        const std::vector<T> &stack() const { return _stack; }
+        std::vector<T> &stack() { return stack_; }
+        const std::vector<T> &stack() const { return stack_; }
 
     private:
-        std::vector<T> _stack;
+        std::vector<T> stack_;
         // Indexed by element->id(); uint8_t avoids std::vector<bool>'s bit-packing overhead.
-        std::vector<uint8_t> _in_stack;
+        std::vector<uint8_t> in_stack_;
     };
 
 } // namespace dspsim

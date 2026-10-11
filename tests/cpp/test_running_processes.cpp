@@ -1,6 +1,6 @@
+#include <format>
 #include <dspsim/dspsim.h>
 #include <dspsim/modules/dff.h>
-#include <spdlog/spdlog.h>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -9,7 +9,7 @@ using namespace dspsim;
 TEST_CASE("Test Running Processes", "[process]")
 {
     auto ctx = Context::create();
-    ctx->logger->set_level(spdlog::level::warn);
+    ctx->set_log_level("warn");
 
     Clock clk{"clk", 10};
     Signal<uint8_t> d_top{"d_top"};
@@ -30,11 +30,11 @@ TEST_CASE("Test Running Processes", "[process]")
         // d signal will have changed before the clock posedge, but q shouldn't
         REQUIRE(q_top.read() != d_top.read());
 
-        ctx->logger->debug("time={}, d_top: {}, q_top: {}", ctx->time(), d_top.read(), q_top.read());
+        ctx->log("debug", std::format("time={}, d_top: {}, q_top: {}", ctx->time(), d_top.read(), q_top.read()));
         ctx->run(5);
 
         // q should have changed at the clock edge.
         REQUIRE(q_top.read() == d_top.read());
-        ctx->logger->debug("time={}, d_top: {}, q_top: {}", ctx->time(), d_top.read(), q_top.read());
+        ctx->log("debug", std::format("time={}, d_top: {}, q_top: {}", ctx->time(), d_top.read(), q_top.read()));
     }
 }

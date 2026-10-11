@@ -7,6 +7,8 @@
 
 namespace dspsim
 {
+    DerivedSignalBase::~DerivedSignalBase() = default;
+
     template <typename T>
     DerivedSignal<T>::DerivedSignal(const std::string &name, const BitSel &selection)
         : Signal<T>(name, selection.width()), selection_(selection)
@@ -22,6 +24,18 @@ namespace dspsim
         }
         this->source_selection_ = &selection_;
         refresh();
+    }
+
+    template <typename T>
+    std::shared_ptr<DerivedSignal<T>> DerivedSignal<T>::create(const std::string &name, const BitSel &selection)
+    {
+        return Model::create<DerivedSignal<T>>(name, selection);
+    }
+
+    template <typename T>
+    const BitSel &DerivedSignal<T>::selection() const
+    {
+        return selection_;
     }
 
     template <typename T>

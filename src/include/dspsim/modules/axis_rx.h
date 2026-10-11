@@ -29,7 +29,7 @@ namespace dspsim
         Output<uint8_t> s_axis_tready{"s_axis_tready"};
 
         QueueType fifo;
-        uint8_t _ready = 0;
+        uint8_t ready_ = 0;
 
         DSPSIM_CTOR(AxisRx)
         {
@@ -41,7 +41,8 @@ namespace dspsim
         {
             while (true)
             {
-                co_await wait(clk.pos());
+                // co_await wait(clk.pos());
+                co_await wait();
 
                 if (s_axis_tvalid.read() && s_axis_tready.read())
                 {
@@ -50,7 +51,7 @@ namespace dspsim
                 }
 
                 // No limit to buffer size or throughput, so set ready when user requests.
-                s_axis_tready.write(_ready);
+                s_axis_tready.write(ready_);
             }
         }
 
@@ -98,11 +99,11 @@ namespace dspsim
 
         void ready(uint8_t r)
         {
-            _ready = r;
+            ready_ = r;
         }
         uint8_t ready() const
         {
-            return _ready;
+            return ready_;
         }
         size_t size() const
         {

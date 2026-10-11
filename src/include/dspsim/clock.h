@@ -1,6 +1,10 @@
 #pragma once
 #include <dspsim/signal.h>
-#include <dspsim/process.h>
+#include <dspsim/coro.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
 
 namespace dspsim
 {
@@ -8,21 +12,19 @@ namespace dspsim
     {
     public:
         Clock(const std::string &name, uint64_t period);
-        static auto create(const std::string &name, uint64_t period)
-        {
-            return Model::create<Clock>(name, period);
-        }
+        static std::shared_ptr<Clock> create(const std::string &name, uint64_t period);
 
         uint64_t period() const;
 
     private:
         // Toggles the clock signal and schedules the next time event.
-        void tick();
+        Task<> tick_coro();
+        // void tick_method();
 
     private:
-        uint64_t _period;
-        uint64_t _half_period;
-        uint64_t _remainder;
-        ProcessBase *_process;
+        uint64_t period_;
+        uint64_t half_period_;
+        uint64_t remainder_;
+        // uint64_t next_delta_time_;
     };
 } // namespace dspsim

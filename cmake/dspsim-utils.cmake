@@ -16,14 +16,16 @@ function(dspsim_generate pyproject_path outdir)
     endif()
 endfunction()
 
-# Add nanobind module usind dspsim settings
-function(dspsim_add_nanobind_module name source_file)
+# Add a nanobind module using the dspsim settings. Takes the module name followed by its source files.
+function(dspsim_add_nanobind_module name)
     nanobind_add_module(${name}
         # FREE_THREADED
         BACKEND_MODULE nanobind_backend
         NB_DOMAIN dspsim
-        ${source_file})
+        ${ARGN})
     target_link_libraries(${name} PRIVATE dspsim::dspsim-core)
+    # dspsim does not use C++ modules: skip CMake's per-file module dependency scan (on by default from C++20).
+    set_target_properties(${name} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 endfunction()
 
 # Check for the lz4 development files that Verilator's FST tracing needs, and add their
@@ -71,6 +73,10 @@ function(dspsim_add_stub name output_dir)
         PYTHON_PATH ${PYTHON_PATH}
         MARKER_FILE ${marker_file}
         INSTALL_TIME
+        # Private (leading underscore) bindings are typed too.
+        INCLUDE_PRIVATE
+        # Optional nanobind stubgen pattern files, given as extra arguments.
+        PATTERN_FILE ${ARGN}
     )
 endfunction()
 

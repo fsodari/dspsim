@@ -1,11 +1,18 @@
 #include <dspsim/event.h>
 #include <dspsim/context.h>
-#include <dspsim/model.h>
-#include <dspsim/module.h>
-#include <spdlog/spdlog.h>
+#include <dspsim/process.h>
+#include <dspsim/utils/unique_stack.h>
 
 namespace dspsim
 {
+    struct SensitivityEvent::Subscribers
+    {
+        // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
+        UniqueStack<ProcessBase *> static_;
+        // Processes with dynamic sensitivity. This list is cleared when the event occurs, each process is removed
+        // from its other dynamic events, and it returns to having static sensitivity.
+        UniqueStack<ProcessBase *> dynamic_;
+    };
 
     SensitivityEvent::SensitivityEvent(Context *context)
         : context_(context),
@@ -13,6 +20,8 @@ namespace dspsim
           subscribers_(nullptr)
     {
     }
+
+    SensitivityEvent::~SensitivityEvent() = default;
 
     SensitivityEvent::Subscribers &SensitivityEvent::subscribers()
     {
@@ -32,7 +41,7 @@ namespace dspsim
         }
         if (!subscribers_->static_.empty() || !subscribers_->dynamic_.empty())
         {
-            context_->_sensitivity_event_stack.push_back(this);
+            context_->sensitivity_event_stack_.push_back(this);
             change_time_ = context_->update_count();
         }
     }
@@ -46,7 +55,7 @@ namespace dspsim
         {
             if (!process->static_sensitivity_disabled())
             {
-                context_->_process_eval_stack.push_back(process);
+                context_->process_eval_stack_.push_back(process);
             }
         }
         // Schedule dynamic processes.
@@ -55,7 +64,7 @@ namespace dspsim
         {
             auto process = subs.dynamic_.back();
             subs.dynamic_.pop_back();
-            context_->_process_eval_stack.push_back(process);
+            context_->process_eval_stack_.push_back(process);
             // Unsubscribe from the process's other dynamic events and restore its static sensitivity.
             process->dynamic_event_triggered(*this);
         }
@@ -69,6 +78,14 @@ namespace dspsim
     void SensitivityEvent::subscribe_static(ProcessBase *process)
     {
         subscribers().static_.push_back(process);
+    }
+
+    void SensitivityEvent::unsubscribe_static(ProcessBase *process)
+    {
+        if (subscribers_)
+        {
+            subscribers_->static_.erase(process);
+        }
     }
 
     void SensitivityEvent::subscribe_dynamic(ProcessBase *process)
@@ -86,9 +103,13 @@ namespace dspsim
 
     void SensitivityEvent::merge_static_subscribers(const SensitivityEvent &other)
     {
-        if (other.subscribers_ && !other.subscribers_->static_.empty())
+        if (other.subscribers_)
         {
-            subscribers().static_.push_range(other.subscribers_->static_);
+            // Subscribe through the process so that it can unsubscribe from this event when it completes.
+            for (auto *process : other.subscribers_->static_)
+            {
+                process->schedule_static_event(*this);
+            }
         }
     }
 

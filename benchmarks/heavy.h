@@ -16,8 +16,6 @@ namespace benchmarks
 
         DSPSIM_CTOR(HeavyDff)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always(clk.pos());
             DSPSIM_CORO(eval)
                 ->always(clk.pos());
         }
@@ -44,8 +42,6 @@ namespace benchmarks
 
         DSPSIM_CTOR(HeavyWire)
         {
-            // DSPSIM_METHOD(eval)
-            //     ->always("*");
             DSPSIM_CORO(eval)
                 ->always("*");
         }

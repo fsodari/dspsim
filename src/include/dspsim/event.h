@@ -1,5 +1,4 @@
 #pragma once
-#include <dspsim/utils/unique_stack.h>
 #include <cstdint>
 #include <memory>
 
@@ -14,6 +13,12 @@ namespace dspsim
     };
     class Context;
     class ProcessBase;
+    class PortBase;
+
+    namespace testing
+    {
+        struct EngineInspector;
+    }
 
     /*
     Holds lists of processes that are sensitive to this event.
@@ -25,52 +30,50 @@ namespace dspsim
     */
     class SensitivityEvent
     {
+        // The scheduler triggers notified events, and processes and ports manage their subscriptions.
+        friend class Context;
+        friend class ProcessBase;
+        friend class PortBase;
+        friend struct testing::EngineInspector;
 
     public:
-        struct Subscribers
-        {
-            // Processes with static sensitivity are notified whenever this event occurs unless they are waiting on a dynamic event.
-            UniqueStack<ProcessBase *> static_;
-            // Processes with dynamic sensitivity. This list is cleared when the event occurs, each process is removed
-            // from its other dynamic events, and it returns to having static sensitivity.
-            UniqueStack<ProcessBase *> dynamic_;
-        };
-
         /*
             Events must be linked to a context. Dynamic events will not be able to automatically obtain the context.
         */
         SensitivityEvent(Context *context);
         SensitivityEvent(const SensitivityEvent &) = delete;
         SensitivityEvent &operator=(const SensitivityEvent &) = delete;
+        ~SensitivityEvent();
 
-        // Notify all subscribed processes that this event has occurred.
-        // called after the signal update phase.
+        // Notify all subscribed processes that this event has occurred: they are evaluated in the next delta cycle.
+        // Signals call this in the update phase. Call it from a process to raise a custom event.
         void notify();
-
-        void trigger();
 
         // Check if the event has occurred in the last evaluation cycle.
         bool has_happened() const;
         operator bool() const { return has_happened(); }
 
+    private:
+        // The static and dynamic subscriber lists. Defined in event.cpp.
+        struct Subscribers;
+
+        // Schedule the subscribed processes. Called by the scheduler for each notified event.
+        void trigger();
+
         // Subscribe a process with static sensitivity: it is scheduled whenever the event occurs.
         void subscribe_static(ProcessBase *process);
+        void unsubscribe_static(ProcessBase *process);
         // Subscribe a process with dynamic sensitivity: scheduled once, on the next occurrence.
         void subscribe_dynamic(ProcessBase *process);
         void unsubscribe_dynamic(ProcessBase *process);
         // Add the static subscribers of another event (ports hand theirs to the bound signal at elaboration).
+        // Each process records this event as one of its static events.
         void merge_static_subscribers(const SensitivityEvent &other);
 
-        // True if any process ever subscribed (the lists exist).
-        bool has_subscribers() const { return subscribers_ != nullptr; }
         bool has_static_subscribers() const;
         bool has_dynamic_subscribers() const;
 
-        // Direct access to the lists. Allocates them, so prefer the queries above on the hot path.
-        UniqueStack<ProcessBase *> &static_subscribers() { return subscribers().static_; }
-        UniqueStack<ProcessBase *> &dynamic_subscribers() { return subscribers().dynamic_; }
-
-    private:
+        // The subscriber lists, allocated on first use.
         Subscribers &subscribers();
 
     private:
@@ -94,6 +97,7 @@ namespace dspsim
             has been resumed since (see ProcessBase::schedule_time_wait).
         */
         TimeEvent(uint64_t time_update, ProcessBase *process, uint64_t wake_count = kAnyWake);
+        // The accessors and comparisons are inline: the scheduler's time queue uses them for every time step.
         uint64_t time_update() const { return time_update_; }
         ProcessBase *process() const { return process_; }
         uint64_t wake_count() const { return wake_count_; }

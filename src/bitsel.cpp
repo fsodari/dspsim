@@ -56,6 +56,16 @@ namespace dspsim
         return result;
     }
 
+    int BitSel::width() const
+    {
+        return width_;
+    }
+
+    const std::vector<BitPart> &BitSel::parts() const
+    {
+        return parts_;
+    }
+
     uint64_t BitSel::read() const
     {
         uint64_t value = 0;
@@ -104,6 +114,16 @@ namespace dspsim
         return result;
     }
 
+    BitSel BitSel::operator[](BitRange range) const
+    {
+        return slice(range.hi, range.lo);
+    }
+
+    BitSel BitSel::operator[](int bit) const
+    {
+        return slice(bit, bit);
+    }
+
     void BitSel::append(const BitPart &part)
     {
         if (width_ + part.width() > max_width)
@@ -119,5 +139,10 @@ namespace dspsim
             parts_.push_back(part);
         }
         width_ += part.width();
+    }
+
+    void detail::pack_append(std::vector<BitSel> &sels, const BitSel &sel)
+    {
+        sels.push_back(sel);
     }
 } // namespace dspsim

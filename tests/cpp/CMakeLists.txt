@@ -22,7 +22,8 @@ add_executable(tests
     test_bitsel.cpp
     test_derived_signal.cpp
     test_signal_packing.cpp
-    test_async.cpp)
+    test_async.cpp
+    test_late_registration.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax
@@ -44,39 +45,33 @@ else()
     set(TRACE_TYPE TRACE_FST) 
 endif()
 
-add_library(Skid Skid.cpp)
-target_link_libraries(Skid PUBLIC dspsim::dspsim-core)
-target_link_libraries(tests PRIVATE Skid)
-
-add_library(Skid2 Skid2.cpp)
-target_link_libraries(Skid2 PUBLIC dspsim::dspsim-core)
-target_link_libraries(tests PRIVATE Skid2)
-
-add_library(NDArrayModel NDArrayModel.cpp)
-target_link_libraries(NDArrayModel PUBLIC dspsim::dspsim-core)
-target_link_libraries(tests PRIVATE NDArrayModel)
+# The verilated test models are built as one library. verilate() adds Verilator's runtime sources
+# (verilated.cpp and the tracing and threading support) to the target it is given, so calling it several
+# times on one target compiles the runtime once, where a target per model compiles it once per model.
+# All models in a target must use the same trace format: it sets VM_TRACE_VCD / VM_TRACE_FST for the target.
+add_library(test_models Skid.cpp Skid2.cpp NDArrayModel.cpp sc_time_stamp.cpp)
+target_link_libraries(test_models PUBLIC dspsim::dspsim-core)
+target_link_libraries(tests PRIVATE test_models)
 
 if (TRACE_TYPE STREQUAL "TRACE_FST")
-    foreach(model Skid Skid2 NDArrayModel)
-        dspsim_target_fst_deps(${model})
-    endforeach()
+    dspsim_target_fst_deps(test_models)
 endif()
 
 # Verilating. Skip verilating if tests were excluded
 if(${verilator_FOUND})
     # Verilate test modules
-    verilate(Skid
+    verilate(test_models
         SOURCES ${DSPSIM_HDL_DIR}/Skid.sv
         INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE} 
         VERILATOR_ARGS --quiet)
-    verilate(Skid2
+    verilate(test_models
         SOURCES ${DSPSIM_HDL_DIR}/Skid.sv
         INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE}
         PREFIX VSkid2
         VERILATOR_ARGS --quiet)   
-    verilate(NDArrayModel
+    verilate(test_models
         SOURCES ${DSPSIM_HDL_DIR}/NDArrayModel.sv
         INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE}

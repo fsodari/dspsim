@@ -2,7 +2,10 @@
 #include <dspsim/context.h>
 #include <dspsim/module.h>
 
-#include <spdlog/spdlog.h>
+#include "log.h"
+
+#include <cstddef>
+
 namespace dspsim
 {
     /*
@@ -19,10 +22,10 @@ namespace dspsim
         Scope(Context *context, const std::string &name)
             : context(context),
               name(name),
-              module_depth(context->_active_module_stack.size())
+              module_depth(context->active_module_stack_.size())
         {
-            context->logger->debug("Constructing ModuleName: {}", name);
-            context->_active_module_name_stack.push_back(name);
+            DSPSIM_LOG_AT(context->logger_, Debug, "Constructing ModuleName: " + name);
+            context->active_module_name_stack_.push_back(name);
         }
 
         ~Scope()
@@ -40,26 +43,31 @@ namespace dspsim
 
             // Only pop a module that was constructed in this scope. If the Module constructor never ran
             // (for example it threw), the active module belongs to a parent and must stay.
-            if (context->_active_module_stack.size() > module_depth)
+            if (context->active_module_stack_.size() > module_depth)
             {
-                Module *m = context->_active_module();
-                context->logger->debug("Ending construction of {}", m->hier_name());
-                m->_end_construction();
+                Module *m = context->active_module();
+                DSPSIM_LOG_AT(context->logger_, Debug, "Ending construction of " + m->hier_name());
+                m->end_construction();
             }
             else
             {
-                context->logger->error("ModuleName {} ended without constructing a module", name);
+                DSPSIM_LOG_ERROR(context->logger_, "ModuleName " + name + " ended without constructing a module");
             }
             // Context::clear() may have emptied the stack while this scope was open.
-            if (!context->_active_module_name_stack.empty())
+            if (!context->active_module_name_stack_.empty())
             {
-                context->_active_module_name_stack.pop_back();
+                context->active_module_name_stack_.pop_back();
             }
         }
     };
 
     ModuleName::ModuleName(const std::string &name)
         : scope_(std::make_shared<Scope>(Context::obtain().get(), name))
+    {
+    }
+
+    ModuleName::ModuleName(const char *name)
+        : ModuleName(std::string(name))
     {
     }
 
@@ -71,5 +79,15 @@ namespace dspsim
     const std::string &ModuleName::name() const
     {
         return scope_->name;
+    }
+
+    ModuleName::operator const char *() const
+    {
+        return name().c_str();
+    }
+
+    ModuleName::operator const std::string &() const
+    {
+        return name();
     }
 }

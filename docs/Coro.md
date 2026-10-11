@@ -44,10 +44,17 @@ Semantics that matter when writing modules:
   the process's static sensitivity until they complete, and the losing side of an event+timeout is dismissed:
   the process is unsubscribed from the events when the timeout fires, and a pending time wait is dropped if the
   process was resumed first (time events carry the process's `wake_count` at scheduling time).
+- A coroutine process that completes (its root task returns or throws) unschedules itself: it is unsubscribed
+  from its static and dynamic events and its pending time waits become stale. A one-shot coroutine can
+  therefore use `always(...)`, and the scheduler never resumes a completed coroutine.
+- Only the scheduler resumes a process: `resume()` and the wake-up callbacks of `ProcessBase` are private,
+  with `Context` and `SensitivityEvent` as friends.
 - `next_trigger(time)` on a method process is different: it schedules an additional wakeup and never cancels.
+  `next_trigger(...)` is only for method processes: in a coroutine process it throws `std::logic_error`.
+- `initialize(true)` on a coroutine process that has completed throws `std::logic_error`.
 - A timeout of `0` means no timeout. In C++, a literal `0` is ambiguous with the `ProcessBase*` argument, so
   use the overload without a timeout instead.
-- Waits take the process to wake from `Context::_current_process`, so they are only valid inside a running
+- Waits take the process to wake from `Context::current_process_`, so they are only valid inside a running
   process (a coroutine body or a task passed to `run_until`).
 
 ### Tasks: `Task<T>`
@@ -77,7 +84,7 @@ Task<std::vector<T>> receive(size_t n, uint64_t timeout = 0)
 
 - Awaiting a task starts it (symmetric transfer) and resumes the awaiter when it `co_return`s, with its value.
   An exception thrown by a nested task is rethrown in the awaiter; one thrown by a root task propagates out
-  of `Context::run()`/`eval()`.
+  of `Context::run()`.
 - A task runs in whichever process awaits it. That is what lets `axis_rx.receive()` be awaited from a module's
   coroutine, from a `run_until` task in `main()`, or from a Python coroutine.
 - Keep a task alive until it is done. `co_await module.receive(...)` on a temporary is fine: the temporary lives
@@ -105,8 +112,8 @@ axis_tx.push_range(samples);
 auto rx = ctx->run_until(axis_rx.receive(samples.size(), /*timeout=*/1000));
 ```
 
-- The task is registered as a one-shot process, scheduled immediately, and removed afterwards (its dynamic
-  subscriptions and pending time events are cleaned up), so `run_until` can be called repeatedly and mixed
+- The task is registered as a one-shot process, scheduled immediately, and removed afterwards (its static and
+  dynamic subscriptions and pending time events are cleaned up), so `run_until` can be called repeatedly and mixed
   with `run()`.
 - `run_until(task, timeout)` throws `dspsim::TimeoutError` if the task is not done after `timeout` time
   units, with the simulation left at the deadline. `timeout == 0` disables it; with a free-running clock and a
@@ -132,13 +139,13 @@ with Context() as ctx:
         assert await tx.send([1, 2, 3, 4], timeout=1000)
         return await rx.receive(4, timeout=1000)
 
-    data = ctx.run_until(main(), timeout=10_000)        # -> [1, 2, 3, 4]
-    data = ctx.run_until(rx.receive(4, timeout=1000))    # a C++ task directly
-    ok = ctx.run_until(rx.received, timeout=100)         # an event
+    data = ctx.run_until(main(), timeout=10_000)  # -> [1, 2, 3, 4]
+    data = ctx.run_until(rx.receive(4, timeout=1000))  # a C++ task directly
+    ok = ctx.run_until(rx.received, timeout=100)  # an event
 ```
 
 - `await self.wait(event, timeout=100)` returns `WaitResult.Triggered` or `WaitResult.Timeout`.
-- `dspsim.framework.TimeoutError` subclasses the builtin `TimeoutError`.
+- A `run_until` timeout raises the builtin `TimeoutError`.
 - Bound C++ tasks (`Task`, `TaskBool`, `TaskListS32`, ...) are awaitable objects. They must be awaited from a
   task running in the simulation (`Module.add_task` or `Context.run_until`), never from `asyncio`.
 
@@ -159,8 +166,6 @@ from the resume point each time the Python coroutine is resumed, until it is don
 
 ## Caveats
 
-- A task passed to `run_until` should only use dynamic waits. Static sensitivity (`always`) on it would keep
-  dangling subscriptions after the process is removed.
 - Don't destroy a `Task<T>` that is suspended inside the scheduler (e.g. by dropping it before it is done),
   and don't await the same task twice.
 - `Wait*` objects schedule their wakeup on construction: construct one only to await it immediately.

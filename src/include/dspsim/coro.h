@@ -16,10 +16,9 @@
     Context::run_until(task) runs one to completion from ordinary (non-coroutine) code.
 */
 #pragma once
-#include <dspsim/process.h>
-
 #include <concepts>
 #include <coroutine>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <optional>
@@ -29,7 +28,7 @@
 
 namespace dspsim
 {
-    class Context;
+    class ProcessBase;
     class SensitivityEvent;
 
     template <typename T = void>
@@ -209,8 +208,8 @@ namespace dspsim
         scheduler and suspends the coroutine awaiting it. Subclasses schedule the wait in their
         constructor (so construct one only to await it) and may return a value from await_resume().
 
-        To add a new leaf awaitable: derive from WaitBase, schedule the wakeup in the constructor through
-        ProcessBase (schedule_dynamic_event / schedule_time_wait), and keep await_suspend() as is.
+        To add a new leaf awaitable: derive from WaitBase, schedule the wakeup in the constructor with
+        schedule_event() / schedule_time(), and keep await_suspend() as is.
     */
     class WaitBase
     {
@@ -220,17 +219,18 @@ namespace dspsim
         // The wait is always scheduled on construction, so the coroutine must suspend.
         bool await_ready() const noexcept { return false; }
         // Record where the process resumes: the innermost suspended coroutine.
-        void await_suspend(std::coroutine_handle<> handle) noexcept { process_->set_resume_point(handle); }
+        void await_suspend(std::coroutine_handle<> handle) noexcept;
 
         ProcessBase *process() const noexcept { return process_; }
 
         // Python's __await__ must call once to suspend, then again to complete. This mirrors a single suspend point.
-        bool py_step_done() noexcept
-        {
-            bool done = suspended_;
-            suspended_ = true;
-            return done;
-        }
+        bool py_step_done() noexcept;
+
+    protected:
+        // Resume the process on the next occurrence of the event. Several events: whichever occurs first.
+        void schedule_event(SensitivityEvent &event);
+        // Resume the process after the time delta, unless something else resumes it first.
+        void schedule_time(uint64_t time_delta);
 
     private:
         ProcessBase *process_;
@@ -271,8 +271,7 @@ namespace dspsim
 
         // Wait on a dynamically added event.
         WaitSensitivityEvent(SensitivityEvent &event, ProcessBase *process, uint64_t timeout = 0);
-        WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process, uint64_t timeout = 0)
-            : WaitSensitivityEvent(event.get(), process, timeout) {}
+        WaitSensitivityEvent(std::reference_wrapper<SensitivityEvent> event, ProcessBase *process, uint64_t timeout = 0);
 
         // Wait on any of several dynamic events.
         WaitSensitivityEvent(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, ProcessBase *process, uint64_t timeout = 0);

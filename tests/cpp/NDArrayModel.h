@@ -17,7 +17,7 @@ public:
     }
 
     // Tracing methods.
-    void _open_trace(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
-    void _dump_trace();
-    void _close_trace();
+    void open_trace_impl(const std::filesystem::path &trace_path, int levels = 99, int options = 0);
+    void dump_trace_impl();
+    void close_trace_impl();
 };

@@ -1,40 +1,49 @@
 #include <dspsim/clock.h>
 #include <dspsim/context.h>
-#include <spdlog/spdlog.h>
+#include <dspsim/process.h>
 
 namespace dspsim
 {
     Clock::Clock(const std::string &name, uint64_t period)
-        : Signal<uint8_t>(name, 1, 0), _period(period)
+        : Signal<uint8_t>(name, 1, 0), period_(period)
     {
-        this->_kind = "clock";
+        this->kind_ = "clock";
 
-        _half_period = _period / 2;
-        // If half_period wasn't an even number.
-        _remainder = _period - _half_period;
-        // _process = DSPSIM_CORO(tick);
-        _process = DSPSIM_METHOD(tick);
+        half_period_ = period_ / 2;
+        // Needed to handle odd periods.
+        remainder_ = period_ - half_period_;
+
+        // next_delta_time_ = half_period_;
+
+        DSPSIM_CORO(tick_coro);
+        // DSPSIM_METHOD(tick_method);
     }
 
-    // Task Clock::tick()
-    // {
-    //     while (true)
-    //     {
-    //         this->write(!this->read());
-    //         co_await context()->wait(_half_period, _process);
-    //         this->write(!this->read());
-    //         co_await context()->wait(_remainder, _process);
-    //     }
-    // }
-
-    void Clock::tick()
+    std::shared_ptr<Clock> Clock::create(const std::string &name, uint64_t period)
     {
-        this->write(!this->read());
-        context()->_time_event_stack.emplace(context()->time() + _half_period, _process);
+        return Model::create<Clock>(name, period);
     }
 
     uint64_t Clock::period() const
     {
-        return _period;
+        return period_;
     }
+
+    Task<> Clock::tick_coro()
+    {
+        while (true)
+        {
+            this->write(!this->read());
+            co_await context()->wait(half_period_);
+            this->write(!this->read());
+            co_await context()->wait(remainder_);
+        }
+    }
+
+    // void Clock::tick_method()
+    // {
+    //     this->write(!this->read());
+    //     next_delta_time_ = (next_delta_time_ == half_period_) ? remainder_ : half_period_;
+    //     context()->schedule_time_delta_event(next_delta_time_);
+    // }
 } // namespace dspsim

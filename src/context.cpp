@@ -1,97 +1,79 @@
 #include <dspsim/context.h>
+#include <dspsim/coro.h>
+#include <dspsim/derived_signal.h>
+#include <dspsim/event.h>
 #include <dspsim/model.h>
 #include <dspsim/module.h>
-#include <dspsim/event.h>
+#include <dspsim/process.h>
 #include <dspsim/signal.h>
-#include <dspsim/derived_signal.h>
 
-#include "timestrings.h"
-#include <format>
-#include <iostream>
+#include "log.h"
+
 #include <algorithm>
-#include <dspsim/module_name.h>
-
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 namespace dspsim
 {
-    static inline auto parse_level(const std::string &level)
-    {
-        // Convert to lowercase
-        std::string lower_log_level = level;
-        std::transform(lower_log_level.begin(), lower_log_level.end(), lower_log_level.begin(), ::tolower);
-        spdlog::level::level_enum parsed_level = spdlog::level::from_str(lower_log_level);
-        if (parsed_level == spdlog::level::off && lower_log_level != "off")
-        {
-            // Invalid string level, use info as fallback.
-            return spdlog::level::info;
-        }
-        else
-        {
-            return parsed_level;
-        }
-    }
-
     Context::Context(const std::string &name, int id)
-        : _name(name),
-          _id(id),
-          _next_model_id(0),
-          _next_process_id(0),
-          //   _active_process(nullptr),
-          _time(0),
-          _time_unit("1ns"),
+        : name_(name),
+          id_(id),
+          next_model_id_(0),
+          next_process_id_(0),
+          //   active_process_(nullptr),
+          time_(0),
+          time_unit_("1ns"),
           update_count_(0)
     {
-        if (_name.empty())
+        if (name_.empty())
         {
-            _name = "context_" + std::to_string(_id);
+            name_ = "context_" + std::to_string(id_);
         }
-        // spdlog's registry needs unique names, and context names may repeat. The id makes it unique.
-        this->logger = spdlog::stdout_color_mt(std::format("{}#{}", _name, _id));
-        logger->set_level(spdlog::level::warn);
-        logger->set_pattern("[%^%l%$] %v");
+        // Logger names must be unique, and context names may repeat. The id makes it unique.
+        logger_ = std::make_unique<detail::Logger>(name_ + "#" + std::to_string(id_));
 
         // Reserve space in eval/update/event stacks.
-        _process_eval_stack.stack().reserve(1000);
-        _signal_update_stack.stack().reserve(1000);
-        _sensitivity_event_stack.reserve(1000);
+        process_eval_stack_.reserve(1000);
+        signal_update_stack_.reserve(1000);
+        sensitivity_event_stack_.reserve(1000);
     }
+
+    Context::Context(Context &&) noexcept = default;
 
     Context::~Context()
     {
-        // Do not touch spdlog's global registry here: Context can be destroyed by the
-        // static destruction of _global_context_factory, and spdlog's registry (a
-        // function-local static) may already have been torn down by that point,
-        // making spdlog::drop() dereference freed memory.
         clear();
     }
 
     void Context::clear()
     {
-        // Clearing these will cause a segfault if signals go out of scope first.
-        // _process_eval_stack.clear();
-        // _signal_update_stack.clear();
+        // Drop everything that is scheduled, with drop() instead of clear(): FlaggedStack::clear()
+        // resets the flag of each element, and signals may have gone out of scope already.
+        process_eval_stack_.drop();
+        signal_update_stack_.drop();
+        derived_update_stack_.drop();
+        current_process_ = nullptr;
 
-        _registered_models.clear();
-        _modules.clear();
-        _signals.clear();
-        _processes.clear();
-        _owned_models.clear();
-        _children.clear();
+        registered_models_.clear();
+        modules_.clear();
+        signals_.clear();
+        processes_.clear();
+        owned_models_.clear();
+        children_.clear();
 
-        _sensitivity_event_stack.clear();
-        _time_event_stack = PriorityQueue<TimeEvent>();
-        _trace_stack.clear();
-        _active_module_stack.clear();
-        _active_module_name_stack.clear();
+        sensitivity_event_stack_.clear();
+        time_event_stack_ = PriorityQueue<TimeEvent>();
+        trace_stack_.clear();
+        active_module_stack_.clear();
+        active_module_name_stack_.clear();
     }
 
     void Context::elaborate()
     {
         try
         {
-            for (auto model : _registered_models)
+            for (auto model : registered_models_)
             {
                 model->finalize();
             }
@@ -101,13 +83,13 @@ namespace dspsim
             release();
             throw;
         }
-        _elaborated = true;
+        elaborated_ = true;
         release();
     }
 
     bool Context::elaborated() const
     {
-        return _elaborated;
+        return elaborated_;
     }
 
     void Context::release()
@@ -120,41 +102,31 @@ namespace dspsim
         return get_global_context_factory()->is_active(this);
     }
 
-    void Context::_do_initialize()
+    void Context::do_initialize()
     {
-        if (_initialized) [[likely]]
+        if (initialized_) [[likely]]
             return;
-        _initialized = true;
-        // Update all signals
-        _update_signals();
-
-        // Force an initial settle: schedule every module for evaluation once so that
-        // combinational logic propagates from initial signal values before the first eval().
-        for (auto &process : _processes)
-        {
-            logger->debug("Processing initialization for process: {}, init={}", process->name(), process->initialize());
-            if (process->initialize())
-            {
-                _process_eval_stack.push_back(process.get());
-            }
-        }
+        initialized_ = true;
+        // Commit the initial signal values. Every process was scheduled when it was registered, unless
+        // initialize(false) was called on it, so the first eval() settles the design from these values.
+        update_signals();
     }
 
-    void Context::_update_signals()
+    void Context::update_signals()
     {
-        while (!_signal_update_stack.empty())
+        while (!signal_update_stack_.empty())
         {
-            SignalBase *signal = _signal_update_stack.back();
-            _signal_update_stack.pop_back();
-            SPDLOG_LOGGER_TRACE(logger, "Updating signal: {}", signal->name());
+            SignalBase *signal = signal_update_stack_.back();
+            signal_update_stack_.pop_back();
+            DSPSIM_LOG_TRACE(logger_, "Updating signal: " + signal->name());
             signal->update();
         }
 
         // Derived signals are recomputed once all of their sources have committed.
-        while (!_derived_update_stack.empty())
+        while (!derived_update_stack_.empty())
         {
-            DerivedSignalBase *derived = _derived_update_stack.back();
-            _derived_update_stack.pop_back();
+            DerivedSignalBase *derived = derived_update_stack_.back();
+            derived_update_stack_.pop_back();
             derived->pull();
         }
     }
@@ -166,24 +138,24 @@ namespace dspsim
         // Any model that was updated this cycle should be traced.
 
         // Run eval cycle.
-        while (!_process_eval_stack.empty() || !_signal_update_stack.empty())
+        while (!process_eval_stack_.empty() || !signal_update_stack_.empty())
         {
-            any_model_updated = !_process_eval_stack.empty();
-            SPDLOG_LOGGER_TRACE(logger, "Starting delta cycle iteration: {}", n_iter);
+            any_model_updated = !process_eval_stack_.empty();
+            DSPSIM_LOG_TRACE(logger_, "Starting delta cycle iteration: " + std::to_string(n_iter));
             ++n_iter;
 
             // run eval cycle on all models that were scheduled to be evaluated.
-            // The scheduled flag is cleared while the process is hot in cache, instead of a second pass
-            // over all of them afterwards. Nothing pushes onto the eval stack while a process is resumed.
-            for (const auto &process : _process_eval_stack)
+            // A process is popped before it is resumed: a process that registers another process pushes
+            // it onto the stack, and it is evaluated in this same delta cycle.
+            while (!process_eval_stack_.empty())
             {
-                SPDLOG_LOGGER_TRACE(logger, "Evaluating process: {}", process->name());
-                process->scheduled_flag() = false;
-                _current_process = process;
+                ProcessBase *process = process_eval_stack_.back();
+                process_eval_stack_.pop_back();
+                DSPSIM_LOG_TRACE(logger_, "Evaluating process: " + process->name());
+                current_process_ = process;
                 process->mark_woken();
                 process->resume();
             }
-            _process_eval_stack.stack().clear();
             if (any_model_updated)
             {
                 // Increment the update count for this delta cycle.
@@ -191,22 +163,22 @@ namespace dspsim
             }
 
             // run update cycle on all signals that were scheduled to be updated.
-            _update_signals();
+            update_signals();
 
             // Trigger all sensitivity events that were notified.
-            for (const auto &event : _sensitivity_event_stack)
+            for (const auto &event : sensitivity_event_stack_)
             {
-                SPDLOG_LOGGER_TRACE(logger, "Triggering sensitivity event");
+                DSPSIM_LOG_TRACE(logger_, "Triggering sensitivity event");
                 event->trigger();
             }
-            _sensitivity_event_stack.clear();
+            sensitivity_event_stack_.clear();
         }
 
         // Trace modules that requested tracing.
         if (any_model_updated)
         {
             // Dump traces
-            [[unlikely]] for (auto m : _trace_stack)
+            [[unlikely]] for (auto m : trace_stack_)
             {
                 m->dump_trace();
             }
@@ -216,9 +188,9 @@ namespace dspsim
 
     void Context::run(uint64_t time_inc)
     {
-        if (!_initialized) [[unlikely]]
+        if (!initialized_) [[unlikely]]
         {
-            _do_initialize();
+            do_initialize();
         }
         // Compute delta cycle. Signals may have been written to before the last run() call.
         // This will also eval any pending time updates from the last run() cycle.
@@ -229,9 +201,9 @@ namespace dspsim
         while (time_inc > 0)
         {
             // Advance to the next time step.
-            if (!_time_event_stack.empty())
+            if (!time_event_stack_.empty())
             {
-                next_time_step = _time_event_stack.top().time_update() - _time;
+                next_time_step = time_event_stack_.top().time_update() - time_;
                 // If the next time step exceeds the remaining time increment, limit it to the remaining time increment.
                 if (next_time_step > time_inc)
                 {
@@ -245,18 +217,18 @@ namespace dspsim
             // What if time update is less than the current time? If we missed a step? Bad model.
 
             // Advance the simulation time to the next time step.
-            _time += next_time_step;
+            time_ += next_time_step;
             time_inc -= next_time_step;
 
-            SPDLOG_LOGGER_TRACE(logger, "Advancing simulation time by: {} to time: {}", next_time_step, _time);
+            DSPSIM_LOG_TRACE(logger_, "Advancing simulation time by: " + std::to_string(next_time_step) + " to time: " + std::to_string(time_));
 
             // Queue all models for evaluation that have a zero time update.
-            while (!_time_event_stack.empty() && _time_event_stack.top().time_update() == _time)
+            while (!time_event_stack_.empty() && time_event_stack_.top().time_update() == time_)
             {
-                auto event = _time_event_stack.top();
-                _time_event_stack.pop();
-                SPDLOG_LOGGER_TRACE(logger, "Popping time event subscriber: {}", event.process()->name());
-                _schedule_time_event(event);
+                auto event = time_event_stack_.top();
+                time_event_stack_.pop();
+                DSPSIM_LOG_TRACE(logger_, "Popping time event subscriber: " + event.process()->name());
+                schedule_time_event(event);
             }
             // Evaluate up until the next time step. So we should skip an eval when time_inc == 0.
             // Models with the time update will still be queued for the next delta cycle.
@@ -268,74 +240,82 @@ namespace dspsim
         }
     }
 
-    void Context::_schedule_time_event(const TimeEvent &event)
+    void Context::schedule_time_event(const TimeEvent &event)
     {
         ProcessBase *process = event.process();
         if (event.sticky())
         {
-            _process_eval_stack.push_back(process);
+            process_eval_stack_.push_back(process);
         }
         else if (event.wake_count() == process->wake_count())
         {
             // A coroutine time wait: the process stops waiting on anything else.
             process->time_wait_triggered();
-            _process_eval_stack.push_back(process);
+            process_eval_stack_.push_back(process);
         }
         // Otherwise the process was resumed since the wait was scheduled, so the wakeup is stale.
     }
 
-    void Context::_run_until_done(ProcessBase *process, uint64_t timeout)
+    void Context::schedule_time_delta_event(uint64_t time_delta)
     {
-        if (!_initialized) [[unlikely]]
+        if (current_process_->is_coroutine()) [[unlikely]]
         {
-            _do_initialize();
+            throw std::logic_error("next_trigger(time) is not allowed in coroutine process " +
+                                   current_process_->name() + ": use wait(time) instead");
         }
-        const uint64_t deadline = _time + timeout;
-        _process_eval_stack.push_back(process);
+        time_event_stack_.emplace(time_ + time_delta, current_process_);
+    }
+
+    void Context::run_until_done(ProcessBase *process, uint64_t timeout)
+    {
+        if (!initialized_) [[unlikely]]
+        {
+            do_initialize();
+        }
+        const uint64_t deadline = time_ + timeout;
         eval();
         while (!process->done())
         {
-            if (_time_event_stack.empty())
+            if (time_event_stack_.empty())
             {
-                throw std::runtime_error(std::format(
-                    "run_until: the simulation stalled at t={} with no pending time events, so '{}' can never complete.",
-                    _time, process->name()));
+                throw std::runtime_error("run_until: the simulation stalled at t=" + std::to_string(time_) +
+                                         " with no pending time events, so '" + process->name() + "' can never complete.");
             }
-            uint64_t next_time = _time_event_stack.top().time_update();
+            uint64_t next_time = time_event_stack_.top().time_update();
             if (timeout != 0 && next_time > deadline)
             {
-                run(deadline - _time);
-                throw TimeoutError(std::format("run_until: '{}' did not complete within {} time units (t={}).",
-                                               process->name(), timeout, _time));
+                run(deadline - time_);
+                throw TimeoutError("run_until: '" + process->name() + "' did not complete within " + std::to_string(timeout) +
+                                   " time units (t=" + std::to_string(time_) + ").");
             }
             // Advance to the next time step and evaluate it.
-            run(next_time - _time);
+            run(next_time - time_);
             eval();
         }
     }
 
-    void Context::_remove_process(ProcessBase *process)
+    void Context::remove_process(ProcessBase *process)
     {
-        process->cancel_dynamic_events();
+        process->unschedule();
 
         // Drop its pending time events. std::priority_queue has no erase, so rebuild it.
         std::vector<TimeEvent> kept;
-        while (!_time_event_stack.empty())
+        while (!time_event_stack_.empty())
         {
-            if (_time_event_stack.top().process() != process)
+            if (time_event_stack_.top().process() != process)
             {
-                kept.push_back(_time_event_stack.top());
+                kept.push_back(time_event_stack_.top());
             }
-            _time_event_stack.pop();
+            time_event_stack_.pop();
         }
-        _time_event_stack = PriorityQueue<TimeEvent>(std::greater<TimeEvent>(), std::move(kept));
+        time_event_stack_ = PriorityQueue<TimeEvent>(std::greater<TimeEvent>(), std::move(kept));
 
-        _process_eval_stack.erase(process);
-        if (_current_process == process)
+        process_eval_stack_.erase(process);
+        if (current_process_ == process)
         {
-            _current_process = nullptr;
+            current_process_ = nullptr;
         }
-        std::erase_if(_processes, [process](const std::unique_ptr<ProcessBase> &p)
+        std::erase_if(processes_, [process](const std::unique_ptr<ProcessBase> &p)
                       { return p.get() == process; });
     }
 
@@ -357,215 +337,196 @@ namespace dspsim
         return run_until(wait_event_task(this, &event, timeout));
     }
 
-    void Context::schedule_time_delta_event(uint64_t time_delta, ProcessBase *process)
+    Wait Context::wait()
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        _time_event_stack.emplace(_time + time_delta, process);
+        return Wait{current_process_};
     }
 
-    Wait Context::wait(ProcessBase *process)
+    WaitTimeEvent Context::wait(uint64_t time_delta)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return Wait{process};
+        return WaitTimeEvent{time_delta, current_process_};
     }
 
-    WaitTimeEvent Context::wait(uint64_t time_delta, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitTimeEvent{time_delta, process};
+        return WaitSensitivityEvent{event, current_process_};
+    }
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events)
+    {
+        return WaitSensitivityEvent{events, current_process_};
     }
 
-    WaitSensitivityEvent Context::wait(SensitivityEvent &event, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{event, process};
-    }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, ProcessBase *process)
-    {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process};
+        return WaitSensitivityEvent{events, current_process_};
     }
 
-    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(SensitivityEvent &event, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process};
+        return WaitSensitivityEvent{event, current_process_, timeout};
     }
-
-    WaitSensitivityEvent Context::wait(SensitivityEvent &event, uint64_t timeout, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{event, process, timeout};
+        return WaitSensitivityEvent{events, current_process_, timeout};
     }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout, ProcessBase *process)
+    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout)
     {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process, timeout};
-    }
-    WaitSensitivityEvent Context::wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout, ProcessBase *process)
-    {
-        if (process == nullptr)
-        {
-            process = _current_process;
-        }
-        return WaitSensitivityEvent{events, process, timeout};
+        return WaitSensitivityEvent{events, current_process_, timeout};
     }
 
     void Context::print_hierarchy(Model *parent, int depth) const
     {
         for (auto *child : children(parent))
         {
-            logger->info("{}{}", std::string(depth * 2, ' '), child->name());
+            DSPSIM_LOG_INFO(logger_, std::string(depth * 2, ' ') + child->name());
             print_hierarchy(child, depth + 1);
         }
     }
     const std::string &Context::name() const
     {
-        return _name;
+        return name_;
     }
     int Context::id() const
     {
-        return _id;
+        return id_;
     }
 
     const std::vector<Model *> &Context::models() const
     {
-        return _registered_models;
+        return registered_models_;
     }
 
     const std::vector<Module *> &Context::modules() const
     {
-        return _modules;
+        return modules_;
     }
 
     const std::vector<SignalBase *> &Context::signals() const
     {
-        return _signals;
+        return signals_;
     }
 
     const std::vector<Model *> &Context::children(Model *parent) const
     {
         static const std::vector<Model *> empty;
-        auto it = _children.find(parent);
-        return it != _children.end() ? it->second : empty;
+        auto it = children_.find(parent);
+        return it != children_.end() ? it->second : empty;
     }
 
     uint64_t Context::time() const
     {
-        return _time;
+        return time_;
     }
 
     const std::string &Context::time_unit() const
     {
-        return _time_unit;
+        return time_unit_;
     }
     void Context::set_time_unit(const std::string &time_unit)
     {
-        _time_unit = time_unit;
+        time_unit_ = time_unit;
     }
 
     const std::string Context::log_level() const
     {
-        auto view = spdlog::level::to_string_view(logger->level());
-        return std::string{view.begin(), view.end()};
+        return logger_->level();
     }
     void Context::set_log_level(const std::string &log_level)
     {
-        auto level = parse_level(log_level);
-        logger->set_level(level);
+        logger_->set_level(log_level);
     }
 
     const std::string Context::repr() const
     {
-        return std::format("Context(id={}, time={})", _id, _time);
+        return "Context(id=" + std::to_string(id_) + ", time=" + std::to_string(time_) + ")";
     }
 
     void Context::log(const std::string &level, const std::string &message)
     {
-        auto lvl = parse_level(level);
-        logger->log(lvl, message);
+        logger_->log(level, message);
     }
 
-    void Context::_add_model(Model *model)
+    void Context::add_model(Model *model)
     {
-        model->_hier_name = _current_hierarchy() + "." + model->name();
-        SPDLOG_LOGGER_TRACE(logger, "Adding model: {}, hier: {}", model->name(), _current_hierarchy());
-        _registered_models.push_back(model);
-        _children[model->parent()].push_back(model);
+        model->hier_name_ = current_hierarchy() + "." + model->name();
+        DSPSIM_LOG_TRACE(logger_, "Adding model: " + model->name() + ", hier: " + current_hierarchy());
+        registered_models_.push_back(model);
+        children_[model->parent()].push_back(model);
 
         // Reset the active process of the context.
         // Processes must be registered after all other submodules have been added to a parent module.
-        // _active_process = nullptr;
+        // active_process_ = nullptr;
     }
-    void Context::_add_module(Module *module)
+    void Context::add_module(Module *module)
     {
-        _modules.push_back(module);
-    }
-
-    void Context::_add_signal(SignalBase *signal)
-    {
-        _signals.push_back(signal);
+        modules_.push_back(module);
     }
 
-    void Context::_own_model(std::shared_ptr<Model> model)
+    void Context::add_signal(SignalBase *signal)
     {
-        _owned_models.push_back(model);
+        signals_.push_back(signal);
+    }
+
+    const std::vector<std::shared_ptr<Model>> &Context::owned_models() const
+    {
+        return owned_models_;
+    }
+
+    uint32_t Context::next_model_id()
+    {
+        return next_model_id_++;
+    }
+
+    uint32_t Context::next_process_id()
+    {
+        return next_process_id_++;
+    }
+
+    void Context::trace_model(Model *model)
+    {
+        trace_stack_.push_back(model);
+    }
+
+    void Context::own_model(std::shared_ptr<Model> model)
+    {
+        owned_models_.push_back(model);
+    }
+
+    ProcessBase *Context::add_process(std::unique_ptr<ProcessBase> process)
+    {
+        processes_.push_back(std::move(process));
+        ProcessBase *p = processes_.back().get();
+        process_eval_stack_.push_back(p);
+        return p;
     }
 
     ProcessBase *Context::register_process_func(const std::function<void()> &eval, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<Process>(this, eval, name));
-        logger->info("Registering process: {}", name);
-        return _processes.back().get();
+        DSPSIM_LOG_INFO(logger_, "Registering process: " + name);
+        return add_process(std::make_unique<Process>(this, eval, name));
     }
 
-    ProcessBase *Context::_register_method(void *instance, MethodProcess::Trampoline call, const std::string &name)
+    ProcessBase *Context::register_trampoline(void *instance, void (*call)(void *), const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<MethodProcess>(this, instance, call, name));
-        logger->info("Registering process: {}", name);
-        return _processes.back().get();
+        DSPSIM_LOG_INFO(logger_, "Registering process: " + name);
+        return add_process(std::make_unique<MethodProcess>(this, instance, call, name));
     }
 
-    ProcessBase *Context::_register_coro(std::coroutine_handle<> root, const std::string &name)
+    ProcessBase *Context::register_coro(std::coroutine_handle<> root, const std::string &name)
     {
-        _processes.emplace_back(std::make_unique<CoroProcess>(this, root, name));
-        logger->info("Registering coroutine task: {}", name);
-        return _processes.back().get();
+        DSPSIM_LOG_INFO(logger_, "Registering coroutine task: " + name);
+        return add_process(std::make_unique<CoroProcess>(this, root, name));
     }
 
-    Module *Context::_active_module() const
+    Module *Context::active_module() const
     {
-        return _active_module_stack.empty() ? nullptr : _active_module_stack.back();
+        return active_module_stack_.empty() ? nullptr : active_module_stack_.back();
     }
 
-    const std::string Context::_current_hierarchy() const
+    const std::string Context::current_hierarchy() const
     {
         std::string hierarchy = "root";
-        for (auto model : _active_module_stack)
+        for (auto model : active_module_stack_)
         {
             if (!hierarchy.empty())
                 hierarchy += ".";
@@ -589,32 +550,71 @@ namespace dspsim
     }
 
     // Context Factory
+    struct ContextFactory::State
+    {
+        int next_context_id = 0;
+        std::shared_ptr<Context> active_context;
+        // The thread constructing the active context.
+        std::thread::id owner;
+        // Guards the active context and its owner. Never held while calling into models or contexts.
+        std::mutex mutex;
+        // Notified when the active context is released.
+        std::condition_variable released;
+    };
+
     ContextFactory::ContextFactory()
-        : _next_context_id(0),
-          _active_context(nullptr)
+        : state_(std::make_unique<State>())
     {
     }
 
+    ContextFactory::~ContextFactory() = default;
+
     std::shared_ptr<Context> ContextFactory::obtain()
     {
-        std::lock_guard lock(_mutex);
-        if (_active_context == nullptr || _owner != std::this_thread::get_id())
+        std::lock_guard lock(state_->mutex);
+        if (state_->active_context == nullptr || state_->owner != std::this_thread::get_id())
         {
             throw ContextConstructionError(
                 "There is no active context in this thread. Call Context::create() before constructing models. "
                 "A context is no longer active once it has been elaborated or released.");
         }
-        return _active_context;
+        return state_->active_context;
     }
 
     void ContextFactory::reset()
     {
-        release_active([](const Context *) { return true; });
+        release_active([](const Context *)
+                       { return true; });
     }
 
     void ContextFactory::release(const Context *context)
     {
-        release_active([context](const Context *active) { return active == context; });
+        release_active([context](const Context *active)
+                       { return active == context; });
+    }
+
+    bool ContextFactory::is_active(const Context *context)
+    {
+        std::lock_guard lock(state_->mutex);
+        return state_->active_context.get() == context;
+    }
+
+    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
+    {
+        std::unique_lock lock(state_->mutex);
+        // Waiting on a context this thread is constructing would deadlock.
+        if (state_->active_context && state_->owner == std::this_thread::get_id())
+        {
+            throw ContextConstructionError(
+                "Cannot create context '" + name + "': context '" + state_->active_context->name() +
+                "' is still under construction in this thread. "
+                "Call elaborate() or release() on it first, or Context::reset() to discard it.");
+        }
+        state_->released.wait(lock, [this]
+                              { return state_->active_context == nullptr; });
+        state_->active_context = std::shared_ptr<Context>(new Context(name, state_->next_context_id++));
+        state_->owner = std::this_thread::get_id();
+        return state_->active_context;
     }
 
     void ContextFactory::release_active(const std::function<bool(const Context *)> &if_active)
@@ -622,44 +622,20 @@ namespace dspsim
         // The context may be destroyed when released. Do that outside of the lock.
         std::shared_ptr<Context> released;
         {
-            std::lock_guard lock(_mutex);
-            if (!if_active(_active_context.get()))
+            std::lock_guard lock(state_->mutex);
+            if (!if_active(state_->active_context.get()))
             {
                 return;
             }
-            released = std::move(_active_context);
-            _owner = {};
+            released = std::move(state_->active_context);
+            state_->owner = {};
         }
-        _released.notify_all();
+        state_->released.notify_all();
     }
 
-    bool ContextFactory::is_active(const Context *context)
-    {
-        std::lock_guard lock(_mutex);
-        return _active_context.get() == context;
-    }
+    static std::shared_ptr<ContextFactory> global_context_factory = nullptr;
 
-    std::shared_ptr<Context> ContextFactory::create(const std::string &name)
-    {
-        std::unique_lock lock(_mutex);
-        // Waiting on a context this thread is constructing would deadlock.
-        if (_active_context && _owner == std::this_thread::get_id())
-        {
-            throw ContextConstructionError(std::format(
-                "Cannot create context '{}': context '{}' is still under construction in this thread. "
-                "Call elaborate() or release() on it first, or Context::reset() to discard it.",
-                name, _active_context->name()));
-        }
-        _released.wait(lock, [this]
-                       { return _active_context == nullptr; });
-        _active_context = std::shared_ptr<Context>(new Context(name, _next_context_id++));
-        _owner = std::this_thread::get_id();
-        return _active_context;
-    }
-
-    static std::shared_ptr<ContextFactory> _global_context_factory = nullptr;
-
-    // Guards _global_context_factory. Threads may create their first context concurrently, and must all get the same factory.
+    // Guards global_context_factory. Threads may create their first context concurrently, and must all get the same factory.
     // A function-local static, so it is usable from other translation units' static initializers.
     static std::mutex &global_context_factory_mutex()
     {
@@ -670,17 +646,17 @@ namespace dspsim
     std::shared_ptr<ContextFactory> get_global_context_factory()
     {
         std::lock_guard lock(global_context_factory_mutex());
-        if (!_global_context_factory)
+        if (!global_context_factory)
         {
-            _global_context_factory = std::make_shared<ContextFactory>();
+            global_context_factory = std::make_shared<ContextFactory>();
         }
-        return _global_context_factory;
+        return global_context_factory;
     }
 
     void set_global_context_factory(std::shared_ptr<ContextFactory> factory)
     {
         std::lock_guard lock(global_context_factory_mutex());
-        _global_context_factory = factory;
+        global_context_factory = factory;
     }
 
     void reset_global_context_factory()
@@ -688,7 +664,7 @@ namespace dspsim
         // The factory may be destroyed here. Do that outside of the lock.
         std::shared_ptr<ContextFactory> factory;
         std::lock_guard lock(global_context_factory_mutex());
-        factory = std::move(_global_context_factory);
-        _global_context_factory = nullptr;
+        factory = std::move(global_context_factory);
+        global_context_factory = nullptr;
     }
 }

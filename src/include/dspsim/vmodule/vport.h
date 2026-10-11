@@ -69,6 +69,7 @@ namespace dspsim
 
         VInput(const std::string &name, Storage &ext_port);
 
+    private:
         /// Write the input value to the top model port.
         void sync() override;
 
@@ -88,6 +89,7 @@ namespace dspsim
 
         VOutput(const std::string &name, Storage &ext_port);
 
+    private:
         /// Write the top model value to the output port.
         void sync() override;
 

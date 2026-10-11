@@ -1,3 +1,5 @@
+import pytest
+
 from dspsim.framework import (
     Clock,
     Context,
@@ -73,3 +75,23 @@ def test_py_event_waits():
         a.write(2)
         ctx.run(1)
         assert m.log == ["a", "b|c", "a again"]
+
+
+class OneShot(Module):
+    def __init__(self, name: str):
+        self.proc = self.add_task(self.body())
+
+    async def body(self):
+        await self.wait(2)
+
+
+def test_initialize_completed_task():
+    """initialize(True) on a task that has completed is an error."""
+    with Context() as ctx:
+        with ctx.construct():
+            m = OneShot("m")
+        ctx.run(5)
+        assert m.proc.done
+        with pytest.raises(RuntimeError, match="completed"):
+            m.proc.initialize(True)
+        ctx.run(5)

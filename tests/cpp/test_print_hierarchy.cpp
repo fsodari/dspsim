@@ -1,5 +1,4 @@
 #include <dspsim/dspsim.h>
-#include <spdlog/spdlog.h>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace dspsim;
