@@ -9,6 +9,11 @@ namespace dspsim::detail
         return context.add_process(std::move(process));
     }
 
+    void EngineAccess::add_detached_process(Context &context, std::unique_ptr<ProcessBase> process)
+    {
+        context.add_detached_process(std::move(process));
+    }
+
     void EngineAccess::remove_process(Context &context, ProcessBase *process)
     {
         context.remove_process(process);

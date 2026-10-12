@@ -51,6 +51,44 @@ namespace dspsim
         return this;
     }
 
+    ProcessBase *ProcessBase::disable()
+    {
+        if (coroutine_ && static_sensitivity_ == StaticSensitivity::Waiting)
+        {
+            throw std::logic_error("Cannot disable process " + name_ +
+                                   ": the coroutine is waiting for an event or a time and would lose that wait. "
+                                   "Only a coroutine that waits on its static sensitivity can be disabled");
+        }
+        // A method process: drop the triggers it has asked for with next_trigger().
+        cancel_dynamic_events();
+        if (time_events_used_)
+        {
+            context_->time_event_stack_.erase_if([this](const TimeEvent &event)
+                                                 { return event.process() == this; });
+        }
+        static_sensitivity_ = StaticSensitivity::Disabled;
+        context_->process_eval_stack_.erase(this);
+        return this;
+    }
+
+    ProcessBase *ProcessBase::enable()
+    {
+        if (static_sensitivity_ == StaticSensitivity::Disabled)
+        {
+            static_sensitivity_ = StaticSensitivity::Active;
+        }
+        return this;
+    }
+
+    void ProcessBase::complete()
+    {
+        unschedule();
+        if (detached_)
+        {
+            context_->completed_processes_.push_back(this);
+        }
+    }
+
     void ProcessBase::unschedule()
     {
         cancel_static_events();
@@ -61,11 +99,12 @@ namespace dspsim
 
     void ProcessBase::schedule_static_event(SensitivityEvent &event)
     {
-        event.subscribe_static(this);
-        // Record each event once.
+        // Subscribe to each event once. It may be named twice: always(a, a), "*" together with an input,
+        // or two ports that are bound to the same signal.
         if (std::find(static_events_.begin(), static_events_.end(), &event) == static_events_.end())
         {
             static_events_.push_back(&event);
+            event.subscribe_static(this);
         }
     }
 
@@ -88,13 +127,12 @@ namespace dspsim
 
     void ProcessBase::schedule_dynamic_event(SensitivityEvent &event)
     {
+        // One entry for each subscription, with no check for an event that is already in the list: a
+        // search here made a wait on n events quadratic in n. Whatever ends the wait removes the
+        // subscriptions one by one, so an event that is waited on twice is handled like two events.
         event.subscribe_dynamic(this);
-        // Record each event once. The list is short, usually a single event.
-        if (std::find(dynamic_events_.begin(), dynamic_events_.end(), &event) == dynamic_events_.end())
-        {
-            dynamic_events_.push_back(&event);
-        }
-        this->static_sensitivity_disabled_ = true;
+        dynamic_events_.push_back(&event);
+        static_sensitivity_ = StaticSensitivity::Waiting;
     }
     void ProcessBase::schedule_dynamic_event(const std::string &event_name)
     {
@@ -113,9 +151,16 @@ namespace dspsim
 
     void ProcessBase::schedule_time_wait(uint64_t time_delta)
     {
+        if (time_delta == 0) [[unlikely]]
+        {
+            // A wait of no time ends in the next delta cycle.
+            context_->wait_for_next_delta(this);
+            return;
+        }
         // Tagged with the wake count: if anything else resumes the process first, the wakeup is stale.
         context_->time_event_stack_.emplace(context_->time() + time_delta, this, wake_count_);
-        static_sensitivity_disabled_ = true;
+        static_sensitivity_ = StaticSensitivity::Waiting;
+        time_events_used_ = true;
     }
 
     void ProcessBase::dynamic_event_triggered(SensitivityEvent &event)
@@ -136,11 +181,6 @@ namespace dspsim
     {
         cancel_dynamic_events();
         reset_static_sensitivity();
-    }
-
-    void ProcessBase::reset_static_sensitivity()
-    {
-        static_sensitivity_disabled_ = false;
     }
 
     void ProcessBase::cancel_static_events()
@@ -224,13 +264,13 @@ namespace dspsim
         catch (...)
         {
             // An exception leaves the root task at its final suspend point.
-            unschedule();
+            complete();
             throw;
         }
         if (root_.done()) [[unlikely]]
         {
             // The task has completed: nothing may schedule it again.
-            unschedule();
+            complete();
         }
     }
 }

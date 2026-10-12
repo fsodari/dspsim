@@ -55,6 +55,22 @@ namespace dspsim
     {
         method_process(context())->schedule_dynamic_event(event);
     }
+    void Module::next_trigger(const std::vector<std::reference_wrapper<SensitivityEvent>> &events)
+    {
+        ProcessBase *process = method_process(context());
+        for (SensitivityEvent &event : events)
+        {
+            process->schedule_dynamic_event(event);
+        }
+    }
+    void Module::next_trigger(const std::vector<SensitivityEvent *> &events)
+    {
+        ProcessBase *process = method_process(context());
+        for (SensitivityEvent *event : events)
+        {
+            process->schedule_dynamic_event(*event);
+        }
+    }
     void Module::next_trigger(const std::string &event_name)
     {
         method_process(context())->schedule_dynamic_event(event_name);
@@ -65,17 +81,12 @@ namespace dspsim
         return context()->wait(time_delta);
     }
 
-    Wait Module::wait()
-    {
-        return context()->wait();
-    }
-
     WaitSensitivityEvent Module::wait(SensitivityEvent &event)
     {
         return context()->wait(event);
     }
 
-    WaitSensitivityEvent Module::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events)
+    WaitSensitivityEvent Module::wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events)
     {
         return context()->wait(events);
     }
@@ -90,7 +101,7 @@ namespace dspsim
         return context()->wait(event, timeout);
     }
 
-    WaitSensitivityEvent Module::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout)
+    WaitSensitivityEvent Module::wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, uint64_t timeout)
     {
         return context()->wait(events, timeout);
     }

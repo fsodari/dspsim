@@ -314,3 +314,135 @@ TEST_CASE("a time wait ignores static sensitivity until it elapses", "[async][co
     ctx->run(10);
     REQUIRE(m.wakeups == 2);
 }
+
+namespace
+{
+    // Waits zero time, twice, and counts how far it got.
+    Task<int> wait_zero_twice(Context *context, int *resumed)
+    {
+        co_await context->wait(0);
+        ++*resumed;
+        co_await context->wait(0);
+        ++*resumed;
+        co_return 7;
+    }
+
+    Task<> run_wait_zero(Context *context, int *resumed)
+    {
+        co_await wait_zero_twice(context, resumed);
+    }
+} // namespace
+
+TEST_CASE("a zero time wait resumes without advancing time", "[async][coro]")
+{
+    auto ctx = Context::create();
+    int resumed = 0;
+    ctx->register_coro_task(run_wait_zero(ctx.get(), &resumed), "waiter");
+    ctx->elaborate();
+
+    // run(0) settles the design at the current time, and a process that is due now is part of that.
+    ctx->run(0);
+    REQUIRE(resumed == 2);
+    REQUIRE(ctx->time() == 0);
+}
+
+namespace
+{
+    // out follows in, one delta cycle later.
+    DSPSIM_MODULE(Follower)
+    {
+        Input<int> in{"in"};
+        Output<int> out{"out"};
+
+        DSPSIM_CTOR(Follower)
+        {
+            DSPSIM_METHOD(eval)->always(in);
+        }
+
+        void eval()
+        {
+            out.write(in.read());
+        }
+    };
+
+    // Writes a, then looks at a and b after each of two waits of no time.
+    Task<> write_and_look(Context *context, Signal<int> *a, Signal<int> *b, std::vector<int> *seen)
+    {
+        a->write(5);
+        co_await context->wait(0);
+        seen->push_back(a->read());
+        seen->push_back(b->read());
+        co_await context->wait(0);
+        seen->push_back(b->read());
+    }
+
+    // A method process that asks for another evaluation after no time, three times.
+    DSPSIM_MODULE(Again)
+    {
+        Input<int> in{"in"};
+        std::vector<int> seen;
+
+        DSPSIM_CTOR(Again)
+        {
+            DSPSIM_METHOD(eval);
+        }
+
+        void eval()
+        {
+            seen.push_back(in.read());
+            if (seen.size() < 3)
+            {
+                next_trigger(0);
+            }
+        }
+    };
+} // namespace
+
+TEST_CASE("a zero time wait ends in the next delta cycle", "[async][coro]")
+{
+    auto ctx = Context::create();
+    Signal<int> a{"a"}, b{"b"};
+    Follower follower{"follower"};
+    follower.in.bind(a);
+    follower.out.bind(b);
+    std::vector<int> seen;
+    ctx->register_coro_task(write_and_look(ctx.get(), &a, &b, &seen), "watcher");
+    ctx->elaborate();
+    ctx->run(0);
+
+    // One delta cycle after the write, a has its new value and the follower is evaluated, in the same
+    // delta cycle as the watcher: b changes one delta cycle later.
+    REQUIRE(seen == std::vector<int>{5, 0, 5});
+    REQUIRE(ctx->time() == 0);
+}
+
+TEST_CASE("next_trigger of no time evaluates a method in the next delta cycle", "[async][process]")
+{
+    auto ctx = Context::create();
+    Signal<int> a{"a"}, b{"b"};
+    Follower follower{"follower"};
+    follower.in.bind(a);
+    follower.out.bind(b);
+    Again again{"again"};
+    again.in.bind(b);
+    ctx->elaborate();
+    a.write(9);
+    ctx->run(0);
+
+    // The value written before the run is committed before the first evaluation. The follower copies it in
+    // the first delta cycle, so b has it in the second, which is when the process is evaluated again.
+    REQUIRE(again.seen == std::vector<int>{0, 9, 9});
+    REQUIRE(ctx->time() == 0);
+}
+
+TEST_CASE("run_until completes a task that waits zero time", "[async][run_until]")
+{
+    auto ctx = Context::create();
+    ctx->elaborate();
+    ctx->run(5);
+
+    int resumed = 0;
+    REQUIRE(ctx->run_until(wait_zero_twice(ctx.get(), &resumed)) == 7);
+    REQUIRE(resumed == 2);
+    REQUIRE(ctx->time() == 5);
+}

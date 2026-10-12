@@ -17,12 +17,20 @@ namespace dspsim::bindings
           return detail::EngineAccess::add_process(*module->context(), std::make_unique<PyTask>(module->context(), std::move(task), name));
      }
 
+     // Like add_task, but the context destroys the task when its coroutine returns, so there is no handle to it.
+     static inline void module_spawn_helper(Module *module, nb::object task)
+     {
+          std::string name = module->hier_name() + "." + nb::cast<std::string>(nb::str(nb::getattr(task, "__name__", nb::str("task"))));
+          detail::EngineAccess::add_detached_process(*module->context(), std::make_unique<PyTask>(module->context(), std::move(task), name));
+     }
+
      static inline auto bind_module(nb::module_ &m, const char *name)
      {
           return nb::class_<Module, Model>(m, name)
               .def(nb::init<ModuleName &>(), nb::arg("name"))
               .def("process", &module_process_helper, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)
               .def("add_task", &module_coro_helper, nb::arg("task"), nb::rv_policy::reference)
+              .def("spawn", &module_spawn_helper, nb::arg("task"))
               .def("wait", [](Module &module)
                    { return module.wait(); })
               .def("wait", [](Module &module, uint64_t time_delta)

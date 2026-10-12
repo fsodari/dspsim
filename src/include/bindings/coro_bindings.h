@@ -102,13 +102,11 @@ namespace dspsim::bindings
         // The leaf awaitables have a single suspend point: yield once, then resume with the wait's result.
         nb::object wait_await = compile_generator(
             "def _dspsim_wait_await(self):\n"
-            "    while not self._py_step_done():\n"
-            "        yield\n"
+            "    yield\n"
             "    return self._py_result()\n",
             "_dspsim_wait_await");
 
         return nb::class_<WaitBase>(m, name)
-            .def("_py_step_done", &WaitBase::py_step_done)
             // Typed as object so that subclasses can override it with their own result type.
             .def("_py_result", [](WaitBase &)
                  { return nb::none(); }, nb::sig("def _py_result(self) -> object"))

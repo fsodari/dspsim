@@ -23,7 +23,11 @@ add_executable(tests
     test_derived_signal.cpp
     test_signal_packing.cpp
     test_async.cpp
-    test_late_registration.cpp)
+    test_late_registration.cpp
+    test_events.cpp
+    test_spawn.cpp
+    test_channel.cpp
+    test_process_control.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax

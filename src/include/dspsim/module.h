@@ -36,19 +36,23 @@ namespace dspsim
 
         // Schedule to be sensitive to an event on the next trigger.
         void next_trigger(SensitivityEvent &event);
+        // Schedule to be sensitive to whichever of the events occurs first, like several next_trigger(event) calls.
+        void next_trigger(const std::vector<std::reference_wrapper<SensitivityEvent>> &events);
+        void next_trigger(const std::vector<SensitivityEvent *> &events);
 
         // "*" will be sensitive to all events in the static sensitivity list. Only supported named event for now.
         void next_trigger(const std::string &event_name);
 
         // Coroutine awaitables. See Context::wait().
-        Wait wait();
+        // wait() is defined inline: a coroutine with static sensitivity calls it on every evaluation.
+        Wait wait() { return Wait{context()->current_process()}; }
         WaitTimeEvent wait(uint64_t time_delta);
         WaitSensitivityEvent wait(SensitivityEvent &event);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events);
+        WaitSensitivityEvent wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events);
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events);
         // With a timeout (> 0): the result tells whether an event triggered or the timeout elapsed.
         WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
+        WaitSensitivityEvent wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, uint64_t timeout);
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // The ports declared in this module, in declaration order.

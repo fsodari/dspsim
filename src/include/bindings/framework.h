@@ -17,7 +17,7 @@ namespace dspsim::bindings
 {
     namespace nb = nanobind;
 
-    /// Context, Model, events, processes, awaitables and tasks, ModuleName and Module. (engine.cpp)
+    /// Context, Model, events, Channel, processes, awaitables and tasks, ModuleName and Module. (engine.cpp)
     void register_engine(nb::module_ &m);
     /// SignalBase, Signal*, BitSel and the bit functions, DerivedSignal*, Clock. (signals.cpp)
     void register_signals(nb::module_ &m);

@@ -2,6 +2,8 @@
     A process can be registered for evaluation in the simulation context.
 */
 #pragma once
+#include <dspsim/utils/inlining.h>
+
 #include <coroutine>
 #include <cstdint>
 #include <cstddef>
@@ -82,6 +84,24 @@ namespace dspsim
             return this;
         }
 
+        /*
+            Stop evaluating the process until enable(). The events of its static sensitivity list no longer
+            wake it, the triggers it has asked for with next_trigger() are dropped, and it is taken off the
+            evaluation stack if it is scheduled. Events that occur while it is disabled are lost.
+
+            A coroutine process can only be disabled while it waits on its static sensitivity
+            (`co_await wait()`), or before it has started. One that is suspended in a wait for an event or a
+            time would lose that wait, and could only continue as if what it waited for had happened, so
+            disable() throws std::logic_error for it.
+
+            A trigger that the process asks for after it was disabled (next_trigger(), wait(event)) still
+            wakes it, and ends the disabled state.
+        */
+        ProcessBase *disable();
+        /// Undo disable(): the next event of the static sensitivity list wakes the process again.
+        /// Does not evaluate the process: use initialize(true) for that.
+        ProcessBase *enable();
+
         // Indicates if the coroutine or process has completed.
         virtual bool done() const = 0;
 
@@ -95,6 +115,13 @@ namespace dspsim
             waits stale. Called when the process completes or is removed, so that nothing schedules it again.
         */
         void unschedule();
+
+        /*
+            For a process type whose processes complete (a coroutine): call this when the process has
+            completed. It unschedules the process, and if the process was spawned (Context::spawn()), the
+            context destroys it once the evaluation phase is over.
+        */
+        void complete();
 
         // The suspended coroutine to resume next: the innermost one awaiting a leaf awaitable.
         std::coroutine_handle<> resume_point() const { return resume_point_; }
@@ -113,8 +140,9 @@ namespace dspsim
         // Set while the process sits in Context::process_eval_stack_; used by FlaggedStack.
         bool &scheduled_flag() { return scheduled_; }
 
-        // True while the process waits on a dynamic event or a time wait.
-        bool static_sensitivity_disabled() const { return static_sensitivity_disabled_; }
+        // True while the events of the static sensitivity list do not wake the process: it waits on a
+        // dynamic event or a time wait, or it is disabled.
+        bool static_sensitivity_disabled() const { return static_sensitivity_ != StaticSensitivity::Active; }
 
         void schedule_static_event(SensitivityEvent &event);
         // "*" is sensitive to a change of any input of the parent module.
@@ -154,29 +182,49 @@ namespace dspsim
         void schedule_time_wait(uint64_t time_delta);
 
         /*
-            Called by a SensitivityEvent that triggered this process's dynamic sensitivity.
+            Called by a SensitivityEvent that triggered this process's dynamic sensitivity, when the process
+            waits on other events as well (the event handles a process that only waits on it by itself).
             Unsubscribes from the other dynamic events and restores static sensitivity.
+            Not inlined, to keep SensitivityEvent::trigger() small.
         */
-        void dynamic_event_triggered(SensitivityEvent &event);
+        DSPSIM_NOINLINE void dynamic_event_triggered(SensitivityEvent &event);
         // Called by the scheduler when a time wait fires: the process stops waiting on everything else.
         void time_wait_triggered();
 
         // Return to being sensitive to static events.
-        void reset_static_sensitivity();
+        // Inline: an event calls it for every process that waited on it.
+        void reset_static_sensitivity() { static_sensitivity_ = StaticSensitivity::Active; }
         // Unsubscribe from all static events.
         void cancel_static_events();
         // Unsubscribe from all dynamic events without restoring static sensitivity.
         void cancel_dynamic_events();
 
     private:
+        // Whether the events of the static sensitivity list wake the process.
+        enum class StaticSensitivity : uint8_t
+        {
+            // They do.
+            Active,
+            // Not while the process waits on a dynamic event or a time wait: whatever ends the wait
+            // makes the static sensitivity active again.
+            Waiting,
+            // Not until enable(). See disable().
+            Disabled
+        };
+
+    private:
         // Fields read on every evaluation come first so that they share a cache line with the vtable pointer.
         Context *context_;
         uint32_t id_;
         bool scheduled_ = false;
+        StaticSensitivity static_sensitivity_ = StaticSensitivity::Active;
+        // Plain bools, not bit fields: packed into one byte, these made a time wait 10% slower.
         bool initialize_ = true;
-        // Static sensitivity will be disabled until a dynamic event occurs.
-        bool static_sensitivity_disabled_ = false;
         bool coroutine_;
+        // Spawned with Context::spawn(): the context destroys the process when it has completed.
+        bool detached_ = false;
+        // The process has scheduled a time event at some point, so the time queue may refer to it.
+        bool time_events_used_ = false;
         uint64_t wake_count_ = 0;
         std::coroutine_handle<> resume_point_{};
 
@@ -252,9 +300,10 @@ namespace dspsim
     };
 }
 
-// Convenience macro for registering a method as a process
+// Convenience macro for registering a method as a process.
+// The `template` keyword is for modules that are class templates: context() depends on a template parameter there.
 #define DSPSIM_METHOD(method) \
-    context()->register_method<&std::remove_reference<decltype(*this)>::type::method>(this, this->hier_name() + "." + std::string(#method))
+    context()->template register_method<&std::remove_reference<decltype(*this)>::type::method>(this, this->hier_name() + "." + std::string(#method))
 
 // Convenience macro for registering a coroutine task as a process
 #define DSPSIM_CORO(task) \

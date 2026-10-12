@@ -44,6 +44,10 @@ namespace dspsim::bindings
             .def("always", [](ProcessBase *self, const std::string &event_name)
                  { return self->always(event_name); }, nb::arg("event_name"), nb::rv_policy::reference_internal)
             .def("always", &process_always_func, nb::rv_policy::reference_internal, nb::sig("def always(self, *args: SensitivityEvent | PortBase | SignalBase) -> ProcessBase"))
+            .def("disable", [](ProcessBase *self)
+                 { return self->disable(); }, nb::rv_policy::reference_internal)
+            .def("enable", [](ProcessBase *self)
+                 { return self->enable(); }, nb::rv_policy::reference_internal)
             .def_prop_ro("done", &ProcessBase::done);
     }
 

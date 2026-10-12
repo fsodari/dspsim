@@ -5,9 +5,9 @@
 #include <string>
 namespace dspsim
 {
-    void detail::own_model(Context *context, std::shared_ptr<Model> model)
+    void detail::own_object(Context *context, std::shared_ptr<void> object)
     {
-        context->own_model(model);
+        context->own_object(std::move(object));
     }
 
     Model::Model(const std::string &name, const std::string &kind)
