@@ -29,9 +29,11 @@ no simulator behind it, and tracing works as for any verilated module.
 
 ## Requirements
 
-- **GHDL**, version 5 or 6 (tested with 5.0.1 and 6.0.0, with the mcode and the LLVM JIT back ends). dspsim
-  runs the executable that `DSPSIM_GHDL` names, or `ghdl` on the path. It is only needed to build a model: Python packages and
-  libraries that were built from VHDL do not need it to run.
+- **GHDL**, version 3.0 to 6: every release from 3.0.0 to 6.0.0 is tested, with the mcode back end, and
+  6.0.0 with the LLVM JIT back end too. dspsim runs the executable that `DSPSIM_GHDL` names, or `ghdl` on
+  the path. It is only needed to build a model: Python packages and libraries that were built from VHDL do
+  not need it to run. An older GHDL is refused with a `GhdlError`. GHDL 7 is not released yet; its
+  development builds synthesize a record inside a record port differently, which dspsim does not handle.
 - **Synthesizable VHDL.** What `ghdl synth` accepts is what dspsim can model: no `wait for`, no files, no
   `real` signals. GHDL calls its synthesis experimental; it handles the VHDL-2008 that the tests here use
   (records, functions, loops, arrays of several dimensions, instances of other entities), and reports what
@@ -179,7 +181,7 @@ python -m dspsim.ghdl hdl/Skid.vhd [other.vhd ...] --output-dir build/vhdl -g DW
    packages. `parse_rti()` reads the entity from that. This is a debugging output of GHDL and not a
    documented interface: `tests/test_vhdl.py` has a sample of it, and the tests that run GHDL check the
    whole path.
-3. `ghdl synth --out=verilog` writes the netlist, with the generics as constants.
+3. `ghdl synth --out=verilog` writes the netlist to its standard output, with the generics as constants.
 4. `wrapper()` writes the module of the entity: the generics as parameters, the ports with their types,
    and an instance of the netlist. The netlist has lost the types: every port is an unsigned vector, a
    record port is one port per element, and arrays and the records inside are packed into one vector, the

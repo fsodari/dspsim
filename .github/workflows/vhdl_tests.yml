@@ -1,6 +1,7 @@
 name: VHDL tests
 # The wheel builds have no GHDL, so the tests of VHDL models that run it are skipped there. These jobs have
-# one: a release of GHDL for each platform, with the back ends that its builds for that platform have.
+# one: on Ubuntu the oldest release that dspsim supports and the releases since that changed what GHDL
+# synthesizes, and a release for each other platform, with the back ends that its builds for it have.
 on:
   push:
     branches:
@@ -16,12 +17,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Built on Ubuntu 22.04, whose Ada runtime Ubuntu 24.04 has as a package too.
+          - os: ubuntu-24.04
+            ghdl: "3.0.0"
+            archive: ghdl-gha-ubuntu-22.04-mcode.tgz
+            runtime: libgnat-10
+          - os: ubuntu-24.04
+            ghdl: "4.1.0"
+            archive: ghdl-gha-ubuntu-22.04-mcode.tgz
+            runtime: libgnat-10
           - os: ubuntu-24.04
             ghdl: "5.0.1"
             archive: ghdl-mcode-5.0.1-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
+          - os: ubuntu-24.04
+            ghdl: "5.1.1"
+            archive: ghdl-mcode-5.1.1-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
           - os: ubuntu-24.04
             ghdl: "6.0.0"
             archive: ghdl-mcode-6.0.0-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
           - os: windows-latest
             ghdl: "6.0.0"
             archive: ghdl-mcode-6.0.0-ucrt64.zip
@@ -54,20 +70,20 @@ jobs:
             *.zip)
               # The Windows build: bin/ghdl.exe with the libraries that it needs next to it.
               unzip -q "${{ matrix.archive }}" -d ghdl-release
-              executable=ghdl.exe
               ;;
             *)
-              tar xzf "${{ matrix.archive }}" -C ghdl-release --strip-components=1
-              executable=ghdl
+              tar xzf "${{ matrix.archive }}" -C ghdl-release
               ;;
           esac
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            # The Linux build needs the Ada runtime of the Ubuntu that it was built on.
+          if [ -n "${{ matrix.runtime }}" ]; then
+            # A Linux build needs the Ada runtime of the Ubuntu that it was built on.
             sudo apt-get update
-            sudo apt-get install -y libgnat-13
+            sudo apt-get install -y "${{ matrix.runtime }}"
           fi
-          echo "DSPSIM_GHDL=$GITHUB_WORKSPACE/ghdl-release/bin/$executable" >> "$GITHUB_ENV"
-          "ghdl-release/bin/$executable" --version
+          # bin/ is at the top of the archives of the older releases and one directory down in the others.
+          executable="$(find ghdl-release -maxdepth 3 -path '*/bin/*' \( -name ghdl -o -name ghdl.exe \) | head -1)"
+          echo "DSPSIM_GHDL=$GITHUB_WORKSPACE/$executable" >> "$GITHUB_ENV"
+          "$executable" --version
 
       - name: Install dspsim
         run: uv sync

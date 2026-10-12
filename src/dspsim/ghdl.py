@@ -75,10 +75,31 @@ def ghdl_version() -> str:
     return _ghdl(["--version"]).splitlines()[0].strip()
 
 
+# The oldest GHDL that dspsim works with. GHDL 2 writes Verilog too, but its synthesis fails on VHDL that
+# the tests use; GHDL 1 does not write Verilog.
+MINIMUM_VERSION = (3, 0)
+
+
+def check_ghdl_version() -> None:
+    """Raise GhdlError if GHDL is older than dspsim supports. A version that cannot be read passes."""
+    version = ghdl_version()
+    match = re.match(r"GHDL (\d+)\.(\d+)", version)
+    if match and (int(match[1]), int(match[2])) < MINIMUM_VERSION:
+        raise GhdlError(
+            f"dspsim needs GHDL {'.'.join(map(str, MINIMUM_VERSION))} or newer, and this is '{version}'"
+        )
+
+
 def _ghdl(
-    args: Sequence[str | Path], cwd: Path | None = None, check: bool = True
+    args: Sequence[str | Path],
+    cwd: Path | None = None,
+    check: bool = True,
+    messages: bool = True,
 ) -> str:
-    """Run GHDL and return what it printed. Raises GhdlError if it fails."""
+    """
+    Run GHDL and return what it printed: with its messages (standard error), or the standard output alone.
+    Raises GhdlError if it fails.
+    """
     command = [str(ghdl_bin()), *(str(a) for a in args)]
     result = subprocess.run(
         command,
@@ -93,7 +114,7 @@ def _ghdl(
         raise GhdlError(
             f"ghdl {' '.join(str(a) for a in args[:2])} failed:\n{output.strip()}"
         )
-    return output
+    return output if messages else result.stdout
 
 
 @dataclass
@@ -945,11 +966,15 @@ def wrapper(entity: VhdlEntity, netlist: str, comment: str = "") -> str:
         name = _sv_name(port.name)
         lower = port.name.lower()
         if isinstance(port.type, VhdlRecord):
-            # GHDL gives a record port a port for each of its elements: "port[element]", and "port_element"
-            # before GHDL 6.
+            # GHDL gives a record port a port for each of its elements: "port[element]" (GHDL 6),
+            # "port_port[element]" (GHDL 5.1) or "port_element" (before).
             for element, element_type in port.type.fields:
                 connect(
-                    (f"{lower}[{element}]", f"{lower}_{element}"),
+                    (
+                        f"{lower}[{element}]",
+                        f"{lower}_{lower}[{element}]",
+                        f"{lower}_{element}",
+                    ),
                     f"{name}.{_sv_name(element)}",
                     element_type,
                     port.direction,
@@ -1067,6 +1092,7 @@ def transpile(
     if existing := sorted(directory.glob("*.sv")):
         return existing[0]
 
+    check_ghdl_version()
     work = directory / "work"
     work.mkdir(parents=True, exist_ok=True)
     common = [f"--std={options.std}", f"--workdir={work}", *options.ghdl_args]
@@ -1099,14 +1125,16 @@ def transpile(
     arguments = _generic_arguments(generics, entity)
     if arguments:
         entity = elaborate(arguments)
-    netlist = work / "netlist.v"
-    _ghdl(
-        ["synth", *common, *arguments, "--out=verilog", f"-o={netlist}", entity_name],
+    # The netlist is what GHDL writes to its standard output: its option for a file (-o) came with GHDL 5.
+    netlist = _ghdl(
+        ["synth", *common, *arguments, "--out=verilog", entity_name],
         cwd=work,
+        messages=False,
     )
+    (work / "netlist.v").write_text(netlist)
 
     comment = f"{source.name}, entity {entity.name}, synthesized by {ghdl_version()}"
-    text = wrapper(entity, netlist.read_text(), comment)
+    text = wrapper(entity, netlist, comment)
     # Written under another name first: the file is what says that the directory is complete.
     path = directory / f"{entity.name}.sv"
     temporary = directory / f"{entity.name}.sv.tmp"

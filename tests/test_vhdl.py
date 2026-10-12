@@ -377,6 +377,23 @@ def test_vhdl_wrapper():
     ]
     assert lines.index("wire [11:0] total;") < start
 
+    # GHDL has named the ports of a record in three ways: "port[element]" (GHDL 6), "port_port[element]"
+    # (GHDL 5.1) and "port_element" (before).
+    for re_port, im_port, connection in (
+        (
+            "\\bus_in_bus_in[re] ",
+            "\\bus_in_bus_in[im] ",
+            ".\\bus_in_bus_in[re] (bus_in.re),",
+        ),
+        ("bus_in_re", "bus_in_im", ".\\bus_in_re (bus_in.re),"),
+    ):
+        netlist = NETLIST.replace("\\bus_in[re] ", re_port).replace(
+            "\\bus_in[im] ", im_port
+        )
+        assert re_port in netlist and im_port in netlist
+        text = ghdl.wrapper(entity, netlist, "a test")
+        assert connection in [line.strip() for line in text.splitlines()]
+
     # The netlist must be that of the entity.
     wrong = replace_port(entity, "data", VhdlBits(10, signed=True))
     with pytest.raises(
@@ -395,6 +412,29 @@ def replace_port(entity: VhdlEntity, name: str, vhdl_type) -> VhdlEntity:
         for p in entity.ports
     ]
     return VhdlEntity(entity.name, entity.generics, ports)
+
+
+@pytest.mark.parametrize(
+    "version, supported",
+    [
+        ("GHDL 1.0.0 (Ubuntu 1.0.0+dfsg-6) [Dunoon edition]", False),
+        ("GHDL 2.0.0 (Debian 2.0.0+dfsg-6.2+b2) [Dunoon edition]", False),
+        ("GHDL 3.0.0 (2.0.0.r1417.g7de967c51) [Dunoon edition]", True),
+        ("GHDL 6.0.0 (6.0.0.r0.ge589c698c) [Dunoon edition]", True),
+        ("GHDL 7.0.0-dev (6.0.0.r504.gdd4f97400) [Dunoon edition]", True),
+        ("something else", True),
+    ],
+)
+def test_ghdl_version_check(monkeypatch, tmp_path, version, supported):
+    monkeypatch.setattr(ghdl, "ghdl_version", lambda: version)
+    if supported:
+        ghdl.check_ghdl_version()
+        return
+    with pytest.raises(GhdlError, match="dspsim needs GHDL 3.0 or newer"):
+        ghdl.check_ghdl_version()
+    # A GHDL that is too old is refused before it is run.
+    with pytest.raises(GhdlError, match="dspsim needs GHDL 3.0 or newer"):
+        ghdl.transpile(VHDL_DIR / "Skid.vhd", None, None, tmp_path)
 
 
 def test_ghdl_not_found(monkeypatch, tmp_path):
