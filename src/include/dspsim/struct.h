@@ -5,10 +5,11 @@
 
 #include <concepts>
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
-#include <typeindex>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -16,6 +17,28 @@ namespace dspsim
 {
     class SignalStructArray;
     class PortStructArray;
+
+    /*
+        The type of what a field of a struct refers to: Signal<T>, InputArray<T>, PortStruct, ...
+
+        Two of these are equal if they are of the same type, wherever each was made. That is not so for
+        std::type_info: a model in an extension module of its own and the framework each have a std::type_info
+        for a type, and with some standard libraries (libc++ on macOS) the two do not compare equal. This
+        compares the names of the types, which are the same.
+    */
+    class StructFieldType
+    {
+    public:
+        StructFieldType(const std::type_info &type) : name_(type.name()) {}
+
+        friend bool operator==(const StructFieldType &a, const StructFieldType &b)
+        {
+            return a.name_ == b.name_ || std::strcmp(a.name_, b.name_) == 0;
+        }
+
+    private:
+        const char *name_;
+    };
 
     namespace detail
     {
@@ -91,8 +114,8 @@ namespace dspsim
         struct Field
         {
             std::string name;
-            /// typeid of the object: Signal<T>, SignalArray<T>, SignalStruct or SignalStructArray.
-            std::type_index type;
+            /// The type of the object: Signal<T>, SignalArray<T>, SignalStruct or SignalStructArray.
+            StructFieldType type;
             void *object;
             /// Keeps the object alive, if the struct owns it. Empty for an object that was added by reference.
             std::shared_ptr<void> owner;
@@ -154,7 +177,7 @@ namespace dspsim
 
     private:
         SignalStruct &add_field(Field field);
-        void *get(const std::string &field, std::type_index type) const;
+        void *get(const std::string &field, const StructFieldType &type) const;
 
         std::string name_;
         std::vector<Field> fields_;
@@ -252,9 +275,9 @@ namespace dspsim
         struct Field
         {
             std::string name;
-            /// typeid of the object: Input<T>, Output<T>, InputArray<T>, OutputArray<T>, PortStruct or
+            /// The type of the object: Input<T>, Output<T>, InputArray<T>, OutputArray<T>, PortStruct or
             /// PortStructArray.
-            std::type_index type;
+            StructFieldType type;
             void *object;
             const Ops *ops;
         };
@@ -321,7 +344,7 @@ namespace dspsim
 
     private:
         void add_field(Field field);
-        void *get(const std::string &field, std::type_index type) const;
+        void *get(const std::string &field, const StructFieldType &type) const;
         // Append what keeps this struct from binding to the other to errors, each with the path of its field.
         void check(const SignalStruct &signals, const std::string &path, std::vector<std::string> &errors) const;
         void check(const PortStruct &ports, const std::string &path, std::vector<std::string> &errors) const;

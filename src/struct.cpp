@@ -214,7 +214,7 @@ namespace dspsim
         return *this;
     }
 
-    void *SignalStruct::get(const std::string &field, std::type_index type) const
+    void *SignalStruct::get(const std::string &field, const StructFieldType &type) const
     {
         auto *f = find(field);
         if (!f)
@@ -356,7 +356,7 @@ namespace dspsim
         fields_.push_back(std::move(field));
     }
 
-    void *PortStruct::get(const std::string &field, std::type_index type) const
+    void *PortStruct::get(const std::string &field, const StructFieldType &type) const
     {
         auto *f = find(field);
         if (!f)

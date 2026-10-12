@@ -83,6 +83,18 @@ namespace
     };
 }
 
+TEST_CASE("struct field types", "[struct]")
+{
+    // The type of a field is equal to the same type and to no other. Types are compared by name, because a
+    // model's extension module and the framework each have their own std::type_info of a type.
+    StructFieldType type = typeid(Signal<int16_t>);
+    REQUIRE(type == typeid(Signal<int16_t>));
+    REQUIRE(type == StructFieldType{typeid(Signal<int16_t>)});
+    REQUIRE(type != typeid(Signal<uint16_t>));
+    REQUIRE(type != typeid(SignalArray<int16_t>));
+    REQUIRE(StructFieldType{typeid(PortStruct)} != typeid(PortStructArray));
+}
+
 TEST_CASE("signals of a port struct", "[struct]")
 {
     auto ctx = Context::create();

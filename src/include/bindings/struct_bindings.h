@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <typeindex>
 #include <utility>
 #include <vector>
 
@@ -231,7 +230,7 @@ namespace dspsim::bindings
     }
 
     template <typename T>
-    static inline bool port_struct_array_field(const PortStructArray &ports, const std::type_index &type, const std::string &field, nb::handle parent, nb::object &result)
+    static inline bool port_struct_array_field(const PortStructArray &ports, const StructFieldType &type, const std::string &field, nb::handle parent, nb::object &result)
     {
         if (type == typeid(Input<T>) || type == typeid(InputArray<T>))
         {
@@ -268,7 +267,7 @@ namespace dspsim::bindings
     }
 
     template <typename T>
-    static inline bool signal_struct_array_field(const SignalStructArray &signals, const std::type_index &type, const std::string &field, nb::handle parent, nb::object &result)
+    static inline bool signal_struct_array_field(const SignalStructArray &signals, const StructFieldType &type, const std::string &field, nb::handle parent, nb::object &result)
     {
         if (type == typeid(Signal<T>) || type == typeid(SignalArray<T>))
         {

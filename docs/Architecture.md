@@ -271,7 +271,8 @@ array of structs can be a field of a struct. See [VerilatedPorts.md](VerilatedPo
 
 Neither class is a `Model` or takes part in scheduling: the ports and signals are the ordinary ones, which
 register with their module and the context as always, and a struct only refers to them. The fields are
-stored with their type erased (`std::type_index` and a pointer), and a port field has a small table of
+stored with their type erased (`StructFieldType`, which compares types by name so that it also works between
+a model's extension module and the framework, and a pointer), and a port field has a small table of
 functions (`PortStruct::Ops`) that the typed `add()` overloads fill in, so `bind()` can check the types
 of both sides and report every difference before it binds anything.
 
