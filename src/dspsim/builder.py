@@ -382,6 +382,9 @@ def build_module(
             build_dir,
             "-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_PREFIX_PATH={site_packages_path}",
+            # The interpreter that is running, which has dspsim: CMake would otherwise take the first Python
+            # that it finds, and build for that one and run the dspsim generator of a library with it.
+            f"-DPython_EXECUTABLE={Path(sys.executable).as_posix()}",
         ]
         out = subprocess.run(cmake_cfg_cmd, check=False, capture_output=True)
         if verbose:
