@@ -1,4 +1,5 @@
 #include <dspsim/context.h>
+#include <dspsim/channel.h>
 #include <dspsim/coro.h>
 #include <dspsim/derived_signal.h>
 #include <dspsim/event.h>
@@ -6,6 +7,7 @@
 #include <dspsim/module.h>
 #include <dspsim/process.h>
 #include <dspsim/signal.h>
+#include <dspsim/utils/inlining.h>
 
 #include "log.h"
 
@@ -33,10 +35,11 @@ namespace dspsim
         // Logger names must be unique, and context names may repeat. The id makes it unique.
         logger_ = std::make_unique<detail::Logger>(name_ + "#" + std::to_string(id_));
 
+        next_delta_event_ = std::make_unique<SensitivityEvent>(this);
+
         // Reserve space in eval/update/event stacks.
         process_eval_stack_.reserve(1000);
         signal_update_stack_.reserve(1000);
-        sensitivity_event_stack_.reserve(1000);
     }
 
     Context::Context(Context &&) noexcept = default;
@@ -52,14 +55,15 @@ namespace dspsim
         // resets the flag of each element, and signals may have gone out of scope already.
         process_eval_stack_.drop();
         signal_update_stack_.drop();
-        derived_update_stack_.drop();
+        post_update_stack_.drop();
         current_process_ = nullptr;
+        completed_processes_.clear();
 
         registered_models_.clear();
         modules_.clear();
         signals_.clear();
         processes_.clear();
-        owned_models_.clear();
+        owned_objects_.clear();
         children_.clear();
 
         sensitivity_event_stack_.clear();
@@ -122,23 +126,40 @@ namespace dspsim
             signal->update();
         }
 
-        // Derived signals are recomputed once all of their sources have committed.
-        while (!derived_update_stack_.empty())
+        // Derived signals are recomputed once all of their sources have committed, and channels are
+        // updated then as well.
+        while (!post_update_stack_.empty())
         {
-            DerivedSignalBase *derived = derived_update_stack_.back();
-            derived_update_stack_.pop_back();
-            derived->pull();
+            detail::Updatable *updatable = post_update_stack_.back();
+            post_update_stack_.pop_back();
+            updatable->commit();
         }
     }
 
-    int Context::eval()
+    // Flattened: the update phase and the triggering of events are part of this loop, whatever their size.
+    DSPSIM_FLATTEN int Context::eval()
     {
         int n_iter = 0;
         bool any_model_updated = false;
         // Any model that was updated this cycle should be traced.
 
+        // Nothing to do, usually because the design has settled. An event that was notified or a channel
+        // that asked for an update from outside the simulation starts a delta cycle on its own. The
+        // channels are only looked at here, not after every round: a process asks for an update in an
+        // evaluation phase, and the update phase of the same round takes care of it.
+        if (process_eval_stack_.empty() && signal_update_stack_.empty() && sensitivity_event_stack_.empty() &&
+            post_update_stack_.empty())
+        {
+            // Left over when a process threw: the exception passed by the release below.
+            if (!completed_processes_.empty()) [[unlikely]]
+            {
+                release_completed_processes();
+            }
+            return 0;
+        }
+
         // Run eval cycle.
-        while (!process_eval_stack_.empty() || !signal_update_stack_.empty())
+        do
         {
             any_model_updated = !process_eval_stack_.empty();
             DSPSIM_LOG_TRACE(logger_, "Starting delta cycle iteration: " + std::to_string(n_iter));
@@ -166,12 +187,19 @@ namespace dspsim
             update_signals();
 
             // Trigger all sensitivity events that were notified.
-            for (const auto &event : sensitivity_event_stack_)
+            for (SensitivityEvent *event : sensitivity_event_stack_)
             {
                 DSPSIM_LOG_TRACE(logger_, "Triggering sensitivity event");
                 event->trigger();
             }
             sensitivity_event_stack_.clear();
+        } while (!process_eval_stack_.empty() || !signal_update_stack_.empty() || !sensitivity_event_stack_.empty());
+
+        // Nothing refers to a completed process any more, except stale time events, which
+        // release_completed_processes() removes.
+        if (!completed_processes_.empty()) [[unlikely]]
+        {
+            release_completed_processes();
         }
 
         // Trace modules that requested tracing.
@@ -263,7 +291,21 @@ namespace dspsim
             throw std::logic_error("next_trigger(time) is not allowed in coroutine process " +
                                    current_process_->name() + ": use wait(time) instead");
         }
+        if (time_delta == 0) [[unlikely]]
+        {
+            // A trigger after no time is a trigger in the next delta cycle.
+            wait_for_next_delta(current_process_);
+            return;
+        }
         time_event_stack_.emplace(time_ + time_delta, current_process_);
+        current_process_->time_events_used_ = true;
+    }
+
+    void Context::wait_for_next_delta(ProcessBase *process)
+    {
+        // The event occurs when the evaluation phase is over, which wakes the process in the next delta cycle.
+        process->schedule_dynamic_event(*next_delta_event_);
+        next_delta_event_->notify();
     }
 
     void Context::run_until_done(ProcessBase *process, uint64_t timeout)
@@ -298,25 +340,28 @@ namespace dspsim
     {
         process->unschedule();
 
-        // Drop its pending time events. std::priority_queue has no erase, so rebuild it.
-        std::vector<TimeEvent> kept;
-        while (!time_event_stack_.empty())
+        // Drop its pending time events: they refer to the process. Most processes never had one.
+        if (process->time_events_used_)
         {
-            if (time_event_stack_.top().process() != process)
-            {
-                kept.push_back(time_event_stack_.top());
-            }
-            time_event_stack_.pop();
+            time_event_stack_.erase_if([process](const TimeEvent &event)
+                                       { return event.process() == process; });
         }
-        time_event_stack_ = PriorityQueue<TimeEvent>(std::greater<TimeEvent>(), std::move(kept));
 
         process_eval_stack_.erase(process);
         if (current_process_ == process)
         {
             current_process_ = nullptr;
         }
-        std::erase_if(processes_, [process](const std::unique_ptr<ProcessBase> &p)
-                      { return p.get() == process; });
+        // Search from the back: the process to remove is usually the one registered last (run_until()).
+        for (auto it = processes_.end(); it != processes_.begin();)
+        {
+            --it;
+            if (it->get() == process)
+            {
+                processes_.erase(it);
+                break;
+            }
+        }
     }
 
     namespace
@@ -351,7 +396,7 @@ namespace dspsim
     {
         return WaitSensitivityEvent{event, current_process_};
     }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events)
+    WaitSensitivityEvent Context::wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events)
     {
         return WaitSensitivityEvent{events, current_process_};
     }
@@ -365,7 +410,7 @@ namespace dspsim
     {
         return WaitSensitivityEvent{event, current_process_, timeout};
     }
-    WaitSensitivityEvent Context::wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout)
+    WaitSensitivityEvent Context::wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, uint64_t timeout)
     {
         return WaitSensitivityEvent{events, current_process_, timeout};
     }
@@ -467,11 +512,6 @@ namespace dspsim
         signals_.push_back(signal);
     }
 
-    const std::vector<std::shared_ptr<Model>> &Context::owned_models() const
-    {
-        return owned_models_;
-    }
-
     uint32_t Context::next_model_id()
     {
         return next_model_id_++;
@@ -487,9 +527,9 @@ namespace dspsim
         trace_stack_.push_back(model);
     }
 
-    void Context::own_model(std::shared_ptr<Model> model)
+    void Context::own_object(std::shared_ptr<void> object)
     {
-        owned_models_.push_back(model);
+        owned_objects_.push_back(std::move(object));
     }
 
     ProcessBase *Context::add_process(std::unique_ptr<ProcessBase> process)
@@ -510,6 +550,28 @@ namespace dspsim
     {
         DSPSIM_LOG_INFO(logger_, "Registering process: " + name);
         return add_process(std::make_unique<MethodProcess>(this, instance, call, name));
+    }
+
+    void Context::spawn_coro(std::coroutine_handle<> root, const std::string &name)
+    {
+        add_detached_process(std::make_unique<CoroProcess>(this, root, name));
+    }
+
+    void Context::add_detached_process(std::unique_ptr<ProcessBase> process)
+    {
+        process->detached_ = true;
+        add_process(std::move(process));
+    }
+
+    // Not inlined: it is rare, and eval() is flattened.
+    DSPSIM_NOINLINE void Context::release_completed_processes()
+    {
+        // remove_process() does not add to the list: it only unschedules and destroys.
+        for (ProcessBase *process : completed_processes_)
+        {
+            remove_process(process);
+        }
+        completed_processes_.clear();
     }
 
     ProcessBase *Context::register_coro(std::coroutine_handle<> root, const std::string &name)

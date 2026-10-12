@@ -84,7 +84,7 @@ belongs to signals (see below).
 
 ### `Context` ([context.h](../src/include/dspsim/context.h) / [context.cpp](../src/context.cpp))
 Owns a simulation: the registered models, the processes, the delta-cycle scheduling
-stacks (`process_eval_stack_`, `signal_update_stack_`, `derived_update_stack_`,
+stacks (`process_eval_stack_`, `signal_update_stack_`, `post_update_stack_`,
 `sensitivity_event_stack_`), and a time-ordered `time_event_stack_` for scheduled future
 events (clock edges, time waits).
 
@@ -132,13 +132,67 @@ from such a selection are recomputed in a second pass of the update phase. See
 A `SensitivityEvent` holds the processes that are sensitive to it, in two lists: static
 subscribers (scheduled every time the event occurs) and dynamic subscribers (scheduled
 once, on the next occurrence). The lists are allocated on first subscription, so an event
-nobody subscribed to costs a null check in `notify()`.
+nobody subscribed to costs the signal that owns it a null check. Both lists and the first
+subscribers of each (two static, one dynamic) share one cache line, see "Headers and inline
+code" below; further subscribers go to an array on the heap.
 
-`notify()` queues the event on the context's `sensitivity_event_stack_`. Once all signals
-of the round have updated, the context calls `trigger()` on each queued event, which
-pushes the subscribed processes onto `process_eval_stack_`.
+An event is notified in one of two ways, and both queue it on the context's
+`sensitivity_event_stack_`. Once all signals of the round have updated, the context calls
+`trigger()` on each queued event, which pushes the subscribed processes onto
+`process_eval_stack_`: they are evaluated in the next round, where `has_happened()` is true.
+- A signal notifies its own events when it commits a new value in the update phase
+  (`notify_committed()`, private). No process runs between then and `trigger()`, so the
+  subscribers are known and an event without any is not queued.
+- User code calls `notify()`, from a process or between two runs, to raise an event of its own
+  (a module's `received()` event, for example). It always queues the event, and `trigger()` looks
+  at the subscribers when the evaluation phase is over. A process that starts waiting on the event
+  after the `notify()` call, later in the same evaluation phase, is therefore woken as well, and
+  the result does not depend on which of the two processes ran first. This is SystemC's delta
+  notification, `notify(SC_ZERO_TIME)`. An event that is notified between two runs starts a delta
+  cycle in the next run.
 
 A `TimeEvent` is a `{time, process, wake_count}` entry in the context's time-event queue.
+
+### `Channel` ([channel.h](../src/include/dspsim/channel.h))
+Base class for state of the user's own that is committed in the update phase, the way the value of a
+signal is (SystemC: `sc_prim_channel`). A channel calls `request_update()` when a process has changed it,
+and the context calls its `update()` once in the update phase of that delta cycle, after the signals have
+committed. `update()` makes the change visible and usually notifies an event. Every process of a delta
+cycle therefore sees the same state of the channel, whatever the order of evaluation, which a queue or a
+mailbox that two processes share directly does not give. Channels and derived signals share one hook
+(`detail::Updatable`) and one stack in the context, so a design without channels pays nothing for them.
+
+`update()` may change the channel's own state and notify events. It must not write to a signal and must
+not request the update of a channel, itself included: writes belong to the evaluation phase, and one
+made in the update phase is not committed with the others of the delta cycle (a signal written there
+changes one delta cycle late). The same holds for a class that overrides `SignalBase::update()`. The
+engine does not check this: the check would have to sit in `Signal::write()`, on the path of every
+write.
+
+A channel can be written in Python as well:
+
+```python
+class Mailbox(Channel):
+    def __init__(self, context):
+        super().__init__(context)
+        self.written = SensitivityEvent(context)
+        self._value = self._next = 0
+
+    def put(self, value):
+        self._next = value
+        self.request_update()
+
+    def get(self):
+        return self._value
+
+    def update(self):  # called by the context in the update phase
+        self._value = self._next
+        self.written.notify()
+```
+
+The context keeps a Python channel, and an event that Python creates with `SensitivityEvent(context)`,
+alive until it is cleared: the context and the processes refer to them, whether or not Python still does
+(see "Ownership" below).
 
 ### Processes ([process.h](../src/include/dspsim/process.h), [coro.h](../src/include/dspsim/coro.h))
 A process is the unit of evaluation. Modules register them in their constructor and the
@@ -147,6 +201,15 @@ context owns them:
   bound at compile time and called through a plain function pointer.
 - `DSPSIM_CORO(task)` registers a C++20 coroutine (`Task<>`) as a `CoroProcess`.
 - `Context::register_process_func()` registers any `std::function<void()>`.
+- `Context::spawn(task)` starts a coroutine while the simulation runs and returns nothing: the context
+  destroys the process when the task has completed (`ProcessBase::complete()` puts it on a list that
+  `Context::eval()` empties once the delta cycles of the time step are over). Every other process lives
+  as long as the context, so a `ProcessBase*` stays valid.
+
+`process->disable()` stops a process from being evaluated until `enable()`: its static sensitivity is
+ignored, what it asked for with `next_trigger()` is dropped, and it leaves the evaluation stack. It is
+meant for method processes. A coroutine can only be disabled while it waits on its static sensitivity:
+one that is suspended in `wait(event)` or `wait(time)` would lose that wait, so `disable()` throws for it.
 
 Sensitivity is either static or dynamic:
 - Static: `process->always(clk.pos(), some_signal, ...)` subscribes the process to those
@@ -156,9 +219,11 @@ Sensitivity is either static or dynamic:
   stale), so a one-shot coroutine is not scheduled again. Each argument can be a signal or a port (its change
   event), `.pos()`/`.neg()` of either, or an array of them. `always("*")` means every
   input of the enclosing module.
-- Dynamic: `next_trigger(event)` or `next_trigger(time_delta)` from a method process, and
+- Dynamic: `next_trigger(event)`, `next_trigger({e1, e2})` or `next_trigger(time_delta)` from a method process, and
   `co_await wait(...)` on a time delta, an event, or an event with a timeout from a
   coroutine (`next_trigger` throws in a coroutine process). While a process waits on a dynamic event, its static sensitivity is paused.
+  A wait or a trigger of no time (`wait(0)`, `next_trigger(0)`) ends in the next delta cycle: the process
+  waits on an event of the context that is notified at once.
 
 ```cpp
 DSPSIM_CTOR(Adder)
@@ -231,7 +296,7 @@ has three tiers:
 
 - **User API (`public`)**: what a testbench or model author calls. `Context`: `create`/`obtain`/`reset`,
   `elaborate`, `release`, `run`, `run_until`, `wait`, `register_process_func` / `register_method` /
-  `register_coro_task`, `log` / `set_log_level`, `own_model`, and the read-only queries (`time`, `models`,
+  `register_coro_task`, `log` / `set_log_level`, `own_object`, and the read-only queries (`time`, `models`,
   `children`, ...). `ProcessBase`: `always`, `initialize`, `done`, `name`, `id`. `SensitivityEvent`:
   `notify`, `has_happened`. Signals and ports: `read`, `write`, `bind`, `slice`, `change`/`pos`/`neg`.
 - **Extension API (`protected`)**: what a new process type, leaf awaitable, port kind or model overrides
@@ -257,7 +322,7 @@ spdlog is an implementation detail of `dspsim-core`: the logger is a private mem
 user code logs with `Context::log(level, message)`. Inside the core, only `src/log.cpp` includes spdlog
 (see "Build configuration of the core library").
 
-In Python, a binding that is not part of the user API has a leading underscore (`Context._own_model`,
+In Python, a binding that is not part of the user API has a leading underscore (`Context._own_object`,
 `_get_global_context_factory`). The stubs are generated with `INCLUDE_PRIVATE`, so these are typed too.
 `dspsim.framework.__all__` lists the public names.
 
@@ -274,8 +339,9 @@ The public headers are written to be cheap to include, since every model, test a
 - Definitions live in the `.cpp` files, except for templates over a user's type and the one-line accessors
   on the run cycle, which stay inline in the headers. Each of those has a comment saying so.
   - Model code calls these on every evaluation: `Signal::read()`, `Input::read()`, `Output::write()`, the
-    `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`, the
-    awaitables' `await_ready()`/`await_resume()` and `Task`. Model code is compiled outside of
+    `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`,
+    `Module::wait()` (the wait on the static sensitivity list), the awaitables'
+    `await_ready()`/`await_resume()` and `Task`. Model code is compiled outside of
     `dspsim-core`, so the compiler cannot see their definitions unless they are in a header.
   - The scheduler reads these on every evaluation: the `ProcessBase` flags and counters, `TimeEvent`'s
     accessors and comparisons, `Context::current_process()`/`update_count()`, the `scheduled_flag()`
@@ -285,6 +351,51 @@ The public headers are written to be cheap to include, since every model, test a
   instead of calling `std::vector::push_back()`. `push_back()` takes its argument by reference, so when the
   compiler does not inline the vector's growth path, the caller spills the pointer it pushes to the stack
   on every call. In `Signal::write()` that was measurable (about 5% on the DFF chain benchmarks).
+  Its growth path, `grow()`, is marked noinline for a related reason. With the reallocation in its body,
+  every place that schedules a process or a signal carried that code, and the compiler either kept its
+  registers on the stack around it or stopped inlining `push_back()` altogether. Keeping `grow()` out of
+  line removed 7% of the instructions of the DFF chains with dynamic sensitivity and 9% of a chain of wires.
+- `SensitivityEvent::notify_committed()`, which a signal calls for each of its events when its value
+  changes, is the null check for "no subscribers" and nothing else, inline in the header. Most events have
+  no subscribers, and a call for each of them was 5% of the instructions of a chain of method flip-flops.
+- The list of notified events (`Context::sensitivity_event_stack_`) is a `PlainStack`, which is
+  `FlaggedStack` without the flag, for the same reason: `std::vector::push_back()` in
+  `schedule_if_subscribed()` made that function three times as large.
+- What the compiler inlines on the run cycle is pinned where it matters
+  ([utils/inlining.h](../src/include/dspsim/utils/inlining.h)). The core is one translation unit, so the
+  compiler may inline any of it anywhere, and it decides by size, which made the instruction counts of the
+  benchmarks move by 5 to 12% with unrelated edits. `Context::eval()` is `DSPSIM_FLATTEN`: the update
+  phase and `SensitivityEvent::trigger()` are inlined into the scheduler's loop whatever their size (12%
+  of the instructions of a tree of adders). The rare paths that this would drag in are `DSPSIM_NOINLINE`:
+  the growth of the stacks and of the subscriber lists, `ProcessBase::dynamic_event_triggered()` (a
+  process that waits on one event is handled inline in `trigger()`, one that waits on several is not),
+  and the release of completed processes.
+- The flags of `ProcessBase` are plain `bool`s. Packed into bit fields to save eight bytes per process,
+  they made every time wait 10% slower.
+- The subscriber lists of an event (`SensitivityEvent::Subscribers`, in `event.cpp`) are one cache line
+  that also holds the first two static subscribers and the first dynamic one. When an event occurs, the
+  path from the event to the process it wakes is a chain of loads that each wait for the one before
+  (event, lists, subscriber array, process), and a design whose processes wake each other in turn, such
+  as a chain of combinational stages, runs at the speed of that chain: instruction counts say little
+  about it. With the subscribers in a separate array, such a chain took 10% more cycles.
+  The lists do not check for duplicates. They used to, with a flag per process id, which made every
+  event with a subscriber as large as the id of that subscriber: the memory of a design grew with the
+  square of its number of processes (784 MB for 40,000 processes with one signal each, now 12 MB).
+  `ProcessBase::schedule_static_event()` subscribes a process to an event once, and a duplicate dynamic
+  subscription is removed like any other.
+- Coroutine frames come from a per-thread pool of freed frames (`TaskPromiseBase::operator new` in
+  `coro.cpp`). A task that a process awaits is created and destroyed around every call, so the
+  general-purpose allocator was a large part of the cost of such a call: the pool removed 11 to 19% of
+  the instructions of the benchmarks that await tasks. It is bypassed when the address sanitizer is on,
+  so that the sanitizer still sees a frame that is used after it was destroyed.
+- The leaf awaitables that `wait()` returns (`Wait`, `WaitTimeEvent`) are a single pointer, so they are
+  returned in a register. An awaitable of 16 bytes or less must not have a member narrower than a
+  register: `WaitBase` used to carry a `bool`, and GCC returned the object by storing the `bool` to the
+  stack and loading it back as part of an 8-byte word. A load that is wider than the store it overlaps
+  cannot be forwarded from the store buffer, so every `co_await wait()` waited more than ten cycles for
+  the store to reach the cache: 12% of the run time of a chain of coroutine flip-flops, and about half of
+  the variation of its cycle count from one run to the next. The counter for this is
+  `ld_blocks.store_forward` (`perf stat -e ld_blocks.store_forward:u`), which should stay near zero.
 
 ### Build configuration of the core library
 How `dspsim-core` is compiled decides how fast the run cycle is. The settings are in
@@ -301,8 +412,9 @@ How `dspsim-core` is compiled decides how fast the run cycle is. The settings ar
   own while working on the core: rebuilds after a one-file change are faster, the simulation is slower.
   A C++ program that is built together with dspsim (the benchmarks, for example) can still use link-time
   optimization for the whole program with the standard `-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON`, which
-  also inlines the core into the model code: `nested_dff` ran 13% faster that way. Do not build a wheel
-  like that.
+  also inlines the core into the model code (`scripts/benchmarks.py --configure --lto`): a chain of
+  coroutine flip-flops runs 4% fewer instructions that way, a chain of method flip-flops the same number.
+  Do not build a wheel like that.
 - **`-fno-semantic-interposition`** (GCC and Clang on ELF platforms, `PUBLIC`). On Linux, a function
   exported from a shared library can be replaced at load time by a definition from another library
   (interposition, the mechanism behind `LD_PRELOAD`). GCC keeps that possible: in position independent
@@ -330,22 +442,24 @@ How `dspsim-core` is compiled decides how fast the run cycle is. The settings ar
 
 Measure a change to any of this in two places. The C++ benchmarks are executables, and the Python
 extensions are shared libraries: the same source can compile differently for the two (that is how the
-interposition problem stayed hidden). Wall-clock times of the benchmarks vary by about 5% between runs and
-between builds that differ only in code layout, so compare instruction counts first
-(`perf stat -e instructions:u`), for a C++ benchmark and for a simulation driven from Python, and use
-wall-clock time with several repetitions to confirm.
+interposition problem stayed hidden). For the C++ side, `scripts/benchmarks.py` reports instructions and
+cycles per iteration ([Benchmarks.md](Benchmarks.md)): compare instructions first, with `--save` before
+the change and `--compare` after it, because they are exact. Cycles differ by a few percent from one
+process to the next and between builds that differ only in code layout, so a difference in cycles only
+counts when it is larger than the spread the report shows. For a simulation driven from Python, use
+`perf stat -e instructions:u`.
 
 ## Delta-cycle execution model
 
-`Context::eval()` repeats the following round until both `process_eval_stack_` and
-`signal_update_stack_` are empty:
+`Context::eval()` repeats the following round until `process_eval_stack_`,
+`signal_update_stack_` and `sensitivity_event_stack_` are empty:
 1. **Evaluate.** Pop and resume processes until `process_eval_stack_` is empty, last
    scheduled first. A process may call `Signal::write()`, which only sets the pending
    value and schedules the signal for update (deferred, not committed yet). A process
    that registers another process pushes it onto the stack, so it runs in this round.
 2. **Update.** Call `update()` on every signal in `signal_update_stack_`. This is where
    values commit and the signals' events are notified. Then recompute the derived signals
-   (slices and packs) of the signals that changed.
+   (slices and packs) of the signals that changed, and update the channels that asked for it.
 3. **Trigger.** Call `trigger()` on every notified event, which schedules the subscribed
    processes for the next round.
 
@@ -423,6 +537,24 @@ it manually.
   re-exports `_framework`, subclasses `Context` and `Module`. A Python `Module` subclass takes a `name` argument in `__init__`;
   `Module.__init_subclass__` wraps `__init__` to open and close the `ModuleName` scope,
   since Python has no RAII.
+- A C++ class with a virtual function that Python implements is bound with a nanobind trampoline:
+  `Channel` ([channel_bindings.h](../src/include/bindings/channel_bindings.h)) is the example. Its
+  `__init__` also hands the new Python object to the context, which holds a raw pointer to a channel
+  that asked for an update.
+- **Ownership.** The context and its processes refer to models, events and channels by raw pointer, so
+  whatever Python creates must not go away with its last Python reference. `Context::own_object()`
+  takes a `std::shared_ptr<void>` and keeps it until the context is cleared (`clear()`, which the
+  Python `Context` calls at the end of its `with` block and when it is collected). What that pointer
+  is depends on who allocated the object:
+  - C++ allocated it (`Signal*`, `SignalArray*`, `SensitivityEvent`, the bound C++ modules): the
+    binding constructs it with `std::make_shared` and the context and the Python wrapper each hold a
+    `shared_ptr`. The object is deleted when the last of the two lets go.
+  - Python constructed it (a `Module` or `Channel` subclass): nanobind places the C++ object inside
+    the Python object, so there is nothing separate to delete, and Python destroys both when the
+    reference count of the object reaches zero. The context holds one reference:
+    `python_reference()` ([python_reference.h](../src/include/bindings/python_reference.h)) wraps the
+    object in a `shared_ptr` whose deleter releases that reference. `Context._own_object(obj)` does
+    this from Python, and the `Module` wrapper in `framework.py` calls it for every module.
 - [`src/dspsim/verilator.py`](../src/dspsim/verilator.py) wraps the `verilator`
   executable (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated
   C++ model and to introspect a module's ports/parameters via `verilator --json-only`.

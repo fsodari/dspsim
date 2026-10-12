@@ -79,7 +79,7 @@ The runtime versions are available from Python. They validate the width and rais
 
 ## How it works
 
-- Every signal keeps a list of the derived signals built from it. When it commits a change in `Signal<T>::update()`, it queues them on `Context::derived_update_stack_`. Signals without dependents pay one empty-vector check.
+- Every signal keeps a list of the derived signals built from it. When it commits a change in `Signal<T>::update()`, it queues them on `Context::post_update_stack_`. Signals without dependents pay one empty-vector check.
 - The update phase (`Context::update_signals()`) first drains the signal update stack, then recomputes the queued derived signals. This way a derived signal always sees all of its sources' new values and changes in the same delta cycle as them.
 - A derived signal is a view. `Signal<T>::write()` checks `source_selection()` (one pointer test, no virtual call) and writes the bits through to the sources instead of scheduling itself. The sources commit in the update phase and the derived signal reads the new value back from them.
 - Selections are flattened, so derived signals only ever depend on ordinary signals. Selecting bits of a derived signal selects the bits of its sources.

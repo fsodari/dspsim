@@ -3,6 +3,7 @@
 #include <dspsim/detail/engine_access.h>
 #include "coro_bindings.h"
 #include "py_task.h"
+#include "python_reference.h"
 #include "nb_include.h"
 
 #include <memory>
@@ -89,7 +90,6 @@ namespace dspsim::bindings
               .def_prop_ro("elaborated", &Context::elaborated)
               .def_prop_ro("constructing", &Context::constructing)
               .def_prop_ro("models", &Context::models)
-              .def_prop_ro("_owned_models", &Context::owned_models)
               .def_prop_ro("modules", &Context::modules)
               .def_prop_ro("signals", &Context::signals)
 
@@ -100,8 +100,11 @@ namespace dspsim::bindings
               .def("__repr__", &Context::repr)
               .def("__str__", &Context::repr)
 
-              // Python module base class will need to explicitly call this.
-              .def("_own_model", &Context::own_model)
+              // The context holds a reference to the object until it is cleared. The Python Module base
+              // class calls this for every module: Python has no other owner for a module that is created
+              // in a function and not returned.
+              .def("_own_object", [](Context &ctx, nb::object object)
+                   { ctx.own_object(python_reference(object)); }, nb::arg("object"))
 
               // Register a process.
               .def("register_process", &Context::register_process_func, nb::arg("func"), nb::arg("name") = "", nb::rv_policy::reference)

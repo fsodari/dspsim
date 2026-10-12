@@ -49,8 +49,18 @@ Semantics that matter when writing modules:
   therefore use `always(...)`, and the scheduler never resumes a completed coroutine.
 - Only the scheduler resumes a process: `resume()` and the wake-up callbacks of `ProcessBase` are private,
   with `Context` and `SensitivityEvent` as friends.
+- `wait(0)` resumes the process in the next delta cycle, as SystemC's `wait(SC_ZERO_TIME)` does: what the
+  processes of the current delta cycle wrote to signals is visible then. `next_trigger(0)` is the same for
+  a method process.
 - `next_trigger(time)` on a method process is different: it schedules an additional wakeup and never cancels.
   `next_trigger(...)` is only for method processes: in a coroutine process it throws `std::logic_error`.
+  `next_trigger(event)` and `next_trigger({e1, e2})` are the method counterparts of `wait(event)` and
+  `wait({e1, e2})`.
+- Waiting on n events costs n subscriptions and, when one of them triggers, n - 1 removals. Pass a list that
+  is built once (`co_await wait(events)`) instead of building a braced list on every wait.
+- Build such a list after elaboration (in the process, not in the module's constructor) when it holds
+  events of ports: before elaboration, `port.change()` is an event of the port itself, which no signal
+  ever triggers.
 - `initialize(true)` on a coroutine process that has completed throws `std::logic_error`.
 - A timeout of `0` means no timeout. In C++, a literal `0` is ambiguous with the `ProcessBase*` argument, so
   use the overload without a timeout instead.
@@ -89,8 +99,51 @@ Task<std::vector<T>> receive(size_t n, uint64_t timeout = 0)
   coroutine, from a `run_until` task in `main()`, or from a Python coroutine.
 - Keep a task alive until it is done. `co_await module.receive(...)` on a temporary is fine: the temporary lives
   for the whole `co_await` expression.
+- Awaiting a task is not a function call. Each one creates a coroutine frame (from a per-thread pool of
+  freed frames), transfers into it and back, and destroys it: about 150 to 200 instructions even when the
+  task finishes without waiting, where a SystemC thread calls an ordinary function. That is nothing next to
+  a bus transfer that takes several clock cycles, and it is most of the cost of a task that is called per
+  item and rarely waits: in the benchmarks, a fifo whose blocking `put()`/`get()` are tasks runs at a quarter
+  of the speed of the same fifo with the test for "full" or "empty" in the calling process
+  (`events/fifo`, `coro_task` against `coro_dynamic`). Test the condition in the caller and await only
+  when there is something to wait for.
 
-**This is the extension point.** To add an asynchronous operation to a module, write a coroutine method
+### An awaitable instead of a task
+
+For an operation that usually completes at once and is called often, write an awaitable object instead of
+a `Task`. Its `await_ready()` tests whether the operation can proceed, and if it can, the calling coroutine
+does not suspend at all: the whole call is inlined into the caller. Only when it cannot does
+`await_suspend()` wait, with one of the engine's own waits, which suspends the calling coroutine itself:
+
+```cpp
+template <typename T>
+class FifoGet
+{
+public:
+    explicit FifoGet(Fifo<T> &fifo) : fifo_(fifo) {}
+
+    bool await_ready() const { return !fifo_.empty(); }
+    void await_suspend(std::coroutine_handle<> handle)
+    {
+        // Subscribes the calling process to the event and records where to resume it.
+        fifo_.context()->wait(fifo_.written).await_suspend(handle);
+    }
+    T await_resume() { return fifo_.pop(); }
+
+private:
+    Fifo<T> &fifo_;
+};
+
+const T item = co_await FifoGet<T>{fifo};
+```
+
+In the benchmarks this is as fast as testing `fifo.empty()` in the calling process, and 4.6 times as fast as
+the same operation written as a `Task` (`events/fifo`: `coro_awaitable`, `coro_dynamic`, `coro_task`).
+The limit: an awaitable is resumed once, so it cannot wait in a loop. That is enough when one wake-up
+guarantees the condition (a fifo with one reader and one writer). When it does not, let the awaitable
+report whether it had to wait and loop in the caller, or use a `Task`.
+
+**The general extension point is the task.** To add an asynchronous operation to a module, write a coroutine method
 returning `Task<T>` that loops on leaf waits. You should not need to write a new awaiter class; if you do
 (a wait on something the scheduler doesn't know about yet), derive from `WaitBase`, schedule the wakeup
 through `ProcessBase` in the constructor, and keep `await_suspend()` as inherited.
@@ -99,6 +152,29 @@ Modules usually pair the operation with a `SensitivityEvent` member that the mod
 (`received_.notify()` after pushing to the fifo), so the awaiting task wakes exactly when the state changed
 instead of polling the clock. `AxisRx` (`receive`, `received()`) and `AxisTx` (`send`, `drain`, `sent()`)
 are the reference implementations.
+
+### Tasks that run on their own: `Context::spawn`
+
+`ctx->spawn(task)` starts a task as a process of its own and lets it go. The context destroys the process
+when the task completes, so there is no handle to it and its result is discarded. Use it for work that is
+created while the simulation runs, a task per transaction for example (SystemC: `sc_spawn`):
+
+```cpp
+Task<> dispatch()
+{
+    while (true)
+    {
+        co_await wait(clk.pos());
+        context()->spawn(handle_request(request.read()));
+    }
+}
+```
+
+- A spawned task is evaluated in the delta cycle in which it is spawned when a process spawns it, like any
+  process that is registered while the simulation runs.
+- `register_coro_task()` and `DSPSIM_CORO` are for processes that belong to the design: they return a
+  `ProcessBase*` that stays valid for as long as the context lives, also after the task has completed.
+- Python: `module.spawn(coroutine)`, next to `module.add_task(coroutine)`.
 
 ### Entry point: `Context::run_until`
 
@@ -146,6 +222,8 @@ with Context() as ctx:
 
 - `await self.wait(event, timeout=100)` returns `WaitResult.Triggered` or `WaitResult.Timeout`.
 - A `run_until` timeout raises the builtin `TimeoutError`.
+- `SensitivityEvent(ctx)` creates an event of your own, and `event.notify()` raises it: the tasks and
+  processes waiting on it run in the next delta cycle. The context owns the event.
 - Bound C++ tasks (`Task`, `TaskBool`, `TaskListS32`, ...) are awaitable objects. They must be awaited from a
   task running in the simulation (`Module.add_task` or `Context.run_until`), never from `asyncio`.
 

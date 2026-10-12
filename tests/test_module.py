@@ -1,4 +1,5 @@
 import gc
+import weakref
 
 import pytest
 
@@ -73,11 +74,15 @@ def test_no_super_call_and_ownership():
         m = NoSuper("m")
         assert m.ctx_id == ctx.id
         assert m.i.hier_name == "root.m.i"
+        alive = weakref.ref(m)
         del m
         gc.collect()
         # The context owns the module, so it survives losing the Python reference.
-        assert [x.name for x in ctx._owned_models] == ["m"]
+        assert alive() is not None
         assert ctx.modules[0].i.hier_name == "root.m.i"
+    # Until the context is cleared, here at the end of the with block.
+    gc.collect()
+    assert alive() is None
 
 
 def test_keyword_and_default_name():

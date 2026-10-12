@@ -11,8 +11,8 @@ namespace dspsim
 
     namespace detail
     {
-        // Context::own_model() for headers that only have a forward declaration of Context.
-        void own_model(Context *context, std::shared_ptr<Model> model);
+        // Context::own_object() for headers that only have a forward declaration of Context.
+        void own_object(Context *context, std::shared_ptr<void> object);
     }
 
     class Model
@@ -21,7 +21,7 @@ namespace dspsim
 
     public:
         Model(const std::string &name, const std::string &kind = "model");
-        ~Model() = default;
+        virtual ~Model() = default;
         /*
             Properties
         */
@@ -40,8 +40,9 @@ namespace dspsim
         static auto create(Args &&...args)
         {
             auto m = std::make_shared<T>(std::forward<Args>(args)...);
-            // Register the model with the context and give shared ownership to the context.
-            detail::own_model(m->context(), m);
+            // The model registered with the context when it was constructed. Give the context shared
+            // ownership of it as well.
+            detail::own_object(m->context(), m);
             return m;
         }
 

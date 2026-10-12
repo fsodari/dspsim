@@ -248,3 +248,50 @@ def test_task_added_from_a_running_task():
         ctx.run_until(parent())
         ctx.run(10)
         assert log == [("parent", 25), ("child", 25), ("child", 30)]
+
+
+def test_spawned_tasks_run_and_are_not_kept():
+    with Context() as ctx:
+        with ctx.construct():
+            clk = Clock("clk", 10)
+            m = Module("m")
+
+        finished: list[int] = []
+
+        async def job(edges: int):
+            for _ in range(edges):
+                await m.wait(clk.pos())
+            finished.append(ctx.time)
+
+        async def dispatcher():
+            for edges in (1, 2, 3):
+                m.spawn(job(edges))
+            await ctx.wait(100)
+
+        # spawn() returns nothing: the task is gone when its coroutine returns.
+        assert m.spawn(job(1)) is None
+        ctx.run_until(dispatcher())
+        # The clock rises at t=0, 10, 20: the two tasks that wait for one edge end at t=0.
+        assert finished == [0, 0, 10, 20]
+
+
+def test_disable_and_enable_a_process():
+    with Context() as ctx:
+        with ctx.construct():
+            clk = Clock("clk", 10)
+            m = Module("m")
+            count = [0]
+
+            def tick():
+                count[0] += 1
+
+            process = m.process(tick).always(clk.pos()).initialize(False)
+
+        ctx.run(25)
+        assert count[0] == 3
+        process.disable()
+        ctx.run(30)
+        assert count[0] == 3
+        process.enable()
+        ctx.run(30)
+        assert count[0] == 6

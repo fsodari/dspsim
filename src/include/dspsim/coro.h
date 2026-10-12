@@ -18,6 +18,7 @@
 #pragma once
 #include <concepts>
 #include <coroutine>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <functional>
@@ -55,6 +56,14 @@ namespace dspsim
             std::coroutine_handle<> continuation_{};
             std::exception_ptr exception_{};
 
+            /*
+                Coroutine frames come from a pool of freed frames, kept per thread. A task that a process
+                awaits is created and destroyed around every call (`co_await bus.read(address)`), and the
+                general-purpose allocator was a large part of the cost of such a call.
+            */
+            static void *operator new(std::size_t size);
+            static void operator delete(void *frame, std::size_t size) noexcept;
+
             // Tasks always start suspended: a process body is resumed by the scheduler, a nested task by its awaiter.
             std::suspend_always initial_suspend() noexcept { return {}; }
             // Suspend at the end so that the result stays readable, and hand control back to the awaiter.
@@ -75,13 +84,17 @@ namespace dspsim
                 }
             }
 
+            // Inline up to the test: every co_await of a task ends with it. The throw is in coro.cpp.
             void rethrow_if_failed()
             {
-                if (exception_)
+                if (exception_) [[unlikely]]
                 {
-                    std::rethrow_exception(std::exchange(exception_, nullptr));
+                    rethrow();
                 }
             }
+
+        private:
+            [[noreturn]] void rethrow();
         };
 
         template <typename T>
@@ -210,6 +223,13 @@ namespace dspsim
 
         To add a new leaf awaitable: derive from WaitBase, schedule the wakeup in the constructor with
         schedule_event() / schedule_time(), and keep await_suspend() as is.
+
+        wait() returns these by value on every evaluation of a coroutine process, so their layout is part of
+        the hot path. Wait and WaitTimeEvent are a single pointer, which is returned in a register. Do not add
+        a member that is narrower than a register (a bool, for example) to an awaitable of 16 bytes or less:
+        GCC returns such an object by storing its members to the stack and loading them back as whole
+        registers, and a load that is wider than the store before it cannot be forwarded from the store
+        buffer. That stalled every `co_await wait()` for more than ten cycles.
     */
     class WaitBase
     {
@@ -223,9 +243,6 @@ namespace dspsim
 
         ProcessBase *process() const noexcept { return process_; }
 
-        // Python's __await__ must call once to suspend, then again to complete. This mirrors a single suspend point.
-        bool py_step_done() noexcept;
-
     protected:
         // Resume the process on the next occurrence of the event. Several events: whichever occurs first.
         void schedule_event(SensitivityEvent &event);
@@ -234,7 +251,6 @@ namespace dspsim
 
     private:
         ProcessBase *process_;
-        bool suspended_ = false;
     };
 
     // Wait on the process's static sensitivity list.

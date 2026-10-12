@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -86,6 +87,41 @@ TEST_CASE("models get unique ids and default names on construction", "[context][
     REQUIRE(b.name() == "signal" + std::to_string(b.id()));
     REQUIRE(a.hier_name() == "root." + a.name());
     ctx->elaborate();
+}
+
+TEST_CASE("the context keeps an object it owns until it is cleared", "[context]")
+{
+    auto ctx = Context::create("ctx_owns_object");
+    auto object = std::make_shared<int>(1);
+    std::weak_ptr<int> alive = object;
+    ctx->own_object(std::move(object));
+    ctx->elaborate();
+    ctx->run(10);
+    REQUIRE_FALSE(alive.expired());
+
+    ctx->clear();
+    REQUIRE(alive.expired());
+}
+
+TEST_CASE("the context shares ownership of the models and arrays made with create()", "[context][model]")
+{
+    auto ctx = Context::create("ctx_owns_created");
+    std::weak_ptr<Signal<uint8_t>> signal = Signal<uint8_t>::create("s");
+    std::weak_ptr<SignalArray<uint8_t>> array = SignalArray<uint8_t>::create("a", {2, 3});
+    // Nothing else refers to them: the context keeps them, and the array's elements with it.
+    REQUIRE_FALSE(signal.expired());
+    REQUIRE_FALSE(array.expired());
+    REQUIRE(ctx->signals().size() == 7);
+    array.lock()->at({1, 2}).write(5);
+    ctx->elaborate();
+    ctx->run(0);
+    REQUIRE(array.lock()->at({1, 2}).read() == 5);
+
+    // Shared: the caller's pointer keeps the object when the context lets go of it.
+    auto kept = signal.lock();
+    ctx->clear();
+    REQUIRE_FALSE(signal.expired());
+    REQUIRE(array.expired());
 }
 
 TEST_CASE("contexts with the same name can coexist", "[context]")

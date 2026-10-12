@@ -22,11 +22,11 @@ namespace dspsim
 
     /*
     Holds lists of processes that are sensitive to this event.
-    When notify() is called, all registered processes will be queued for evaluation.
+    When the event is notified, all registered processes will be queued for evaluation.
 
     Every signal and port owns three of these, and most of them never get a subscriber, so the subscriber
-    lists are allocated on first subscription: an unsubscribed event is 24 bytes and notify() on it is a
-    single null check. This keeps the per-signal working set of the update phase small.
+    lists are allocated on first subscription: an unsubscribed event is 24 bytes and a signal that notifies
+    it does a single null check. This keeps the per-signal working set of the update phase small.
     */
     class SensitivityEvent
     {
@@ -34,6 +34,9 @@ namespace dspsim
         friend class Context;
         friend class ProcessBase;
         friend class PortBase;
+        // A signal notifies its events in the update phase (notify_committed()).
+        template <typename T>
+        friend class Signal;
         friend struct testing::EngineInspector;
 
     public:
@@ -45,19 +48,44 @@ namespace dspsim
         SensitivityEvent &operator=(const SensitivityEvent &) = delete;
         ~SensitivityEvent();
 
-        // Notify all subscribed processes that this event has occurred: they are evaluated in the next delta cycle.
-        // Signals call this in the update phase. Call it from a process to raise a custom event.
+        /*
+            Raise the event, from a process or from outside the simulation between two runs. The event occurs
+            when the current evaluation phase is over: the processes that are subscribed to it then are
+            evaluated in the next delta cycle, whether they subscribed before or after this call. The order
+            in which a process that notifies and a process that waits are evaluated therefore does not
+            matter. (SystemC: notify(SC_ZERO_TIME).)
+
+            The event must stay alive until that delta cycle has started.
+        */
         void notify();
 
-        // Check if the event has occurred in the last evaluation cycle.
+        // True during the evaluation phase that follows an occurrence of the event, which is the one that
+        // evaluates the processes it woke. A signal's event only occurs if a process is subscribed to it.
         bool has_happened() const;
-        operator bool() const { return has_happened(); }
+        explicit operator bool() const { return has_happened(); }
 
     private:
         // The static and dynamic subscriber lists. Defined in event.cpp.
         struct Subscribers;
 
-        // Schedule the subscribed processes. Called by the scheduler for each notified event.
+        /*
+            notify() for a signal that commits a new value in the update phase. No process runs between the
+            update phase and trigger(), so the subscribers are known here, and an event without any (most
+            events) is not scheduled at all and does not "happen".
+
+            Inline: a signal calls it up to twice for every change, and for most events it ends here.
+        */
+        void notify_committed()
+        {
+            if (subscribers_) [[unlikely]]
+            {
+                schedule_if_subscribed();
+            }
+        }
+        // Schedule the event if a process is subscribed to it. The subscriber lists exist.
+        void schedule_if_subscribed();
+
+        // The event occurs: schedule the subscribed processes. Called by the scheduler for each notified event.
         void trigger();
 
         // Subscribe a process with static sensitivity: it is scheduled whenever the event occurs.

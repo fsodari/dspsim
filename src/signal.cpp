@@ -47,7 +47,7 @@ namespace dspsim
     {
         for (auto *dependent : dependents_)
         {
-            context()->derived_update_stack_.push_back(dependent);
+            context()->post_update_stack_.push_back(dependent);
         }
     }
 
@@ -158,13 +158,13 @@ namespace dspsim
 
         if (d_ && !q_)
         {
-            pos().notify();
+            pos().notify_committed();
         }
         else if (!d_ && q_)
         {
-            neg().notify();
+            neg().notify_committed();
         }
-        change().notify();
+        change().notify_committed();
 
         this->q_ = this->d_;
 

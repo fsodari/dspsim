@@ -8,7 +8,8 @@ Logging utility.
 ## systemc
 https://github.com/accellera-official/systemc.git
 
-Similar framework to dspsim. Used for benchmark comparisons.
+Similar framework to dspsim. Dev dependency, used for benchmark comparisons (`scripts/benchmarks.py`,
+[Benchmarks.md](Benchmarks.md)).
 
 ## cocotb
 https://github.com/cocotb/cocotb.git

@@ -39,7 +39,7 @@ namespace dspsim
     }
 
     template <typename T>
-    void DerivedSignal<T>::pull()
+    void DerivedSignal<T>::commit()
     {
         this->d_ = from_bits(selection_.read());
         Signal<T>::update();

@@ -1,5 +1,6 @@
 add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/bitsel.cpp
+    ${DSPSIM_SRC_DIR}/channel.cpp
     ${DSPSIM_SRC_DIR}/clock.cpp
     ${DSPSIM_SRC_DIR}/context.cpp
     ${DSPSIM_SRC_DIR}/engine_access.cpp
@@ -92,6 +93,7 @@ target_sources(dspsim-core
     FILES 
         ${DSPSIM_INCLUDE_DIR}/dspsim/bits.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/bitsel.h
+${DSPSIM_INCLUDE_DIR}/dspsim/channel.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/coro.h
@@ -111,6 +113,7 @@ target_sources(dspsim-core
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/flagged_stack.h
+${DSPSIM_INCLUDE_DIR}/dspsim/utils/inlining.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/priority_queue.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/unique_stack.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/utils/utils.h

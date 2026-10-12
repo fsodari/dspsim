@@ -41,13 +41,13 @@ namespace dspsim::bindings
                     result_ = nb::steal(result);
                 }
                 done_ = true;
-                // The coroutine has completed: nothing may schedule it again.
-                unschedule();
+                // The coroutine has completed: nothing may schedule it again, and a spawned task is destroyed.
+                complete();
                 break;
             case PYGEN_ERROR:
             default:
                 done_ = true;
-                unschedule();
+                complete();
                 throw nb::python_error();
             }
         }

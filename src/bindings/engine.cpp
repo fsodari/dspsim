@@ -3,6 +3,7 @@
 #include "bindings/context_bindings.h"
 #include "bindings/model_bindings.h"
 #include "bindings/event_bindings.h"
+#include "bindings/channel_bindings.h"
 #include "bindings/process_bindings.h"
 #include "bindings/py_task.h"
 #include "bindings/coro_bindings.h"
@@ -24,6 +25,9 @@ namespace dspsim::bindings
 
         // Bind SensitivityEvent
         bind_sensitivity_event(m, "SensitivityEvent");
+
+        // Bind Channel, the base class of the channels that are written in Python
+        bind_channel(m, "Channel");
 
         // Bind Process
         bind_process_base(m, "ProcessBase");

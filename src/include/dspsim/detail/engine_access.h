@@ -20,6 +20,9 @@ namespace dspsim
         {
             /// Take ownership of a process and schedule it for evaluation in the next delta cycle.
             static ProcessBase *add_process(Context &context, std::unique_ptr<ProcessBase> process);
+            /// add_process() for a process that the context destroys itself once the process has reported
+            /// that it completed (ProcessBase::complete()). There is no pointer to it: see Context::spawn().
+            static void add_detached_process(Context &context, std::unique_ptr<ProcessBase> process);
             /// Unregister and destroy a process added with add_process().
             static void remove_process(Context &context, ProcessBase *process);
             /// Run the simulation until the registered process is done. See Context::run_until().

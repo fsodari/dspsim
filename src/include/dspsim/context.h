@@ -18,7 +18,7 @@ namespace dspsim
     class Module;
     class ModuleName;
     class SignalBase;
-    class DerivedSignalBase;
+    class Channel;
     class PortBase;
     class ProcessBase;
     // Coroutine types, defined in <dspsim/coro.h>. Include it to call wait() or run_until().
@@ -31,6 +31,8 @@ namespace dspsim
     namespace detail
     {
         struct EngineAccess;
+        // Called at the end of the update phase: derived signals and channels. Defined in <dspsim/channel.h>.
+        class Updatable;
         // The engine's logger. Defined in src/log.h, which is internal to the core library.
         class Logger;
     }
@@ -80,6 +82,8 @@ namespace dspsim
         friend class Signal;
         friend class ProcessBase;
         friend class SensitivityEvent;
+        // A channel asks for its update in the update phase.
+        friend class Channel;
         // Engine access for code outside the core library (the Python bindings) and for the tests.
         friend struct detail::EngineAccess;
         friend struct testing::EngineInspector;
@@ -160,7 +164,7 @@ namespace dspsim
         // wait on a dynamic event.
         WaitSensitivityEvent wait(SensitivityEvent &event);
         // wait on multiple dynamic events.
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events);
+        WaitSensitivityEvent wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events);
         // wait on multiple dynamic events, given by pointer.
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events);
 
@@ -169,7 +173,7 @@ namespace dspsim
             timeout elapsed. A literal 0 timeout is ambiguous with the process argument: use the overloads above.
         */
         WaitSensitivityEvent wait(SensitivityEvent &event, uint64_t timeout);
-        WaitSensitivityEvent wait(std::vector<std::reference_wrapper<SensitivityEvent>> events, uint64_t timeout);
+        WaitSensitivityEvent wait(const std::vector<std::reference_wrapper<SensitivityEvent>> &events, uint64_t timeout);
         WaitSensitivityEvent wait(const std::vector<SensitivityEvent *> &events, uint64_t timeout);
 
         // Log the model hierarchy, starting from the given parent (nullptr = roots).
@@ -212,12 +216,12 @@ namespace dspsim
         void log(const std::string &level, const std::string &message);
 
         /*
-            Take shared ownership of a model. The model will stay alive as long as the context does.
-            Useful in python if a design is constructed in a function and the context is returned.
+            Take shared ownership of an object: it stays alive until the context is cleared or destroyed.
+            For anything the context or its processes refer to that nothing else keeps alive: a model that
+            is created in a function which only returns the context (Model::create() does this), an event
+            or a channel that is created from Python.
         */
-        void own_model(std::shared_ptr<Model> model);
-        // Models the context has taken shared ownership of.
-        const std::vector<std::shared_ptr<Model>> &owned_models() const;
+        void own_object(std::shared_ptr<void> object);
 
         // Register a function as a process.
         ProcessBase *register_process_func(const std::function<void()> &eval, const std::string &name = "");
@@ -236,10 +240,27 @@ namespace dspsim
         }
 
         // Register a coroutine task as a process. The process owns the coroutine frame.
+        // The process lives as long as the context, so the returned pointer stays valid after the task has
+        // completed (done()). For a task that is created while the simulation runs, see spawn().
         template <typename T>
         ProcessBase *register_coro_task(Task<T> task, const std::string &name = "")
         {
             return register_coro(task.release(), name);
+        }
+
+        /*
+            Start a coroutine task as a process of its own and let it go: the context destroys the process
+            when the task has completed, so there is no handle to it, and its result is discarded.
+            This is for work that is created while the simulation runs, a task per transaction for example,
+            which would otherwise accumulate. (SystemC: sc_spawn.)
+
+            Like any process, the task is evaluated in the delta cycle in which it is spawned when a process
+            spawns it, and at the start of the next run otherwise.
+        */
+        template <typename T>
+        void spawn(Task<T> task, const std::string &name = "")
+        {
+            spawn_coro(task.release(), name);
         }
 
     private:
@@ -266,6 +287,13 @@ namespace dspsim
         ProcessBase *add_process(std::unique_ptr<ProcessBase> process);
         ProcessBase *register_trampoline(void *instance, void (*call)(void *), const std::string &name);
         ProcessBase *register_coro(std::coroutine_handle<> root, const std::string &name);
+        void spawn_coro(std::coroutine_handle<> root, const std::string &name);
+        // add_process() for a process that the context destroys when it has completed. See spawn().
+        void add_detached_process(std::unique_ptr<ProcessBase> process);
+        // Destroy the spawned processes that have completed.
+        void release_completed_processes();
+        // Evaluate the process again in the next delta cycle: a wait or a next_trigger() of no time.
+        void wait_for_next_delta(ProcessBase *process);
 
         /*
             Run the simulation until the (already registered) process is done. See run_until().
@@ -297,7 +325,8 @@ namespace dspsim
         int eval();
         // Commit the initial signal values before the first evaluation.
         void do_initialize();
-        // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed.
+        // Commit all scheduled signal updates, then recompute the derived signals of the signals that changed
+        // and update the channels that asked for it.
         void update_signals();
         // Queue the process of a due time event, unless the event is a stale coroutine time wait.
         void schedule_time_event(const TimeEvent &event);
@@ -322,9 +351,8 @@ namespace dspsim
         // Processes are allocated from functions, so they need to live somewhere.
         std::vector<std::unique_ptr<ProcessBase>> processes_;
 
-        // Owned models stay alive with context.Necessary if a design is created in a function and the context is returned.
-        // More likely to be used in Python
-        std::vector<std::shared_ptr<Model>> owned_models_;
+        // Objects that stay alive with the context: see own_object().
+        std::vector<std::shared_ptr<void>> owned_objects_;
 
         // Design hierarchy: maps a model to its direct children (root models are keyed by nullptr).
         std::unordered_map<Model *, std::vector<Model *>> children_;
@@ -342,13 +370,20 @@ namespace dspsim
         // All processes that need to run in the current delta cycle.
         FlaggedStack<ProcessBase *> process_eval_stack_;
         ProcessBase *current_process_;
+        // Spawned processes that have completed. Destroyed when the delta cycles of the time step are over.
+        // Here, with the scheduling stacks: eval() looks at it every time, and the members above are
+        // only used at elaboration, so their cache line is not one the run cycle keeps loaded.
+        std::vector<ProcessBase *> completed_processes_;
 
         // All signals that need to be updated in the current delta cycle.
         FlaggedStack<SignalBase *> signal_update_stack_;
-        // Derived signals to recompute after the signal updates in the current delta cycle.
-        FlaggedStack<DerivedSignalBase *> derived_update_stack_;
+        // What to call after the signal updates in the current delta cycle: derived signals to recompute
+        // and channels to update.
+        FlaggedStack<detail::Updatable *> post_update_stack_;
+        // Notified to end a wait of no time: the processes waiting on it are evaluated in the next delta cycle.
+        std::unique_ptr<SensitivityEvent> next_delta_event_;
         // Scheduled sensitivity events.
-        std::vector<SensitivityEvent *> sensitivity_event_stack_;
+        PlainStack<SensitivityEvent *> sensitivity_event_stack_;
         // Scheduled time events.
         PriorityQueue<TimeEvent> time_event_stack_;
         // Stack of models that have requested tracing. Evaluated at end of a delta cycle.

@@ -21,6 +21,7 @@ from dspsim._framework import (
     AxisTxU32,
     AxisTxU64,
     BitSel,
+    Channel,
     Clock,
     ContextConstructionError,
     DffS8,
@@ -87,6 +88,7 @@ from dspsim._framework import (
     OutputU16,
     OutputU32,
     OutputU64,
+    SensitivityEvent,
     SignalArrayFloat,
     SignalArrayS8,
     SignalArrayS16,
@@ -218,7 +220,7 @@ def _wrap_module_init(init):
                 init(self, *args, **kwargs)
             finally:
                 self._dspsim_constructing = False
-        self.context._own_model(self)
+        self.context._own_object(self)
 
     return __init__
 
@@ -291,6 +293,7 @@ __all__ = [
     "AxisTxU32",
     "AxisTxU64",
     "BitSel",
+    "Channel",
     "Clock",
     "Context",
     "ContextConstructionError",
@@ -359,6 +362,7 @@ __all__ = [
     "OutputU16",
     "OutputU32",
     "OutputU64",
+    "SensitivityEvent",
     "SignalArrayFloat",
     "SignalArrayS8",
     "SignalArrayS16",

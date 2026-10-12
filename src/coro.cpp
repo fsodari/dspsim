@@ -2,18 +2,126 @@
 #include <dspsim/context.h>
 #include <dspsim/process.h>
 
+#include <cstddef>
+#include <exception>
+#include <new>
+#include <utility>
+
 namespace dspsim
 {
+    namespace
+    {
+        /*
+            Freed coroutine frames of one thread, for reuse by the next coroutine of the same size.
+
+            Frames are small (a task that waits for a handshake is about 100 bytes) and short-lived, and a
+            design allocates the same few sizes over and over. Sizes are rounded up to a multiple of 16 bytes,
+            and each of those sizes has a list of free frames, up to a limit: a burst of frames that is freed
+            at once goes back to the allocator. Larger frames always do.
+
+            A frame may be freed by another thread than the one that allocated it (a context that is handed
+            to another thread). It then joins the pool of the thread that freed it, which is fine: every
+            block comes from operator new with its rounded size.
+        */
+        class FramePool
+        {
+        public:
+            FramePool() = default;
+            FramePool(const FramePool &) = delete;
+            FramePool &operator=(const FramePool &) = delete;
+            ~FramePool()
+            {
+                for (Block *&head : free_)
+                {
+                    while (head)
+                    {
+                        Block *next = head->next;
+                        ::operator delete(head);
+                        head = next;
+                    }
+                }
+            }
+
+            void *allocate(std::size_t size)
+            {
+                const std::size_t size_class = (size + granularity - 1) / granularity;
+                if (size_class < size_classes) [[likely]]
+                {
+                    if (Block *block = free_[size_class]) [[likely]]
+                    {
+                        free_[size_class] = block->next;
+                        --count_[size_class];
+                        return block;
+                    }
+                    return ::operator new(size_class * granularity);
+                }
+                return ::operator new(size);
+            }
+
+            void release(void *frame, std::size_t size) noexcept
+            {
+                const std::size_t size_class = (size + granularity - 1) / granularity;
+                if (size_class < size_classes && count_[size_class] < max_free) [[likely]]
+                {
+                    Block *block = static_cast<Block *>(frame);
+                    block->next = free_[size_class];
+                    free_[size_class] = block;
+                    ++count_[size_class];
+                    return;
+                }
+                ::operator delete(frame);
+            }
+
+        private:
+            struct Block
+            {
+                Block *next;
+            };
+            // What operator new aligns to, so a pooled frame is aligned like any other.
+            static constexpr std::size_t granularity = 16;
+            // Frames of up to 1024 bytes are pooled.
+            static constexpr std::size_t size_classes = 65;
+            // Free frames kept per size.
+            static constexpr std::size_t max_free = 4096;
+
+            Block *free_[size_classes] = {};
+            std::size_t count_[size_classes] = {};
+        };
+
+#if defined(__SANITIZE_ADDRESS__)
+        // The address sanitizer finds a use of a destroyed coroutine frame only if the frame is really freed.
+        constexpr bool pool_frames = false;
+#else
+        constexpr bool pool_frames = true;
+#endif
+        thread_local FramePool frame_pool;
+    } // namespace
+
+    void *detail::TaskPromiseBase::operator new(std::size_t size)
+    {
+        return pool_frames ? frame_pool.allocate(size) : ::operator new(size);
+    }
+
+    void detail::TaskPromiseBase::operator delete(void *frame, std::size_t size) noexcept
+    {
+        if (pool_frames)
+        {
+            frame_pool.release(frame, size);
+        }
+        else
+        {
+            ::operator delete(frame);
+        }
+    }
+
+    void detail::TaskPromiseBase::rethrow()
+    {
+        std::rethrow_exception(std::exchange(exception_, nullptr));
+    }
+
     void WaitBase::await_suspend(std::coroutine_handle<> handle) noexcept
     {
         process_->set_resume_point(handle);
-    }
-
-    bool WaitBase::py_step_done() noexcept
-    {
-        bool done = suspended_;
-        suspended_ = true;
-        return done;
     }
 
     void WaitBase::schedule_event(SensitivityEvent &event)

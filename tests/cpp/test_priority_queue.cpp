@@ -26,3 +26,28 @@ TEST_CASE("Basic priority queue operations.", "[priority_queue]")
 
     REQUIRE(result == expected);
 }
+
+TEST_CASE("Elements can be removed from a priority queue.", "[priority_queue]")
+{
+    PriorityQueue<int> queue;
+    for (int item : {7, 4, 1, 8, 3, 2, 6, 5})
+    {
+        queue.push(item);
+    }
+
+    // Nothing matches: nothing changes.
+    REQUIRE(queue.erase_if([](int item)
+                           { return item > 100; }) == 0);
+    REQUIRE(queue.size() == 8);
+
+    REQUIRE(queue.erase_if([](int item)
+                           { return item % 2 == 0; }) == 4);
+
+    std::vector<int> result;
+    while (!queue.empty())
+    {
+        result.push_back(queue.top());
+        queue.pop();
+    }
+    REQUIRE(result == std::vector<int>{1, 3, 5, 7});
+}

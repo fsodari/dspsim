@@ -62,7 +62,9 @@ namespace dspsim
         operator SensitivityEvent &() { return change(); }
 
     protected:
-        // Called during the update phase to commit pending changes to the signal.
+        // Called during the update phase to commit pending changes to the signal. An override commits this
+        // signal and notifies its events. It must not write to a signal or request the update of a channel:
+        // writes belong to the evaluation phase. The engine does not check this.
         virtual void update() = 0;
 
         /// The committed value as raw bits, masked to width(). Only called on integral signals (BitSel checks).
@@ -193,15 +195,15 @@ namespace dspsim
         SignalArrayView<T> select(const std::vector<Range> &ranges) const { return detail::NdArray<Signal<T>>::select(ranges); }
 
         // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
-        // Each element shares ownership of the array, so it lives as long as the context holds any element.
+        // The context shares ownership of the array, and with it of its elements.
         static std::shared_ptr<SignalArray<T>> create(const std::string &name, Shape shape,
                                                       int width = default_bitwidth<T>::value, T init = 0)
         {
             auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init);
-            for (std::size_t i = 0; i < array->size(); ++i)
+            // An array without elements registered nothing with the context: nothing refers to it.
+            if (array->size() > 0)
             {
-                Signal<T> &element = array->flat(i);
-                detail::own_model(element.context(), std::shared_ptr<Model>(array, &element));
+                detail::own_object(array->flat(0).context(), array);
             }
             return array;
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/bitsel.h>
+#include <dspsim/channel.h>
 
 #include <cstdint>
 #include <memory>
@@ -12,32 +13,23 @@ namespace dspsim
     /*
         Interface for signals whose value is derived from the bits of other signals.
         Source signals schedule their dependents on the context when they update, and the context
-        recomputes them with pull() once all signals in the delta cycle have committed, so a derived
+        recomputes them with commit() once all signals in the delta cycle have committed, so a derived
         signal changes in the same delta cycle as its sources and sees a consistent snapshot of them.
     */
-    class DerivedSignalBase
+    class DerivedSignalBase : public detail::Updatable
     {
-        // The scheduler recomputes derived signals in the update phase, and sources refresh them when initialized.
-        friend class Context;
+        // Sources refresh their derived signals when they are initialized.
         friend class SignalBase;
-        template <typename T>
-        friend class FlaggedStack;
 
     public:
-        virtual ~DerivedSignalBase();
+        ~DerivedSignalBase() override;
 
     private:
-        /// Recompute the value from the source signals and notify events if it changed.
-        virtual void pull() = 0;
+        // commit() (from detail::Updatable) recomputes the value from the source signals and notifies
+        // events if it changed. The scheduler calls it in the update phase.
+
         /// Recompute the value from the source signals without notifying events. Called when a source is initialized.
         virtual void refresh() = 0;
-
-        /// Set while this signal sits in Context::derived_update_stack_; used by FlaggedStack.
-        /// Inline: checked by the scheduler whenever a source signal updates.
-        bool &scheduled_flag() { return scheduled_; }
-
-    private:
-        bool scheduled_ = false;
     };
 
     /*
@@ -66,7 +58,7 @@ namespace dspsim
         const BitSel &selection() const;
 
     private:
-        void pull() override;
+        void commit() override;
         void refresh() override;
 
         // Convert the selected bits to T, sign extending from the signal's width for signed types.
