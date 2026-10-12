@@ -223,8 +223,12 @@ namespace dspsim::bindings
                  { return nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end()); }, nb::keep_alive<0, 1>())
             // Keys made only of ints are matched by type (no exceptions are used for dispatch, which would be slow).
             // A full-rank key returns the element. A partial key falls back to a view with those dimensions dropped.
-            .def("__getitem__", [](Array &a, const std::variant<std::ptrdiff_t, std::vector<std::ptrdiff_t>> &key) -> nb::object
+            // Both refer to the array. The element is returned with reference_internal and not with a keep_alive
+            // policy: an element that Python owns (a port that a Python struct was made of) already has its
+            // Python object, which must not be made to keep the array alive, or the two keep each other.
+            .def("__getitem__", [](nb::handle self, const std::variant<std::ptrdiff_t, std::vector<std::ptrdiff_t>> &key) -> nb::object
                  {
+                     auto &a = nb::cast<Array &>(self);
                      std::vector<std::ptrdiff_t> ints;
                      if (auto *i = std::get_if<std::ptrdiff_t>(&key))
                          ints.push_back(*i);
@@ -238,11 +242,15 @@ namespace dspsim::bindings
                          ranges.push_back(Slice::at(ints[d]).resolve(a.extent(d)));
 
                      if (ints.size() < a.ndim())
-                         return nb::cast(a.select(ranges));
+                     {
+                         nb::object view = nb::cast(a.select(ranges));
+                         nb::keep_alive_obj(view, self);
+                         return view;
+                     }
                      Index idx;
                      for (auto &r : ranges)
                          idx.push_back(static_cast<std::size_t>(r.start));
-                     return nb::cast(&a.at(idx), nb::rv_policy::reference); }, nb::arg("key"), nb::keep_alive<0, 1>(), nb::sig(elem_sig->c_str()))
+                     return nb::cast(&a.at(idx), nb::rv_policy::reference_internal, self); }, nb::arg("key"), nb::sig(elem_sig->c_str()))
             .def("__getitem__", get_view, nb::arg("key"), nb::keep_alive<0, 1>(), nb::sig(view_sig->c_str()))
             // Always returns a view, so it skips the int-key overload above. An empty key views the whole array.
             .def("slice", get_view, nb::arg("key") = nb::tuple(), nb::keep_alive<0, 1>(), nb::sig(slice_sig->c_str()));

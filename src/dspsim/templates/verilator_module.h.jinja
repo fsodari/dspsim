@@ -1,4 +1,6 @@
+{%- from "verilator_struct.jinja" import struct_class -%}
 #include <dspsim/vmodule/vmodule.h>
+#include <dspsim/struct.h>
 #include <V{{model.name}}.h>
 
 DSPSIM_VMOD({{model.name}}, V{{model.name}})
@@ -12,7 +14,12 @@ public:
 
     // Ports
     {%-for port in model.ports.values()%}
+    {%-if port.is_struct%}
+    {{ struct_class(port) | indent(4) }}
+    {{port.vfield_type()}} {{port.name}}{"{{port.name}}", {{port.vport_args}}};
+    {%-else%}
     {{port.vmacro}}({{port.name}}, {{port.width}});
+    {%-endif%}
     {%-endfor%}
 
     // {{model.name}} Constructor

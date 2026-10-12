@@ -4,7 +4,9 @@
 nanobind, used to simulate hardware designs, either hand-written C++/Python models or
 Verilator-generated models of Verilog/SystemVerilog RTL. This document describes how the core
 pieces fit together. Related documents: [Coro.md](Coro.md) (coroutine processes and
-awaitables) and [BitSlicing.md](BitSlicing.md) (bit slicing and packing).
+awaitables), [BitSlicing.md](BitSlicing.md) (bit slicing and packing) and
+[VerilatedPorts.md](VerilatedPorts.md) (the ports of verilated modules: wide and struct ports) and
+[Vhdl.md](Vhdl.md) (VHDL models).
 
 ## Component map
 
@@ -257,6 +259,23 @@ is not bound yet. At `finalize()` the port hands those static subscribers to the
 signal's events and from then on returns the signal's events directly, so a signal update
 schedules the processes without going through the port.
 
+### `PortStruct` / `SignalStruct` ([struct.h](../src/include/dspsim/struct.h) / [struct.cpp](../src/struct.cpp))
+A group of ports, or of signals, with named fields: the struct (or record) port of a module and what it
+binds to. A field of a `PortStruct` is an `Input<T>`, an `Output<T>`, an array of them or another
+`PortStruct`; a field of a `SignalStruct` is a `Signal<T>`, a `SignalArray<T>` or another `SignalStruct`.
+`PortStruct::bind()` binds every field to the field of the same name, and `signals(name)` creates the
+signals for a port struct. `PortStructArray` and `SignalStructArray` are arrays of them, for a port that
+is an array of structs: indexed and sliced like the other arrays, bound element by element, and also
+readable field by field (`buses.input_array<T>("data")` is a view of that port of every element). An
+array of structs can be a field of a struct. See [VerilatedPorts.md](VerilatedPorts.md).
+
+Neither class is a `Model` or takes part in scheduling: the ports and signals are the ordinary ones, which
+register with their module and the context as always, and a struct only refers to them. The fields are
+stored with their type erased (`StructFieldType`, which compares types by name so that it also works between
+a model's extension module and the framework, and a pointer), and a port field has a small table of
+functions (`PortStruct::Ops`) that the typed `add()` overloads fill in, so `bind()` can check the types
+of both sides and report every difference before it binds anything.
+
 ### `Module` / `ModuleName` ([module.h](../src/include/dspsim/module.h), [module_name.h](../src/include/dspsim/module_name.h))
 A `Model` that contains ports, submodules, and processes. It provides `next_trigger(...)`
 and `wait(...)` for its processes, and lists its ports (`ports()`, `inputs()`,
@@ -288,6 +307,15 @@ back. The generated subclass registers it with `DSPSIM_METHOD(eval)->always("*")
 model is evaluated whenever one of its inputs changes. `open_trace()` asks the context to
 call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
 the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
+
+`vport.h` has a port class for each way Verilator stores a port, all derived from the ordinary
+`Input<T>`/`Output<T>` and their arrays, with a `sync()` that copies between the bound signal and the
+verilated model: `VInput`/`VOutput` (one integer or `double`), `VInputArray`/`VOutputArray` (unpacked
+arrays), `VInputWide`/`VOutputWide` (more than 64 bits: 32-bit words), and `VInputBits`/`VOutputBits`
+with `VInputWideBits`/`VOutputWideBits` (the fields of a packed struct, which share the bits of one
+port). A struct port is a generated `PortStruct` with one of these per field, and an array of structs
+is a `PortStructArrayOf` of that class, each element constructed from one verilated struct.
+[VerilatedPorts.md](VerilatedPorts.md) describes how SystemVerilog ports map to them.
 
 ## Public interface and access
 
@@ -528,7 +556,7 @@ it manually.
   extension module. The bindings are compiled as several translation units so that they build in
   parallel: `_framework.cpp` calls one `bindings::register_*` function per group of classes
   (declared in `src/include/bindings/framework.h`, defined in `src/bindings/<group>.cpp`: `engine`,
-  `signals`, `signal_arrays`, `ports`, `input_arrays`, `output_arrays`, `modules`), and each of those
+  `signals`, `signal_arrays`, `ports`, `input_arrays`, `output_arrays`, `structs`, `modules`), and each of those
   calls the `bindings::bind_*` helpers in `src/include/bindings/*.h`. Templates are instantiated per
   type with suffixed names: `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`,
   `Input*`/`Output*`, `Dff*`, and so on. The groups are registered in dependency order: a base class
@@ -563,6 +591,14 @@ it manually.
 - [`src/dspsim/verilator.py`](../src/dspsim/verilator.py) wraps the `verilator`
   executable (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated
   C++ model and to introspect a module's ports/parameters via `verilator --json-only`.
+  A port is a `Port` (`module_info.py`): its width, sign and unpacked shape, and for a struct port
+  the `Port`s of its fields, recursively. The templates declare the dspsim port from it
+  ([VerilatedPorts.md](VerilatedPorts.md)).
+- [`src/dspsim/ghdl.py`](../src/dspsim/ghdl.py) is the front end for VHDL: `transpile()` has GHDL
+  synthesize an entity to a Verilog netlist and writes a SystemVerilog module with the entity's
+  generics and port types around it. `load_model_info()` does this first for a `.vhd` source, and the
+  SystemVerilog file is the source of the model for everything that follows, so a VHDL model takes
+  both paths below like a SystemVerilog one. See [Vhdl.md](Vhdl.md).
 - `cmake/dspsim-utils.cmake`'s `dspsim_add_module()` is the CMake entry point for a
   library build: it runs `python -m dspsim.generate` against a `pyproject.toml`
   (`[tool.dspsim]`) to Verilate `.sv` sources and generate nanobind wrapper C++ plus a

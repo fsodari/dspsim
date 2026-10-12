@@ -152,10 +152,14 @@ namespace dspsim
             iterator begin() const { return iterator(elems_.begin()); }
             iterator end() const { return iterator(elems_.end()); }
 
-            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one.
-            std::vector<value_of<Elem>> read() const requires Readable<Elem> { return read_all<Elem>(*this); }
-            void write(const value_of<Elem> &value) const requires Writable<Elem> { write_all<Elem>(*this, value); }
-            void write(const std::vector<value_of<Elem>> &values) const requires Writable<Elem> { write_all<Elem>(*this, values); }
+            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one. They are
+            // templates so that an array of elements without a value (structs) does not declare them.
+            template <Readable E = Elem>
+            std::vector<value_of<E>> read() const { return read_all<E>(*this); }
+            template <Writable E = Elem>
+            void write(const value_of<E> &value) const { write_all<E>(*this, value); }
+            template <Writable E = Elem>
+            void write(const std::vector<value_of<E>> &values) const { write_all<E>(*this, values); }
 
             NdView<Elem> view() const { return *this; }
             NdView<Elem> slice(const Slices &slices) const { return select(resolve_slices(shape_, slices)); }
@@ -247,10 +251,14 @@ namespace dspsim
             iterator begin() const { return iterator(elems_.begin()); }
             iterator end() const { return iterator(elems_.end()); }
 
-            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one.
-            std::vector<value_of<Elem>> read() const requires Readable<Elem> { return read_all<Elem>(*this); }
-            void write(const value_of<Elem> &value) const requires Writable<Elem> { write_all<Elem>(*this, value); }
-            void write(const std::vector<value_of<Elem>> &values) const requires Writable<Elem> { write_all<Elem>(*this, values); }
+            // Bulk access in row-major order. read() needs a readable Elem, write() a writable one. They are
+            // templates so that an array of elements without a value (structs) does not declare them.
+            template <Readable E = Elem>
+            std::vector<value_of<E>> read() const { return read_all<E>(*this); }
+            template <Writable E = Elem>
+            void write(const value_of<E> &value) const { write_all<E>(*this, value); }
+            template <Writable E = Elem>
+            void write(const std::vector<value_of<E>> &values) const { write_all<E>(*this, values); }
 
             // A view over every element.
             NdView<Elem> view() const { return select({}); }

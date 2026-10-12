@@ -10,7 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dspsim.module_info import ModuleInfo, Parameter, ParamValueT, Port
+from dspsim.module_info import (
+    STRUCT_KEYWORD,
+    ModuleInfo,
+    Parameter,
+    ParamValueT,
+    Port,
+)
 
 try:
     # Check if verilator package was installed. VERILATOR_ROOT is set when this is imported.
@@ -127,15 +133,7 @@ def verilate_json(
     verilator_args: list[str] | None = None,
 ):
     """Run verilator --json-only and return the JSON output."""
-    if verilator_args is None:
-        verilator_args = []
-
-    verilator_args.extend(
-        [
-            "--json-only",
-            "--quiet",
-        ]
-    )
+    verilator_args = [*(verilator_args or []), "--json-only", "--quiet"]
 
     odir_ctx = TemporaryDirectory() if output_dir is None else nullcontext(output_dir)
 
@@ -278,6 +276,117 @@ def _parse_dtype(type_entry: dict, type_table: dict):
     )
 
 
+def _resolve_type(type_entry: dict, type_table: dict) -> dict:
+    """The type behind typedefs (REFDTYPE) and enumerations, which have the bits of their base type."""
+    while type_entry["type"] in ("REFDTYPE", "ENUMDTYPE"):
+        type_entry = type_table[type_entry["refDTypep"]]
+    return type_entry
+
+
+def _packed_width(type_entry: dict, type_table: dict, name: str) -> int:
+    """Number of bits of a packed type: a basic type, a packed array, a packed struct or a packed union."""
+    type_entry = _resolve_type(type_entry, type_table)
+
+    def members() -> list[int]:
+        return [
+            _packed_width(type_table[member["refDTypep"]], type_table, name)
+            for member in type_entry["membersp"]
+        ]
+
+    match type_entry["type"]:
+        case "BASICDTYPE":
+            return _range_to_int(type_entry.get("range", "[0:0]"))
+        case "PACKARRAYDTYPE":
+            element = type_table[type_entry["refDTypep"]]
+            return _range_to_int(type_entry["declRange"]) * _packed_width(
+                element, type_table, name
+            )
+        case "STRUCTDTYPE" if type_entry.get("packed", False):
+            return sum(members())
+        case "UNIONDTYPE" if type_entry.get("packed", False):
+            # The members of a union share its bits.
+            return max(members())
+    raise ValueError(f"Port '{name}': unsupported type {type_entry['type']}")
+
+
+def _parse_port(
+    name: str,
+    type_entry: dict,
+    direction: str,
+    type_table: dict,
+    lsb: int = 0,
+) -> Port:
+    """
+    Parse a port, or a field of a struct port, from its type. `name` is the path of the port ("bus.iq.re"),
+    for error messages. A struct has a field for each of its members, recursively, and an array of structs
+    the dimensions of the array as its shape.
+    """
+    # Unpacked dimensions, outermost first, down to the type of the elements.
+    dimensions: list[int] = []
+    while True:
+        type_entry = _resolve_type(type_entry, type_table)
+        if type_entry["type"] != "UNPACKARRAYDTYPE":
+            break
+        dimensions.append(_range_to_int(type_entry["declRange"]))
+        type_entry = type_table[type_entry["refDTypep"]]
+    shape = tuple(dimensions)
+
+    short_name = name.rpartition(".")[2]
+    if type_entry["type"] == "STRUCTDTYPE":
+        packed = type_entry.get("packed", False)
+        fields = {
+            member["name"]: _parse_port(
+                f"{name}.{member['name']}",
+                type_table[member["refDTypep"]],
+                direction,
+                type_table,
+                # A member without a position is at bit 0. Members of unpacked structs have none.
+                lsb=int(member.get("lsb", 0)) if packed else 0,
+            )
+            for member in type_entry["membersp"]
+        }
+        return Port(
+            name=short_name,
+            keyword=STRUCT_KEYWORD,
+            signed=False,
+            width=_packed_width(type_entry, type_table, name) if packed else -1,
+            direction=direction,
+            shape=shape,
+            fields=fields,
+            packed=packed,
+            lsb=lsb,
+        )
+
+    if type_entry["type"] == "UNIONDTYPE" and not type_entry.get("packed", False):
+        raise ValueError(f"Port '{name}': unpacked unions are not supported")
+    if type_entry["type"] in ("PACKARRAYDTYPE", "UNIONDTYPE"):
+        # A packed array is one vector of bits, whatever its elements are. So is a packed union: its
+        # members are views of the same bits, which separate ports cannot be.
+        return Port(
+            name=short_name,
+            keyword="logic",
+            signed=False,
+            width=_packed_width(type_entry, type_table, name),
+            direction=direction,
+            shape=shape,
+            lsb=lsb,
+        )
+
+    if type_entry["type"] != "BASICDTYPE":
+        raise ValueError(f"Port '{name}': unsupported type {type_entry['type']}")
+    keyword = type_entry["keyword"]
+    integral = keyword in ("int", "integer", "logic", "bit")
+    return Port(
+        name=short_name,
+        keyword=keyword,
+        signed=type_entry.get("signed", False),
+        width=_range_to_int(type_entry.get("range", "[0:0]")) if integral else -1,
+        direction=direction,
+        shape=shape,
+        lsb=lsb,
+    )
+
+
 def parse_module_json(model_data, metadata):
     """Parse complete module info from the given JSON content."""
     statements = model_data["modulesp"][0]["stmtsp"]
@@ -296,13 +405,11 @@ def parse_module_json(model_data, metadata):
     }
 
     ports = {
-        s["origName"]: Port(
-            name=s["origName"],
-            keyword=_parse_dtype(types_table[s["dtypep"]], types_table).keyword,
-            signed=_parse_dtype(types_table[s["dtypep"]], types_table).signed,
-            width=_parse_dtype(types_table[s["dtypep"]], types_table).width,
-            direction=str(s["direction"]).lower(),
-            shape=_parse_dtype(types_table[s["dtypep"]], types_table).shape,
+        s["origName"]: _parse_port(
+            s["origName"],
+            types_table[s["dtypep"]],
+            str(s["direction"]).lower(),
+            types_table,
         )
         for s in statements
         if s.get("varType", "") == "PORT"

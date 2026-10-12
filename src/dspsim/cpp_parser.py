@@ -621,6 +621,29 @@ def _is_module(cls: Any) -> bool:
     return any(_is_module(base) for base in _base_classes(cls))
 
 
+def _port_struct_class(ctype: Any) -> str | None:
+    """
+    "PortStruct" or "PortStructArray" if a type is that dspsim class or a class that derives from it publicly:
+    a struct port or an array of them. None for any other type.
+    """
+    kinds = _cindex().CursorKind
+
+    def base(cls: Any) -> str | None:
+        name = _qualified_name(cls)
+        if name in ("dspsim::PortStruct", "dspsim::PortStructArray"):
+            return name.removeprefix("dspsim::")
+        return next(filter(None, map(base, _base_classes(cls))), None)
+
+    declaration = ctype.get_canonical().get_declaration()
+    if _kind(declaration) not in (kinds.STRUCT_DECL, kinds.CLASS_DECL):
+        return None
+    try:
+        return base(declaration)
+    except NotImplementedError:
+        # A base class that an older libclang cannot read, of some class template of another library.
+        return None
+
+
 def _ports(cls: Any, numpy_types: dict[str, str]) -> dict[str, CppPort]:
     """The public port members of a class and of its base classes, base classes first."""
     cindex = _cindex()
@@ -631,8 +654,18 @@ def _ports(cls: Any, numpy_types: dict[str, str]) -> dict[str, CppPort]:
     for field in cls.type.get_fields():
         if field.access_specifier != cindex.AccessSpecifier.PUBLIC:
             continue
-        match = _PORT_TYPE.fullmatch(field.type.get_canonical().spelling)
+        canonical = field.type.get_canonical().spelling
+        match = _PORT_TYPE.fullmatch(canonical)
         if match is None:
+            if struct_class := _port_struct_class(field.type):
+                ports[field.spelling] = CppPort(
+                    name=field.spelling,
+                    direction=None,
+                    is_array=struct_class == "PortStructArray",
+                    ctype=canonical,
+                    suffix=None,
+                    is_struct=True,
+                )
             continue
         ports[field.spelling] = CppPort(
             name=field.spelling,

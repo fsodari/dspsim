@@ -15,7 +15,8 @@ add_library(dspsim-core STATIC
     ${DSPSIM_SRC_DIR}/port.cpp
     ${DSPSIM_SRC_DIR}/process.cpp
     # ${DSPSIM_SRC_DIR}/sensitivity_list.cpp
-    ${DSPSIM_SRC_DIR}/signal.cpp)
+    ${DSPSIM_SRC_DIR}/signal.cpp
+    ${DSPSIM_SRC_DIR}/struct.cpp)
 
 add_library(dspsim::dspsim-core ALIAS dspsim-core)
 
@@ -110,6 +111,7 @@ ${DSPSIM_INCLUDE_DIR}/dspsim/channel.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/process.h
         # ${DSPSIM_INCLUDE_DIR}/dspsim/sensitivity_list.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/signal.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/struct.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_rx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/axis_tx.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/modules/dff.h

@@ -1,0 +1,92 @@
+name: VHDL tests
+# The wheel builds have no GHDL, so the tests of VHDL models that run it are skipped there. These jobs have
+# one: on Ubuntu the oldest release that dspsim supports and the releases since that changed what GHDL
+# synthesizes, and a release for each other platform, with the back ends that its builds for it have.
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+
+jobs:
+  vhdl_tests:
+    name: GHDL ${{ matrix.ghdl }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Built on Ubuntu 22.04, whose Ada runtime Ubuntu 24.04 has as a package too.
+          - os: ubuntu-24.04
+            ghdl: "3.0.0"
+            archive: ghdl-gha-ubuntu-22.04-mcode.tgz
+            runtime: libgnat-10
+          - os: ubuntu-24.04
+            ghdl: "4.1.0"
+            archive: ghdl-gha-ubuntu-22.04-mcode.tgz
+            runtime: libgnat-10
+          - os: ubuntu-24.04
+            ghdl: "5.0.1"
+            archive: ghdl-mcode-5.0.1-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
+          - os: ubuntu-24.04
+            ghdl: "5.1.1"
+            archive: ghdl-mcode-5.1.1-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
+          - os: ubuntu-24.04
+            ghdl: "6.0.0"
+            archive: ghdl-mcode-6.0.0-ubuntu24.04-x86_64.tar.gz
+            runtime: libgnat-13
+          - os: windows-latest
+            ghdl: "6.0.0"
+            archive: ghdl-mcode-6.0.0-ucrt64.zip
+          - os: macos-14
+            ghdl: "6.0.0"
+            archive: ghdl-llvm-jit-6.0.0-macos14-aarch64.tar.gz
+          - os: macos-15-intel
+            ghdl: "5.0.1"
+            archive: ghdl-mcode-5.0.1-macos13-x86_64.tar.gz
+    env:
+      # libc++ only provides the floating point std::to_chars used by std::format from macOS 13.3.
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.0
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install GHDL
+        shell: bash
+        run: |
+          curl -sSL -o "${{ matrix.archive }}" "https://github.com/ghdl/ghdl/releases/download/v${{ matrix.ghdl }}/${{ matrix.archive }}"
+          mkdir ghdl-release
+          case "${{ matrix.archive }}" in
+            *.zip)
+              # The Windows build: bin/ghdl.exe with the libraries that it needs next to it.
+              unzip -q "${{ matrix.archive }}" -d ghdl-release
+              ;;
+            *)
+              tar xzf "${{ matrix.archive }}" -C ghdl-release
+              ;;
+          esac
+          if [ -n "${{ matrix.runtime }}" ]; then
+            # A Linux build needs the Ada runtime of the Ubuntu that it was built on.
+            sudo apt-get update
+            sudo apt-get install -y "${{ matrix.runtime }}"
+          fi
+          # bin/ is at the top of the archives of the older releases and one directory down in the others.
+          executable="$(find ghdl-release -maxdepth 3 -path '*/bin/*' \( -name ghdl -o -name ghdl.exe \) | head -1)"
+          echo "DSPSIM_GHDL=$GITHUB_WORKSPACE/$executable" >> "$GITHUB_ENV"
+          "$executable" --version
+
+      - name: Install dspsim
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest tests/test_vhdl.py

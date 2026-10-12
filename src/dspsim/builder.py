@@ -54,9 +54,13 @@ from dspsim.framework import (
     OutputU16,
     OutputU32,
     OutputU64,
+    PortStruct,
+    PortStructArray,
     _Module,
 )
+from dspsim.ghdl import VhdlOptions
 from dspsim.module_info import (
+    STRUCT_KEYWORD,
     CppModuleInfo,
     CppPort,
     CppSkipped,
@@ -190,7 +194,18 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     annotations = _get_class_annotations(namespace)
     ports = {}
     for an, typ in annotations.items():
-        if typ in _valid_port_types:
+        if typ in (PortStruct, PortStructArray):
+            # A struct port, or an array of structs. The annotation says nothing about its fields or its
+            # direction, and (0,) marks an array of unknown shape.
+            ports[an] = Port(
+                name=an,
+                keyword=STRUCT_KEYWORD,
+                signed=False,
+                width=-1,
+                direction="",
+                shape=(0,) if typ is PortStructArray else (),
+            )
+        elif typ in _valid_port_types:
             # Type names look like InputU8 or OutputArrayS32.
             match = _PORT_TYPE_NAME.fullmatch(typ.__name__)
             assert match is not None
@@ -213,6 +228,8 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
 # C++ modules can also have ports of floating point values.
 _valid_cpp_port_types = [
     *_valid_port_types,
+    PortStruct,
+    PortStructArray,
     InputFloat,
     InputArrayFloat,
     OutputFloat,
@@ -284,6 +301,24 @@ def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> Non
         if name not in model_ports:
             raise TypeError(f"Port '{name}' is not defined in the model")
         model_port = model_ports[name]
+        if port.is_struct or model_port.is_struct:
+
+            def described(p: Port) -> str:
+                if not p.is_struct:
+                    return "a port"
+                if p.is_array:
+                    return "an array of structs (PortStructArray)"
+                return "a struct (PortStruct)"
+
+            if (port.is_struct, port.is_array) != (
+                model_port.is_struct,
+                model_port.is_array,
+            ):
+                raise TypeError(
+                    f"Struct mismatch for port '{name}': "
+                    f"expected {described(model_port)}, got {described(port)}"
+                )
+            continue
         if port.stdint_size != model_port.stdint_size:
             raise TypeError(
                 f"Width mismatch for port '{name}': "
@@ -295,10 +330,11 @@ def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> Non
                 f"expected {'signed' if model_port.is_signed_int else 'unsigned'}, "
                 f"got {'signed' if port.signed else 'unsigned'}"
             )
-        if port.is_array != model_port.is_array:
+        # A port wider than 64 bits is an array of 32-bit words.
+        if port.is_array != model_port.is_port_array:
             raise TypeError(
                 f"Array mismatch for port '{name}': "
-                f"expected {'an array' if model_port.is_array else 'a scalar'}, "
+                f"expected {'an array' if model_port.is_port_array else 'a scalar'}, "
                 f"got {'an array' if port.is_array else 'a scalar'}"
             )
         if port.direction != model_port.direction:
@@ -515,12 +551,41 @@ def build_vmodule(
     ports: dict[str, Port] | None = None,
     # If default model info is provided, it will be used instead of reloading from the source.
     default_model_info: ModuleInfo | None = None,
+    verilator_args: Sequence[str] | None = None,
+    vhdl_sources: Sequence[Path] | None = None,
+    vhdl_std: str = "08",
+    vhdl_entity: str | None = None,
+    ghdl_args: Sequence[str] | None = None,
 ):
-    """Build and return the verilated model class."""
+    """
+    Build and return the verilated model class.
+
+    `verilator_args` are extra arguments for Verilator, such as `["--trace-structs", "-DSIMULATION"]`. They
+    are used both to read the ports and parameters of the module and to verilate it, and they are part of
+    what identifies the build.
+
+    `source` can be a VHDL file (.vhd, .vhdl) with a synthesizable entity, which GHDL turns into
+    SystemVerilog first (docs/Vhdl.md). The parameters are then the generics of the entity. `vhdl_sources`
+    are the other VHDL files of the design, in any order; `vhdl_entity` is the entity, if it is not named
+    like the file; `vhdl_std` is the VHDL standard and `ghdl_args` are extra arguments for GHDL.
+    """
+    vhdl = VhdlOptions(
+        sources=[Path(f) for f in vhdl_sources or []],
+        std=vhdl_std,
+        entity=vhdl_entity,
+        ghdl_args=list(ghdl_args or []),
+    )
+    vhdl_output_dir = cache_dir() / "vhdl"
+
     # Load the verilated model's default parameters.
     if default_model_info is None:
         default_model_info = load_model_info(
-            source, include_dirs=include_dirs, parameters={}
+            source,
+            include_dirs=include_dirs,
+            parameters={},
+            verilator_args=verilator_args,
+            vhdl=vhdl,
+            vhdl_output_dir=vhdl_output_dir,
         )
 
     # Validate the parameter annotations, and create a set of parameter overrides.
@@ -530,7 +595,12 @@ def build_vmodule(
     # Re-generate the model with the parameter annotations applied.
     # Port sizes may change with parameter overrides.
     module_info = load_model_info(
-        source, include_dirs=include_dirs, parameters=parameter_overrides
+        source,
+        include_dirs=include_dirs,
+        parameters=parameter_overrides,
+        verilator_args=verilator_args,
+        vhdl=vhdl,
+        vhdl_output_dir=vhdl_output_dir,
     )
 
     # Validate ports if annotations were supplied.
@@ -597,17 +667,35 @@ def vbuilder(
     include_dirs: list[Path] | None = None,
     trace: Literal["vcd", "fst", "platform"] | None = None,
     verbose: bool = False,
+    verilator_args: Sequence[str] | None = None,
+    vhdl_sources: Sequence[Path] | None = None,
+    vhdl_std: str = "08",
+    vhdl_entity: str | None = None,
+    ghdl_args: Sequence[str] | None = None,
 ):
     """
     Generate a verilator model to use with dspsim. Parameters can be overridden via class annotations.
     Ports may also be annotated to give a type hint for what the model has. If port annotations are given,
     they must match the model exactly.
+
+    `verilator_args` are extra arguments for Verilator, and the `vhdl_` arguments and `ghdl_args` are for a
+    VHDL source: see build_vmodule().
     """
 
     def class_decorator[V: type[VModule]](cls: V) -> V:
         # Load the verilated model's default parameters.
         default_model_info = load_model_info(
-            source, include_dirs=include_dirs, parameters={}
+            source,
+            include_dirs=include_dirs,
+            parameters={},
+            verilator_args=verilator_args,
+            vhdl=VhdlOptions(
+                sources=[Path(f) for f in vhdl_sources or []],
+                std=vhdl_std,
+                entity=vhdl_entity,
+                ghdl_args=list(ghdl_args or []),
+            ),
+            vhdl_output_dir=cache_dir() / "vhdl",
         )
 
         # Check the class annotations for valid parameters.
@@ -628,6 +716,11 @@ def vbuilder(
             verbose=verbose,
             ports=port_annotations,
             default_model_info=default_model_info,
+            verilator_args=verilator_args,
+            vhdl_sources=vhdl_sources,
+            vhdl_std=vhdl_std,
+            vhdl_entity=vhdl_entity,
+            ghdl_args=ghdl_args,
         )  # type: ignore
         wrapper: V
         return wrapper

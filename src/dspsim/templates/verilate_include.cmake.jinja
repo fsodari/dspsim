@@ -13,10 +13,17 @@ TRACE_VCD
 {%elif model.trace == "fst"-%}
 TRACE_FST
 {%endif-%}
-VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%})
+VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}}={{param.gparam_val}} {%endfor%}{%for arg in model.verilator_args%}{{arg | cmake_quote}} {%endfor%})
 {%if model.trace == "fst"%}dspsim_target_fst_deps({{model.name}})
 {%endif%}
 target_link_libraries({{config.name}} PUBLIC {{model.name}})
+{%-if model.vhdl_files%}
+# The source is generated from these VHDL files when CMake configures: configure again when one changes.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+{%-for file in model.vhdl_files%}
+    "{{file.as_posix()}}"
+{%-endfor%})
+{%-endif%}
 {% endfor %}
 {%-if config.cpp.models%}
 

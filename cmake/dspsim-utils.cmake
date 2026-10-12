@@ -52,6 +52,57 @@ function(dspsim_target_fst_deps target)
     endif()
 endfunction()
 
+# Turn a VHDL entity into SystemVerilog with GHDL, when CMake configures, and set <out_var> to the path of
+# the SystemVerilog file, which verilate() takes as a source (docs/Vhdl.md):
+#
+#   dspsim_vhdl_source(SKID_SV SOURCE hdl/Skid.vhd GENERICS DW=16)
+#   verilate(my_models SOURCES ${SKID_SV})
+#
+# SOURCE is the file of the entity and SOURCES are the other VHDL files of the design, in any order. ENTITY
+# names the entity if it is not named like the file, STD is the VHDL standard (08), GENERICS are NAME=VALUE
+# pairs and GHDL_ARGS extra arguments for GHDL. The module has the name of the entity. The VHDL files are
+# configure dependencies: CMake configures again when one of them changes. Needs GHDL (DSPSIM_GHDL, or ghdl on
+# the path) and the dspsim Python package.
+function(dspsim_vhdl_source out_var)
+    cmake_parse_arguments(PARSE_ARGV 1 arg "" "SOURCE;ENTITY;STD;OUTPUT_DIR" "SOURCES;GENERICS;GHDL_ARGS")
+    if(NOT arg_SOURCE)
+        message(FATAL_ERROR "dspsim_vhdl_source: SOURCE is required")
+    endif()
+    if(NOT arg_OUTPUT_DIR)
+        set(arg_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/vhdl)
+    endif()
+
+    set(sources "")
+    foreach(source IN LISTS arg_SOURCE arg_SOURCES)
+        cmake_path(ABSOLUTE_PATH source BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        list(APPEND sources ${source})
+    endforeach()
+    set(command ${Python_EXECUTABLE} -m dspsim.ghdl ${sources} --output-dir ${arg_OUTPUT_DIR})
+    if(arg_ENTITY)
+        list(APPEND command --entity ${arg_ENTITY})
+    endif()
+    if(arg_STD)
+        list(APPEND command --std ${arg_STD})
+    endif()
+    foreach(generic IN LISTS arg_GENERICS)
+        list(APPEND command -g ${generic})
+    endforeach()
+    foreach(ghdl_arg IN LISTS arg_GHDL_ARGS)
+        list(APPEND command --ghdl-arg=${ghdl_arg})
+    endforeach()
+
+    execute_process(COMMAND ${command}
+        OUTPUT_VARIABLE path
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_VARIABLE error
+        RESULT_VARIABLE result)
+    if(result)
+        message(FATAL_ERROR "dspsim_vhdl_source: ${arg_SOURCE}: ${error}")
+    endif()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${sources})
+    set(${out_var} ${path} PARENT_SCOPE)
+endfunction()
+
 # Generate stubs for a module using the standard configuration for stubs.
 function(dspsim_add_stub name output_dir)
     # Install stubs differently for editable installs.

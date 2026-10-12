@@ -15,6 +15,7 @@ NB_MODULE(_framework, m)
     bindings::register_ports(m);
     bindings::register_input_arrays(m);
     bindings::register_output_arrays(m);
+    bindings::register_structs(m);
     bindings::register_modules(m);
 }
 

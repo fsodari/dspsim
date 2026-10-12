@@ -29,6 +29,8 @@ namespace dspsim::bindings
     void register_input_arrays(nb::module_ &m);
     /// OutputArray* and OutputArrayView*. (output_arrays.cpp)
     void register_output_arrays(nb::module_ &m);
+    /// SignalStruct, SignalStructArray, PortStruct and PortStructArray. (structs.cpp)
+    void register_structs(nb::module_ &m);
     /// The modules that ship with dspsim: Dff*, AxisRx*, AxisTx*. (modules.cpp)
     void register_modules(nb::module_ &m);
 } // namespace dspsim::bindings
