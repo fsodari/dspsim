@@ -112,6 +112,34 @@ its designs, and `scripts/benchmarks.py --list` lists every case.
 | `sensitivity` | `fanin`, `anyof`, `tree`, `fanout` | Sensitivity lists: a process sensitive to many signals, a dynamic wait on any of n events, combinational logic that settles over several delta cycles, a signal with many readers. |
 | `timing` | `timers`, `clocks`, `timeout`, `delay` | Simulated time: a time queue with many entries, several clocks, waits with a timeout that does or does not expire, propagation delays. |
 | `tasks` | `subtask`, `bus`, `spawn`, `run_until` | Coroutine features: awaited sub-tasks against function calls on a thread's stack, a transaction-level bus master, processes created while the simulation runs, a testbench that drives the design with `run_until()`. |
+| `structs` | `bus`: registers in series whose ports are a struct with a nested struct. `arrays`: the same with 16 elements of two fields per link. | Struct ports. The kinds are ways to declare the ports of a link (see below), not process kinds. |
+
+### The kinds of the `structs` suite
+
+A dspsim struct port (`PortStruct`) is a group of ports: every field has a port and a signal of its own,
+and the struct only refers to them. So the kinds of a design in this suite are the same simulation, and
+they measure what it costs to reach the ports through a struct:
+
+| kind | dspsim | SystemC |
+| --- | --- | --- |
+| `ports` | a port per field, each bound on its own | a port per field |
+| `struct` | a `PortStruct`, bound as a whole | one port with the struct as its value (`sc_in<BusValue>`) |
+| `soa` | a `PortStruct` whose fields are port arrays | one port with a struct of arrays as its value |
+| `aos` | a `PortStructArrayOf`, element by `flat(i)` | a vector of ports with the struct of an element as their value |
+| `aos_view` | the same array, through the views by field (`input_array<T>("data")`) that the module keeps | |
+| `aos_index` | the same array, every access written as `ports[{i}].field` | |
+
+What to expect:
+
+- In dspsim, `struct` and `soa` run the same instructions as `ports`, and `aos` and `aos_view` are within
+  a few percent of it: a struct costs nothing while the simulation runs.
+- `aos_index` costs more than twice as much. `ports[{i}]` takes a `dspsim::Index`, a `std::vector`, so
+  every access allocates one. This is the cost of `[{...}]` on any array, not of structs; in a process,
+  use `flat(i)`, a range-based `for`, or keep a reference to the element.
+- The `ports` kinds are the like-for-like comparison with SystemC. In the other kinds SystemC has one
+  signal per struct where dspsim has one per field, so it commits one value where dspsim commits several
+  (`soa`: 1 against 32). dspsim has no signal with a struct as its value, and these rows show what that
+  would be worth; they are not regressions.
 
 ## How it is put together
 

@@ -21,6 +21,7 @@ add_benchmark(sensitivity)
 add_benchmark(timing)
 add_benchmark(tasks)
 add_benchmark(stream)
+add_benchmark(structs)
 
 # The suites, one name per line, for scripts/benchmarks.py.
 list(JOIN BENCHMARK_SUITES "\n" BENCHMARK_SUITE_LINES)
