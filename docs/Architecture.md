@@ -533,6 +533,11 @@ it manually.
   type with suffixed names: `SignalU8..U64`, `SignalS8..S64`, `SignalFloat`, `SignalArray*`,
   `Input*`/`Output*`, `Dff*`, and so on. The groups are registered in dependency order: a base class
   before the classes derived from it.
+- The headers in `src/include/bindings/` are the framework's own and are not installed. A binding
+  helper that the extension modules of models need as well goes in `src/include/dspsim/bindings/`,
+  which is installed with the dspsim headers (`<dspsim/bindings/task.h>`: `py_task()`,
+  `bind_task()`, `bind_task_once()` for methods that return a `Task<T>`). Such a header includes
+  nanobind but not `nb_include.h`: only what it uses.
 - [`src/dspsim/framework.py`](../src/dspsim/framework.py) is the public Python API. It
   re-exports `_framework`, subclasses `Context` and `Module`. A Python `Module` subclass takes a `name` argument in `__init__`;
   `Module.__init_subclass__` wraps `__init__` to open and close the `ModuleName` scope,
@@ -562,11 +567,28 @@ it manually.
   library build: it runs `python -m dspsim.generate` against a `pyproject.toml`
   (`[tool.dspsim]`) to Verilate `.sv` sources and generate nanobind wrapper C++ plus a
   CMake include, builds it as a nanobind extension linked against `dspsim::dspsim-core`,
-  and generates `.pyi` stubs. See `examples/some_example/`.
+  and generates `.pyi` stubs. See `examples/some_example/`. The C++ modules in the
+  `[tool.dspsim.cpp]` table are bound into the same extension module, from the same
+  description and template as the JIT builder below uses
+  ([CppBuilder.md](CppBuilder.md#in-a-library)).
 - [`src/dspsim/builder.py`](../src/dspsim/builder.py) is the JIT path: the
   `vbuilder(source)` class decorator / `build_vmodule()` generates a per-model CMake
   project from the same templates, builds it under `.dspsim_cache/`, imports it, and
-  calls `link_module`.
+  calls `link_module`. A build is named after the Python class and a hash of everything
+  it depends on (`_build_key()`: the parameters and options, and the contents of every
+  source file), and so are its directory, its extension module and its generated C++
+  class. Models of the same name that differ in anything are therefore separate builds
+  that can be loaded together, and only an identical build is reused.
+  The build step runs every time, so that the build system checks what the key does
+  not cover (the headers of the system, of other libraries and of dspsim) and rebuilds a
+  stale module in place; for a module that is up to date that takes milliseconds.
+- The same file has the JIT path for C++ modules: the `cppbuilder(header)` class
+  decorator / `build_cppmodule()` binds a hand-written C++ `Module` (its ports,
+  constructors and public methods) with no binding code. The template parameters of a class
+  template are set with class annotations, like the parameters of a verilated model.
+  [`src/dspsim/cpp_parser.py`](../src/dspsim/cpp_parser.py) reads the class from its
+  header with libclang (optional dependency, `dspsim[cpp]`), which is to C++ modules what
+  `verilator --json-only` is to SystemVerilog ones. See [CppBuilder.md](CppBuilder.md).
 - Separately built model extensions must call `dspsim.link_module(module)` so they share
   the main global `ContextFactory`. Otherwise their models register with a different
   context.

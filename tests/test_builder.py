@@ -133,6 +133,32 @@ def test_vbuilder():
         assert out_tdata.q == -99
 
 
+def test_vbuilder_same_name():
+    """Models of the same name are separate builds unless everything about them is the same."""
+    source = HDL_DIR / "Skid.sv"
+
+    def build(dw: int):
+        return build_vmodule(
+            "Skid2",
+            source,
+            include_dirs=[HDL_DIR],
+            parameters={"DW": dw},
+            trace="platform",
+        )
+
+    Skid13 = build(13)
+    Skid12 = build(12)
+    assert Skid13 is not Skid12
+    assert (Skid13.__name__, Skid12.__name__) == ("Skid2", "Skid2")
+    assert (Skid13.DW, Skid12.DW) == (13, 12)
+    # The same build again is the class that is already imported.
+    assert build(13) is Skid13
+
+    with Context():
+        assert Skid13("skid13").s_axis_tdata.width == 13
+        assert Skid12("skid12").s_axis_tdata.width == 12
+
+
 def test_vbuilder_sign_mismatch():
     source = HDL_DIR / "Skid.sv"
 

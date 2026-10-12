@@ -12,6 +12,9 @@
 {%for model in config.models%}
 #include "{{model}}_bind.h"
 {%-endfor%}
+{%-for model in config.cpp.models%}
+#include "{{model}}_bind.h"
+{%-endfor%}
 
 namespace nb = nanobind;
 
@@ -28,6 +31,9 @@ NB_MODULE({{config.name}}, m)
 
     // Bind all generated modules here.
     {% for model in config.models %}
+    bind_{{model}}(m);
+    {%-endfor%}
+    {%-for model in config.cpp.models%}
     bind_{{model}}(m);
     {%-endfor%}
 }

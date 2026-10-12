@@ -1,0 +1,24 @@
+cmake_minimum_required(VERSION 4.0)
+project(dspsim_dependencies LANGUAGES CXX)
+
+# This project is only configured. It writes the include directories and compile definitions that the packages
+# and libraries give to a target that uses them, which the parser of the module's header needs.
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+{%for package in packages%}
+find_package({{package}} REQUIRED)
+{%-endfor%}
+
+add_library(probe OBJECT probe.cpp)
+{%-if libraries%}
+target_link_libraries(probe PRIVATE {{libraries | join(" ")}})
+{%-endif%}
+
+# One per line. The properties of the target have what its libraries add. Every generator can do this, unlike
+# CMAKE_EXPORT_COMPILE_COMMANDS, which the Visual Studio generators do not have.
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/include_directories.txt
+    CONTENT "$<JOIN:$<TARGET_PROPERTY:probe,INCLUDE_DIRECTORIES>,\n>\n"
+    CONDITION $<CONFIG:Release>)
+file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/compile_definitions.txt
+    CONTENT "$<JOIN:$<TARGET_PROPERTY:probe,COMPILE_DEFINITIONS>,\n>\n"
+    CONDITION $<CONFIG:Release>)

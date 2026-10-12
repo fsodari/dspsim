@@ -3,7 +3,7 @@ import weakref
 
 import pytest
 
-from dspsim.framework import Context, InputU8, Module, SignalU8
+from dspsim.framework import Context, DffU8, InputU8, Module, OutputU8, SignalU8
 
 
 class Base(Module):
@@ -115,3 +115,19 @@ def test_init_without_name_is_rejected():
         class NoName(Module):
             def __init__(self, width: int):
                 pass
+
+
+def test_ports_of_a_cpp_module():
+    """ports(), inputs() and outputs() refer to the ports of the module: they do not take them over."""
+    with Context():
+        dff = DffU8("dff")
+        for _ in range(3):
+            ports = dff.ports()
+            assert [port.name for port in ports] == ["clk", "d", "q"]
+            # The lists can go: the ports stay.
+            del ports
+            gc.collect()
+
+        assert [type(port) for port in dff.ports()] == [InputU8, InputU8, OutputU8]
+        assert dff.inputs()[1] is dff.d
+        assert dff.outputs()[0] is dff.q

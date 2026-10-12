@@ -91,6 +91,7 @@ target_sources(dspsim-core
     FILE_SET HEADERS
     BASE_DIRS ${DSPSIM_INCLUDE_DIR}
     FILES 
+        ${DSPSIM_INCLUDE_DIR}/dspsim/bindings/task.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/bits.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/bitsel.h
 ${DSPSIM_INCLUDE_DIR}/dspsim/channel.h

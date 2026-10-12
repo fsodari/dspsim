@@ -38,6 +38,10 @@ dependencies = [
 verilator = [
     "verilator-dspsim>=5.52.2",
 ]
+# The JIT builder of C++ modules parses their headers with libclang.
+cpp = [
+    "libclang>=18.1.1",
+]
 # library = ["dspsim-library>="]
 
 [project.scripts]
@@ -63,6 +67,7 @@ cache-keys = [
 dev = [
     "cibuildwheel>=4.2.1",
     "cocotb>=2.1.0",
+    "libclang>=18.1.1",
     "nanobind>=3.1.0",
     "nanobind-backend>=1.0.0",
     "pyright>=1.1.414",
@@ -85,7 +90,7 @@ skip = ["*cp314t*","*-win_arm64", "*musllinux*"]
 
 # Run pytest to ensure that the package was build correctly
 test-command = "pytest {project}/tests"
-test-requires = "pytest verilator-dspsim"
+test-requires = "pytest verilator-dspsim libclang"
 build-verbosity = 1
 
 [tool.cibuildwheel.linux]

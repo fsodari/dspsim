@@ -1,0 +1,134 @@
+#pragma once
+#include "{{model.header.as_posix()}}"
+
+#include <dspsim/dspsim.h>
+
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/shared_ptr.h>
+{%-for header in model.headers%}
+#include <nanobind/stl/{{header}}>
+{%-endfor%}
+
+{%-if model.has_tasks%}
+
+#include <dspsim/bindings/task.h>
+{%-endif%}
+
+#include <utility>
+{%-if model.bindings%}
+
+// The user's bindings: dspsim_bind().
+#include "{{model.bindings.as_posix()}}"
+{%-endif%}
+
+namespace dspsim::generated
+{
+    {%-if not model.is_final%}
+    // The class of this build. nanobind keeps one Python class per C++ class, so a class of its own lets other
+    // builds of the module (of an edited header, with other options) be loaded in the same process.
+    struct {{model.build_name}} final : public {{model.cpp_type}}
+    {
+        using Base = {{model.cpp_type}};
+        using Base::Base;
+    };
+    {%-else%}
+    // The module is a final class: every build of it in a process must be the same.
+    using {{model.build_name}} = {{model.cpp_type}};
+    {%-endif%}
+    {%-if model.value_parameters%}
+
+    // The template arguments of {{model.cpp_type}}.
+    struct {{model.build_name}}Parameters
+    {
+        {%-for param in model.value_parameters%}
+        inline static const {{param.ctype}} {{param.name}} = {{param.cpp_val}};
+        {%-endfor%}
+    };
+    {%-endif%}
+} // namespace dspsim::generated
+
+{#- One def per overload of a constructor or method. Inside "if (guard)" when it uses classes that may have no bindings. -#}
+{%-macro bind(function)%}
+    {%-set indent = "        " if function.guard else "    "%}
+    {%-if function.guard%}
+    if ({{function.guard}})
+    {
+    {%-endif%}
+    {%-if function.task_type%}
+{{indent}}// Python awaits the task. The framework binds the awaitable for some result types, this module the others.
+{{indent}}::dspsim::bindings::bind_task_once<{{function.task_type}}>(m, "{{function.task_name}}");
+    {%-endif%}
+    {%-for overload in function.overloads%}
+    {%-if not function.name%}
+{{indent}}cls.def(nanobind::new_(&::dspsim::create_module<{{(["M"] + overload.types) | join(", ")}}>),
+{{indent}}        {{(['nanobind::arg("name")'] + overload.nb_args) | join(", ")}});
+    {%-elif function.task_type%}
+{{indent}}cls.def("{{function.name}}", []({{(["M &self"] + overload.parameters) | join(", ")}})
+{{indent}}        { return ::dspsim::bindings::py_task(self.context(), self.{{function.name}}({{overload.call}})); }{%for arg in overload.nb_args%}, {{arg}}{%endfor%});
+    {%-else%}
+    {%-set self = [] if function.is_static else ["M &self"]%}
+    {%-set callee = "M::" if function.is_static else "self."%}
+    {%-set extra = overload.nb_args + ([function.return_policy] if function.return_policy else [])%}
+{{indent}}cls.{{"def_static" if function.is_static else "def"}}("{{function.name}}", []({{(self + overload.parameters) | join(", ")}}) -> decltype(auto)
+{{indent}}        { return {{callee}}{{function.name}}({{overload.call}}); }{%for arg in extra%}, {{arg}}{%endfor%});
+    {%-endif%}
+    {%-endfor%}
+    {%-if function.guard%}
+    }
+    else
+    {
+        unbound.append(nanobind::make_tuple("{{model.name}}", "{{function.signature}}"));
+    }
+    {%-endif%}
+{%-endmacro%}
+static inline auto bind_{{model.name}}(nanobind::module_ &m)
+{
+    using M = ::dspsim::generated::{{model.build_name}};
+    auto cls = nanobind::class_<M, ::dspsim::Module>(m, "{{model.name}}")
+        {%-for param in model.value_parameters%}
+        .def_ro_static("{{param.name}}", &::dspsim::generated::{{model.build_name}}Parameters::{{param.name}})
+        {%-endfor%}
+        {%-for port in model.ports.values()%}
+        .def_ro("{{port.name}}", &M::{{port.name}})
+        {%-endfor%};
+    {%-if model.type_parameters%}
+
+    // Template arguments that are types: the numpy type if there is one, else the name of the C++ type.
+    {%-for param in model.type_parameters%}
+    {%-if param.numpy_type%}
+    cls.attr("{{param.name}}") = nanobind::module_::import_("numpy").attr("{{param.numpy_type}}");
+    {%-else%}
+    cls.attr("{{param.name}}") = "{{param.value}}";
+    {%-endif%}
+    {%-endfor%}
+    {%-endif%}
+
+    {%-if model.bindings%}
+
+    // The user's bindings come first: they can bind classes that the constructors and methods below use.
+    dspsim_bind(m, cls);
+    {%-endif%}
+
+    // The constructors and methods that are left out because a class that they use has no Python bindings:
+    // (class, signature). The classes of an extension module share the list.
+    if (!nanobind::hasattr(m, "_unbound"))
+    {
+        m.attr("_unbound") = nanobind::list();
+    }
+    nanobind::list unbound = m.attr("_unbound");
+
+    // Constructors
+    {%-for function in model.constructors%}
+    {{-bind(function)}}
+    {%-endfor%}
+    {%-if model.methods%}
+
+    // Methods
+    {%-for function in model.methods%}
+    {{-bind(function)}}
+    {%-endfor%}
+    {%-endif%}
+
+    return cls;
+}

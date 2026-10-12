@@ -1,7 +1,7 @@
 #pragma once
 #include <dspsim/modules/axis_rx.h>
 #include <dspsim/modules/axis_tx.h>
-#include "coro_bindings.h"
+#include <dspsim/bindings/task.h>
 #include "nb_include.h"
 
 #include <vector>
