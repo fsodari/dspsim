@@ -43,9 +43,11 @@ namespace dspsim::bindings
                    { return module.wait(event, timeout); }, nb::arg("event"), nb::arg("timeout"))
               .def("wait", [](Module &module, const std::vector<SensitivityEvent *> &events, uint64_t timeout)
                    { return module.wait(events, timeout); }, nb::arg("events"), nb::arg("timeout"))
-              .def("ports", &Module::ports)
-              .def("inputs", &Module::inputs)
-              .def("outputs", &Module::outputs)
+              // The ports belong to the module: Python refers to them. The default policy for a pointer
+              // would take ownership, and free the ports with the list.
+              .def("ports", &Module::ports, nb::rv_policy::reference_internal)
+              .def("inputs", &Module::inputs, nb::rv_policy::reference_internal)
+              .def("outputs", &Module::outputs, nb::rv_policy::reference_internal)
               .def("repr", &Module::repr)
               .def("__repr__", &Module::repr)
               .def("__str__", &Module::repr);

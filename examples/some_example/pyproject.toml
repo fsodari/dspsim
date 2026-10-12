@@ -3,7 +3,8 @@ requires = [
     "scikit-build-core>=1.0.3",
     "nanobind>=3.0.1",
     "nanobind-backend>=1.0.0",
-    "dspsim[verilator]",
+    # cpp: the C++ modules are read with libclang when the library is built.
+    "dspsim[verilator,cpp]",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -17,7 +18,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-dspsim = { path = "../../../dspsim" }
+dspsim = { path = "../.." }
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
@@ -50,6 +51,13 @@ trace = "vcd"
 # Global parameters applied to all modules.
 [tool.dspsim.parameters]
 DW = 24
+
+# C++ modules, bound like dspsim.builder.cppbuilder binds them. See docs/CppBuilder.md.
+[tool.dspsim.cpp]
+include_dirs = ["src/some_example/cpp"]
+
+[tool.dspsim.cpp.models.MovingAverage]
+header = "src/some_example/cpp/MovingAverage.h"
 
 [dependency-groups]
 dev = [

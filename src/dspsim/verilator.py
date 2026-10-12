@@ -308,9 +308,13 @@ def parse_module_json(model_data, metadata):
         if s.get("varType", "") == "PORT"
     }
 
+    # Verilator lists the files that it read, with entries such as "<built-in>" that are not files.
+    source_files = [Path(f["realpath"]) for f in metadata["files"].values()]
+
     return ModuleInfo(
         name=model_data["modulesp"][0]["name"],
         source=Path(metadata["files"]["e"]["realpath"]),
         parameters=parameters,
         ports=ports,
+        source_files=[f for f in source_files if f.is_file()],
     )

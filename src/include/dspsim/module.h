@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace dspsim
@@ -80,10 +81,13 @@ namespace dspsim
         std::vector<PortBase *> outputs_;
     };
 
-    template <typename M>
-    inline auto create_module(ModuleName &name)
+    /// Create a module that its context shares the ownership of. `Args` are the types of the constructor
+    /// arguments after the name. They are not deduced: bindings take the address of an instance,
+    /// nanobind::new_(&create_module<M, int, const std::string &>).
+    template <typename M, typename... Args>
+    inline auto create_module(ModuleName &name, Args... args)
     {
-        return Model::create<M>(name);
+        return Model::create<M>(name, std::forward<Args>(args)...);
     }
 
 } // namespace dspsim

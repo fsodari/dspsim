@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 4.0)
+project({{model.build_name}} LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# No C++ modules here: skip CMake's module dependency scan of every source file (on by default from C++20).
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+# dspsim
+find_package(dspsim REQUIRED)
+message(STATUS "Found dspsim: ${dspsim_DIR}")
+{%-for package in model.packages%}
+find_package({{package}} REQUIRED)
+{%-endfor%}
+
+# Create the main nanobind module. NOMINSIZE: nanobind compiles an extension for size (-Os) by default, which is
+# right for bindings, but this one also has the code of the model.
+dspsim_add_nanobind_module(_{{model.build_name}} NOMINSIZE
+    {{model.name}}_module.cpp
+{%-for source in model.sources%}
+    "{{source.as_posix()}}"
+{%-endfor%})
+{%-if model.include_dirs%}
+target_include_directories(_{{model.build_name}} PRIVATE
+{%-for dir in model.include_dirs%}
+    "{{dir.as_posix()}}"
+{%-endfor%})
+{%-endif%}
+{%-if model.definitions%}
+target_compile_definitions(_{{model.build_name}} PRIVATE
+{%-for name, value in model.definitions.items()%}
+    "{{name}}{%if value is not none%}={{value}}{%endif%}"
+{%-endfor%})
+{%-endif%}
+{%-if model.libraries%}
+target_link_libraries(_{{model.build_name}} PRIVATE {{model.libraries | join(" ")}})
+{%-endif%}

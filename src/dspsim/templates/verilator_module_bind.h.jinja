@@ -11,7 +11,7 @@
 
 static inline auto bind_{{model.name}}(nanobind::module_ &m)
 {
-    return nanobind::class_<{{model.name}}, ::dspsim::Module>(m, "{{model.name}}")
+    return nanobind::class_<{{model.name}}, ::dspsim::Module>(m, "{{model.python_name or model.name}}")
         {# .def(nanobind::init<::dspsim::ModuleName>(), nanobind::arg("name")) #}
         .def(nanobind::new_(&::dspsim::create_module<{{model.name}}>))
         {%-for param in model.parameters.values()%}

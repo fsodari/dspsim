@@ -1,10 +1,10 @@
 import argparse
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import jinja2
-
 from dspsim.project import ProjectConfig
+from dspsim.templates import render_template
 
 
 @dataclass
@@ -31,16 +31,6 @@ class Args:
         )
 
 
-_template_env = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(Path(__file__).parent / "templates")
-)
-
-
-def render_template(template_name: str, **kwargs):
-    template = _template_env.get_template(template_name)
-    return template.render(**kwargs)
-
-
 def main():
     args = Args.parse_args()
 
@@ -48,7 +38,7 @@ def main():
         if args.verbose:
             print(*_args, **_kwargs)
 
-    project_config = ProjectConfig.from_toml(args.pyproject)
+    project_config = ProjectConfig.from_toml(args.pyproject, args.output_dir)
     _print(f"Loaded project configuration:\n{project_config.report()}")
 
     if not args.output_dir.exists():
@@ -85,6 +75,25 @@ def main():
         _print(f"Generated model {model.name} bindings:\n{model_bind}")
         with open(args.output_dir / f"{model.name}_bind.h", "w") as f:
             f.write(model_bind)
+
+    # Generate the nanobind bindings for the C++ modules.
+    for model in project_config.cpp.models.values():
+        model_bind = render_template("cpp_module_bind.h.jinja", model=model)
+        _print(f"Generated C++ module {model.name} bindings:\n{model_bind}")
+        with open(args.output_dir / f"{model.name}_bind.h", "w") as f:
+            f.write(model_bind)
+
+        # What cannot be bound is left out. CMake shows this in the output of its configure step.
+        for skipped in model.skipped:
+            print(
+                f"dspsim: C++ module {model.name}: '{skipped.signature}' is not bound: {skipped.reason}",
+                file=sys.stderr,
+            )
+
+    if project_config.cpp.strict and any(
+        model.skipped for model in project_config.cpp.models.values()
+    ):
+        sys.exit("dspsim: [tool.dspsim.cpp] strict: not everything could be bound")
 
 
 if __name__ == "__main__":

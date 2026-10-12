@@ -230,7 +230,9 @@ with Context() as ctx:
 ### Exposing a C++ task to Python
 
 Bindings wrap a `Task<T>` with `py_task(context, task)` and need a `bind_task<T>(m, "TaskName",
-"python result type")` registration once per result type `T` (see `_framework.cpp`):
+"python result type")` registration once per result type `T` (see `src/bindings/engine.cpp`). Both are
+in [`<dspsim/bindings/task.h>`](../src/include/dspsim/bindings/task.h), which is installed with the
+dspsim headers so that the extension modules of models can bind their own tasks:
 
 ```cpp
 .def("receive", [](AxisRx<T> &self, size_t n, uint64_t timeout)
@@ -241,6 +243,14 @@ Bindings wrap a `Task<T>` with `py_task(context, task)` and need a `bind_task<T>
 `PyTaskAwaitable<T>` implements `__await__` as a Python generator: it starts the C++ task (which suspends on
 its first leaf wait and records the process's resume point), yields to the scheduler, and steps the C++ task
 from the resume point each time the Python coroutine is resumed, until it is done.
+
+`PyTaskAwaitable<T>` is a class template in that header, so every extension module that returns one
+compiles its own copy, but it is one C++ type and has one Python class per process: nanobind finds the
+class by the C++ type, across the extension modules of the `dspsim` domain. A model's extension that
+returns a `Task<bool>` therefore returns the framework's `TaskBool`, and must not bind it again. For a
+result type that the framework does not bind, an extension calls `bind_task_once<T>(m, "name")`, which
+binds the awaitable unless a module loaded before already has. The C++ module builder
+([CppBuilder.md](CppBuilder.md)) generates exactly this for methods that return a `Task<T>`.
 
 ## Caveats
 

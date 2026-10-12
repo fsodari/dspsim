@@ -2,7 +2,8 @@
 add_library({{model.name}} ${gen_dir}/{{model.name}}.cpp)
 target_link_libraries({{model.name}} PUBLIC dspsim::dspsim-core)
 target_include_directories({{model.name}} PUBLIC ${gen_dir})
-set_target_properties({{model.name}} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+# The model is linked into the extension module, which is a shared library.
+set_target_properties({{model.name}} PROPERTIES CXX_SCAN_FOR_MODULES OFF POSITION_INDEPENDENT_CODE ON)
 
 verilate({{model.name}}
 SOURCES {{ model.source.as_posix() }}
@@ -17,3 +18,38 @@ VERILATOR_ARGS --quiet {%for param in model.parameters.values()%}-G{{param.name}
 {%endif%}
 target_link_libraries({{config.name}} PUBLIC {{model.name}})
 {% endfor %}
+{%-if config.cpp.models%}
+
+# C++ modules. Their bindings are in the extension module's own source file, and so is their code if it is in
+# headers.
+{%-for package in config.cpp.packages%}
+find_package({{package}} REQUIRED)
+{%-endfor%}
+{%-if config.cpp.sources%}
+target_sources({{config.name}} PRIVATE
+{%-for source in config.cpp.sources%}
+    "{{source.as_posix()}}"
+{%-endfor%})
+{%-endif%}
+{%-if config.cpp.include_dirs%}
+target_include_directories({{config.name}} PRIVATE
+{%-for dir in config.cpp.include_dirs%}
+    "{{dir.as_posix()}}"
+{%-endfor%})
+{%-endif%}
+{%-if config.cpp.definitions%}
+target_compile_definitions({{config.name}} PRIVATE
+{%-for name, value in config.cpp.definitions.items()%}
+    "{{name}}{%if value is not none%}={{value}}{%endif%}"
+{%-endfor%})
+{%-endif%}
+{%-if config.cpp.libraries%}
+target_link_libraries({{config.name}} PRIVATE {{config.cpp.libraries | join(" ")}})
+{%-endif%}
+
+# The bindings are generated from these files when CMake configures: configure again when one changes.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+{%-for file in config.cpp.source_files%}
+    "{{file.as_posix()}}"
+{%-endfor%})
+{%-endif%}

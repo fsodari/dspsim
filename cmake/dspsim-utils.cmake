@@ -80,7 +80,7 @@ function(dspsim_add_stub name output_dir)
     )
 endfunction()
 
-# Generate a dspsim library module with nanobind bindings and Verilated models.
+# Generate a dspsim library module with nanobind bindings of Verilated models and C++ modules.
 function(dspsim_add_module name pyproject_path output_dir)
     set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/${name}.dir)
     # Install dspsim_generate module
@@ -88,9 +88,11 @@ function(dspsim_add_module name pyproject_path output_dir)
         ${pyproject_path}
         ${gen_dir})
 
-    dspsim_add_nanobind_module(${name} ${gen_dir}/${name}.cpp)
+    # NOMINSIZE: nanobind compiles an extension for size (-Os) by default, which is right for bindings, but
+    # this one also has the code of the C++ modules whose code is in headers.
+    dspsim_add_nanobind_module(${name} NOMINSIZE ${gen_dir}/${name}.cpp)
 
-    # Verilated models
+    # Verilated models and C++ modules
     include(${gen_dir}/${name}_include.cmake)
 
     # Install extension

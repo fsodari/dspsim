@@ -1,94 +1,12 @@
 #pragma once
 #include <dspsim/coro.h>
-#include <dspsim/context.h>
-#include <dspsim/detail/engine_access.h>
+// PyTaskAwaitable, py_task(), bind_task() and compile_generator(), which model extensions use as well.
+#include <dspsim/bindings/task.h>
 #include "nb_include.h"
-
-#include <stdexcept>
-#include <string>
 
 namespace dspsim::bindings
 {
     namespace nb = nanobind;
-
-    /*
-        Makes a C++ Task<T> awaitable from Python (`await axis_rx.receive(4, 100)`).
-
-        The awaiting Python coroutine is driven by a PyTask process. Starting the C++ task runs it until its
-        first leaf wait, which records the C++ coroutine as that process's resume point. Each time the
-        scheduler resumes the Python coroutine, __await__ steps the C++ task from that resume point, until it
-        is done and its result becomes the value of the await.
-
-        Bindings return one of these for every coroutine method they expose: see bind_task() and py_task().
-    */
-    template <typename T>
-    class PyTaskAwaitable
-    {
-    public:
-        PyTaskAwaitable(Context *context, Task<T> task) : context_(context), task_(std::move(task)) {}
-
-        void start()
-        {
-            process_ = detail::EngineAccess::current_process(*context_);
-            if (process_ == nullptr)
-            {
-                throw std::runtime_error(
-                    "A dspsim Task can only be awaited from a task running in the simulation "
-                    "(Module.add_task() or Context.run_until()).");
-            }
-            task_.handle.resume();
-        }
-        bool done() const { return task_.done(); }
-        void step() { detail::EngineAccess::resume_point(*process_).resume(); }
-        T result() { return task_.result(); }
-
-    private:
-        Context *context_;
-        Task<T> task_;
-        ProcessBase *process_ = nullptr;
-    };
-
-    // Wrap a task for Python. `context` is the context the task runs in (usually the module's).
-    template <typename T>
-    static inline PyTaskAwaitable<T> py_task(Context *context, Task<T> task)
-    {
-        return PyTaskAwaitable<T>(context, std::move(task));
-    }
-
-    /*
-        Compiles a real Python generator function (it contains `yield`) so that __await__ can delegate to it:
-        only genuine generator/coroutine objects get CPython's fast, (mostly) exception-free internal step path
-        for `await`/`yield from`, unlike a custom C-extension iterator object.
-    */
-    static inline nb::object compile_generator(const char *source, const char *name)
-    {
-        nb::dict globals;
-        nb::exec(nb::str(source), globals);
-        return globals[name];
-    }
-
-    // Bind PyTaskAwaitable<T>. `result_type` is the Python type of the awaited value, for the stubs.
-    template <typename T>
-    static inline auto bind_task(nb::module_ &m, const char *name, const char *result_type = "None")
-    {
-        nb::object task_await = compile_generator(
-            "def _dspsim_task_await(self):\n"
-            "    self._py_start()\n"
-            "    while not self._py_done():\n"
-            "        yield\n"
-            "        self._py_step()\n"
-            "    return self._py_result()\n",
-            "_dspsim_task_await");
-        std::string sig = std::string("def __await__(self) -> typing.Generator[typing.Any, typing.Any, ") + result_type + "]";
-
-        return nb::class_<PyTaskAwaitable<T>>(m, name)
-            .def("_py_start", &PyTaskAwaitable<T>::start)
-            .def("_py_done", &PyTaskAwaitable<T>::done)
-            .def("_py_step", &PyTaskAwaitable<T>::step)
-            .def("_py_result", &PyTaskAwaitable<T>::result)
-            .def("__await__", [task_await](nb::object self)
-                 { return task_await(self); }, nb::sig(sig.c_str()));
-    }
 
     static inline auto bind_wait_result(nb::module_ &m, const char *name)
     {
