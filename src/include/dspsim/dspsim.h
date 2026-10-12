@@ -13,3 +13,4 @@
 #include <dspsim/port.h>
 #include <dspsim/process.h>
 #include <dspsim/signal.h>
+#include <dspsim/struct.h>

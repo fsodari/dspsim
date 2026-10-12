@@ -144,6 +144,7 @@ dspsim_add_nanobind_module(_framework
     ${DSPSIM_SRC_DIR}/bindings/ports.cpp
     ${DSPSIM_SRC_DIR}/bindings/input_arrays.cpp
     ${DSPSIM_SRC_DIR}/bindings/output_arrays.cpp
+    ${DSPSIM_SRC_DIR}/bindings/structs.cpp
     ${DSPSIM_SRC_DIR}/bindings/modules.cpp)
 set_target_properties(_framework PROPERTIES EXCLUDE_FROM_ALL TRUE)
 

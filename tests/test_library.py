@@ -8,7 +8,14 @@ import numpy as np
 import dspsim
 from dspsim.builder import build_module
 from dspsim.cpp_parser import supports_template_members
-from dspsim.framework import Clock, Context, InputS8, OutputS64, SignalS32
+from dspsim.framework import (
+    Clock,
+    Context,
+    InputS8,
+    OutputS64,
+    PortStruct,
+    SignalS32,
+)
 from dspsim.project import ProjectConfig
 
 HDL_DIR = Path(__file__).parent.parent / "hdl"
@@ -17,11 +24,17 @@ CPP_DIR = Path(__file__).parent / "cpp_modules"
 PYPROJECT = f"""
 [tool.dspsim]
 name = "library"
-sources = ["{HDL_DIR.as_posix()}/Skid.sv"]
+sources = ["{HDL_DIR.as_posix()}/Skid.sv", "{HDL_DIR.as_posix()}/StructModel.sv"]
 include_dirs = ["{HDL_DIR.as_posix()}"]
+
+# Extra arguments for Verilator: for every model, and for one.
+verilator_args = ["-DLIBRARY_BUILD"]
 
 [tool.dspsim.parameters]
 DW = 12
+
+[tool.dspsim.models.StructModel]
+verilator_args = ["--trace-structs"]
 
 # C++ modules. What they are built with is common to all of them.
 [tool.dspsim.cpp]
@@ -65,7 +78,16 @@ def test_project_config(tmp_path):
         tmp_path / "pyproject.toml", tmp_path / "generated"
     )
 
-    assert list(config.models) == ["Skid"]
+    assert list(config.models) == ["Skid", "StructModel"]
+    # The global parameters only apply to the models that have them.
+    assert not config.models["StructModel"].parameters
+    assert config.models["StructModel"].ports["u_in"].is_struct
+    assert config.verilator_args == ["-DLIBRARY_BUILD"]
+    assert config.models["Skid"].verilator_args == ["-DLIBRARY_BUILD"]
+    assert config.models["StructModel"].verilator_args == [
+        "-DLIBRARY_BUILD",
+        "--trace-structs",
+    ]
     assert list(config.cpp.models) == ["Counter", "Delay8", "Mixer", "Hooked"]
 
     delay = config.cpp.models["Delay8"]
@@ -116,6 +138,14 @@ def test_library(tmp_path):
     with Context():
         skid = library.Skid("skid")
         assert skid.s_axis_tdata.width == 12
+
+        # Struct ports and ports of more than 64 bits, as in a JIT build.
+        structs = library.StructModel("structs")
+        assert isinstance(structs.u_in, PortStruct)
+        assert structs.u_in.fields == ["data", "valid", "taps", "iq", "wide", "flags"]
+        assert isinstance(structs.u_in.iq.re, InputS8)
+        assert structs.w_out.wide.shape == (4,)
+        assert structs.p_in.signals("p_in").flags.id.width == 3
 
         counter = library.Counter("counter", 5, limit=1000)
         assert (counter.step(), counter.limit()) == (5, 1000)

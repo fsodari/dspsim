@@ -90,7 +90,13 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         .def_ro_static("{{param.name}}", &::dspsim::generated::{{model.build_name}}Parameters::{{param.name}})
         {%-endfor%}
         {%-for port in model.ports.values()%}
+        {%-if port.is_struct%}
+        // A struct port is its PortStruct (or PortStructArray) base class in Python, which gives its fields by name.
+        .def_prop_ro("{{port.name}}", [](M &self) -> ::dspsim::{{ "PortStructArray" if port.is_array else "PortStruct" }} & { return self.{{port.name}}; },
+            nanobind::rv_policy::reference_internal)
+        {%-else%}
         .def_ro("{{port.name}}", &M::{{port.name}})
+        {%-endif%}
         {%-endfor%};
     {%-if model.type_parameters%}
 

@@ -19,14 +19,18 @@ from dspsim.framework import (
     Clock,
     Context,
     InputArrayS16,
+    InputArrayU32,
     InputFloat,
     InputS16,
     InputU8,
     InputU16,
     OutputArrayFloat,
+    OutputArrayU32,
     OutputS8,
     OutputS32,
     OutputS64,
+    PortStruct,
+    PortStructArray,
     SignalArrayFloat,
     SignalArrayS16,
     SignalFloat,
@@ -36,6 +40,9 @@ from dspsim.framework import (
     SignalS64,
     SignalU8,
     _Module,
+    from_words,
+    signal,
+    to_words,
 )
 
 CPP_DIR = Path(__file__).parent / "cpp_modules"
@@ -947,3 +954,99 @@ def test_cppbuilder_template_methods():
             context.run(10)
             assert delay.contents() == [3, 3, 2, 1]
             assert q.q == 2
+
+
+def test_cpp_struct_port_info():
+    """A public member of a class derived from PortStruct is a struct port."""
+    info = load_cpp_module_info(CPP_DIR / "StructPorts.h", "demo::StructStage")
+    assert {name: port.framework_type for name, port in info.ports.items()} == {
+        "bus_in": "PortStruct",
+        "bus_out": "PortStruct",
+        # The class of this one is an instance of a class template.
+        "sum": "PortStruct",
+        "wide_in": "InputArrayU32",
+        "wide_out": "OutputArrayU32",
+        # Arrays of structs.
+        "samples": "PortStructArray",
+        "conjugates": "PortStructArray",
+    }
+    assert info.ports["bus_in"].is_struct
+    assert info.ports["bus_in"].ctype == "demo::BusIn"
+    assert not info.ports["wide_in"].is_struct
+
+
+def test_cppbuilder_struct_ports():
+    """The struct ports of a C++ module give their fields by name and bind as a whole."""
+
+    @cppbuilder(header=CPP_DIR / "StructPorts.h", cls="demo::StructStage")
+    class StructStage(CppModule):
+        bus_in: PortStruct
+        bus_out: PortStruct
+        sum: PortStruct
+        wide_in: InputArrayU32
+        wide_out: OutputArrayU32
+        samples: PortStructArray
+        conjugates: PortStructArray
+
+    with Context() as context:
+        stage = StructStage("stage")
+        # An array of structs: the elements are structs.
+        assert isinstance(stage.samples, PortStructArray)
+        assert stage.samples.shape == (3,)
+        assert stage.samples[2].re.name == "samples[2].re"
+        assert stage.samples.re.shape == (3,)
+        assert isinstance(stage.bus_in, PortStruct)
+        assert stage.bus_in.name == "bus_in"
+        assert stage.bus_in.fields == ["data", "valid", "taps", "iq"]
+        assert isinstance(stage.bus_in.data, InputS16)
+        assert stage.bus_in.data.width == 12
+        assert stage.bus_in.taps.shape == (4,)
+        assert stage.bus_in.iq.fields == ["re", "im"]
+        assert isinstance(stage.bus_out.iq.re, OutputS8)
+        assert stage.sum.fields == ["re", "im"]
+
+        bus_in = stage.bus_in.signals("bus_in")
+        bus_out = stage.bus_out.signals("bus_out")
+        total = stage.sum.signals("sum")
+        wide_in, wide_out = signal("wide_in", width=100), signal("wide_out", width=100)
+        stage.bus_in.bind(bus_in)
+        stage.bus_out.bind(bus_out)
+        stage.sum.bind(total)
+        stage.wide_in.bind(wide_in)
+        stage.wide_out.bind(wide_out)
+        samples = stage.samples.signals("samples")
+        conjugates = stage.conjugates.signals("conjugates")
+        stage.samples.bind(samples)
+        stage.conjugates.bind(conjugates)
+        context.elaborate()
+
+        samples.re.d = [1, 2, 3]
+        samples[1].im.d = 7
+        bus_in.data.d = -1234
+        bus_in.valid.d = 1
+        bus_in.taps.d = [1, 2, 3, 4]
+        bus_in.iq.re.d = 20
+        bus_in.iq.im.d = -3
+        wide_in.d = to_words(0x5_00000000_FFFFFFFF_12345678, 4)
+        context.run(1)
+
+        assert bus_out.data.q == 1234
+        assert bus_out.valid.q == 1
+        assert list(bus_out.taps.q) == [4, 3, 2, 1]
+        assert (bus_out.iq.re.q, bus_out.iq.im.q) == (-20, 3)
+        assert (total.re.q, total.im.q) == (17, 23)
+        assert from_words(wide_out.q) == 0xA_FFFFFFFF_00000000_EDCBA987
+        assert list(conjugates.re.q) == [1, 2, 3]
+        assert [c.im.q for c in conjugates] == [0, -7, 0]
+
+    with pytest.raises(TypeError, match="Type mismatch for port 'bus_in'"):
+
+        @cppbuilder(header=CPP_DIR / "StructPorts.h", cls="demo::StructStage")
+        class WrongStruct(CppModule):
+            bus_in: InputS16
+            bus_out: PortStruct
+            sum: PortStruct
+            wide_in: InputArrayU32
+            wide_out: OutputArrayU32
+            samples: PortStructArray
+            conjugates: PortStructArray

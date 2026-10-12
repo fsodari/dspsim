@@ -1,0 +1,39 @@
+{#-
+    The C++ class of a struct port of a verilated module: a dspsim::PortStruct with a port for each field of the
+    struct, and a nested class for each field that is a struct.
+
+    An unpacked struct is a C++ struct in the verilated model, and a field is bound to its member of that
+    struct. A packed struct is one vector of bits, and a field is bound to its bits of the vector: `storage` is
+    the C++ type of the words of the vector, which the fields of a nested packed struct share.
+
+    The class is constructed from the verilated struct, `struct_ext`: the C++ struct, the packed vector, or
+    a pointer to the first word of the vector for a packed struct in an array. A field that is an array of
+    structs is a PortStructArrayOf of the class of its structs. Port.vfield_type() and vfield_args() have
+    the type and the constructor arguments of every kind of field.
+
+    The constructor arguments are named so that no field hides them.
+-#}
+{%- macro struct_class(port, storage=none) -%}
+{%- set storage = (storage or port.storage_ctype) if port.packed else none -%}
+// {{ "Packed" if port.packed else "Unpacked" }} struct {{port.name}}{% if port.is_array %}: an element of the array{% endif %}
+struct {{port.struct_class}} : ::dspsim::PortStruct
+{
+{%- for f in port.fields.values() if f.is_struct %}
+    {{ struct_class(f, storage) | indent(4) }}
+{% endfor %}
+    template <typename StructExt>
+    {{port.struct_class}}(const std::string &struct_name, StructExt &struct_ext{{ ", int struct_lsb = 0" if port.packed }})
+        : ::dspsim::PortStruct(struct_name)
+{%- for f in port.fields.values() %},
+          {{f.name}}(struct_name + ".{{f.name}}", {{f.vfield_args(port)}})
+{%- endfor %}
+    {
+{%- for f in port.fields.values() %}
+        ::dspsim::PortStruct::add("{{f.name}}", {{f.name}});
+{%- endfor %}
+    }
+{% for f in port.fields.values() %}
+    {{f.vfield_type(storage)}} {{f.name}};
+{%- endfor %}
+};
+{%- endmacro -%}

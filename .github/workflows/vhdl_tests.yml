@@ -1,0 +1,76 @@
+name: VHDL tests
+# The wheel builds have no GHDL, so the tests of VHDL models that run it are skipped there. These jobs have
+# one: a release of GHDL for each platform, with the back ends that its builds for that platform have.
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+
+jobs:
+  vhdl_tests:
+    name: GHDL ${{ matrix.ghdl }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            ghdl: "5.0.1"
+            archive: ghdl-mcode-5.0.1-ubuntu24.04-x86_64.tar.gz
+          - os: ubuntu-24.04
+            ghdl: "6.0.0"
+            archive: ghdl-mcode-6.0.0-ubuntu24.04-x86_64.tar.gz
+          - os: windows-latest
+            ghdl: "6.0.0"
+            archive: ghdl-mcode-6.0.0-ucrt64.zip
+          - os: macos-14
+            ghdl: "6.0.0"
+            archive: ghdl-llvm-jit-6.0.0-macos14-aarch64.tar.gz
+          - os: macos-15-intel
+            ghdl: "5.0.1"
+            archive: ghdl-mcode-5.0.1-macos13-x86_64.tar.gz
+    env:
+      # libc++ only provides the floating point std::to_chars used by std::format from macOS 13.3.
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.0
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install GHDL
+        shell: bash
+        run: |
+          curl -sSL -o "${{ matrix.archive }}" "https://github.com/ghdl/ghdl/releases/download/v${{ matrix.ghdl }}/${{ matrix.archive }}"
+          mkdir ghdl-release
+          case "${{ matrix.archive }}" in
+            *.zip)
+              # The Windows build: bin/ghdl.exe with the libraries that it needs next to it.
+              unzip -q "${{ matrix.archive }}" -d ghdl-release
+              executable=ghdl.exe
+              ;;
+            *)
+              tar xzf "${{ matrix.archive }}" -C ghdl-release --strip-components=1
+              executable=ghdl
+              ;;
+          esac
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # The Linux build needs the Ada runtime of the Ubuntu that it was built on.
+            sudo apt-get update
+            sudo apt-get install -y libgnat-13
+          fi
+          echo "DSPSIM_GHDL=$GITHUB_WORKSPACE/ghdl-release/bin/$executable" >> "$GITHUB_ENV"
+          "ghdl-release/bin/$executable" --version
+
+      - name: Install dspsim
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest tests/test_vhdl.py

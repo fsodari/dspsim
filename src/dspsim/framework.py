@@ -88,6 +88,8 @@ from dspsim._framework import (
     OutputU16,
     OutputU32,
     OutputU64,
+    PortStruct,
+    PortStructArray,
     SensitivityEvent,
     SignalArrayFloat,
     SignalArrayS8,
@@ -112,6 +114,8 @@ from dspsim._framework import (
     SignalS16,
     SignalS32,
     SignalS64,
+    SignalStruct,
+    SignalStructArray,
     SignalU8,
     SignalU16,
     SignalU32,
@@ -272,7 +276,58 @@ def signal(name: str, init: int = 0, width: int = 32, is_signed: bool = False):
             SignalS64(name, width, init) if is_signed else SignalU64(name, width, init)
         )
     else:
-        raise ValueError("Unsupported signal width")
+        # More than 64 bits: an array of 32-bit words, least significant first, as verilated ports of that
+        # width are. Read and write it as one number with from_words() and to_words().
+        if init != 0:
+            raise ValueError("A signal wider than 64 bits can only be initialized to 0")
+        return SignalArrayU32(name, (-(-width // WORD_BITS),))
+
+
+# Bits in one word of a signal or port wider than 64 bits.
+WORD_BITS = 32
+
+
+def to_words(value: int, count: int) -> list[int]:
+    """
+    Split an integer into `count` 32-bit words, least significant first. This is how dspsim holds a number of
+    more than 64 bits: in an array of 32-bit signals or ports, like the ports of a verilated model.
+
+        a = SignalArrayU32("a", model.a.shape)
+        a.d = to_words(value, len(a))
+
+    Negative values are written as two's complement. Raises OverflowError if the value does not fit.
+    """
+    bits = WORD_BITS * count
+    if not -(1 << bits) // 2 <= value < 1 << bits:
+        raise OverflowError(
+            f"{value} does not fit in {count} words of {WORD_BITS} bits"
+        )
+    mask = (1 << WORD_BITS) - 1
+    return [(value >> (WORD_BITS * i)) & mask for i in range(count)]
+
+
+def from_words(words, *, width: int | None = None, signed: bool = False) -> int:
+    """
+    Combine 32-bit words, least significant first, into one integer: the opposite of to_words(). `words` is
+    any iterable of integers, such as the value of a one-dimensional array of signals or ports.
+
+        value = from_words(a.q)
+
+    `width` is the number of bits of the value, by default all the bits of the words. Bits above it are
+    dropped, and with `signed` the value is read as a two's complement number of that width.
+    """
+    words = [int(word) for word in words]
+    bits = WORD_BITS * len(words)
+    if width is None:
+        width = bits
+    elif not 0 < width <= bits:
+        raise ValueError(f"width must be between 1 and {bits} for {len(words)} words")
+    mask = (1 << WORD_BITS) - 1
+    value = sum((word & mask) << (WORD_BITS * i) for i, word in enumerate(words))
+    value &= (1 << width) - 1
+    if signed and value >> (width - 1):
+        value -= 1 << width
+    return value
 
 
 __all__ = [
@@ -362,6 +417,8 @@ __all__ = [
     "OutputU16",
     "OutputU32",
     "OutputU64",
+    "PortStruct",
+    "PortStructArray",
     "SensitivityEvent",
     "SignalArrayFloat",
     "SignalArrayS8",
@@ -386,6 +443,8 @@ __all__ = [
     "SignalS16",
     "SignalS32",
     "SignalS64",
+    "SignalStruct",
+    "SignalStructArray",
     "SignalU8",
     "SignalU16",
     "SignalU32",
@@ -405,9 +464,11 @@ __all__ = [
     "WaitSensitivityEvent",
     "WaitTimeEvent",
     "bits",
+    "from_words",
     "mask",
     "pack",
     "sext",
     "signal",
+    "to_words",
     "zext",
 ]

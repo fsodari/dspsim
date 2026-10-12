@@ -38,7 +38,7 @@ A `BitSel` (`dspsim/bitsel.h`) is a lightweight handle to some bits of one or mo
 - `write(v)` updates the pending value of each signal involved, bits of `v` above the width are ignored. Writes to different bits of the same signal in the same cycle combine. In Python, `write` accepts any int, and negative values are written as two's complement.
 - A slice of a pack, or a pack of slices, refers directly to the underlying signals. Adjacent ranges of the same signal are merged. `parts()` lists the ranges, least significant first.
 - `pack` accepts signals, selections, `SignalArray`s and array views. Arrays are packed in row-major order with element 0 most significant, like `{arr[0], arr[1], ...}`. In Python, any iterable (such as a list) is flattened the same way.
-- Selections are at most 64 bits wide, and only integral signals can be selected. Errors throw `std::out_of_range` (bad range, `IndexError` in Python) or `std::invalid_argument` (non-integral signal or too wide, `ValueError` in Python).
+- Selections are at most 64 bits wide, and only integral signals can be selected. A port of more than 64 bits is an array of 32-bit words instead ([VerilatedPorts.md](VerilatedPorts.md)). Errors throw `std::out_of_range` (bad range, `IndexError` in Python) or `std::invalid_argument` (non-integral signal or too wide, `ValueError` in Python).
 - Signals convert implicitly to a whole-signal `BitSel`.
 
 ## Binding ports

@@ -3,10 +3,12 @@
 import dataclasses
 import glob
 import tomllib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from .ghdl import VhdlOptions, is_vhdl, transpile
 from .module_info import CppModuleInfo, ModuleInfo, Parameter
 from .verilator import parse_module_json, verilate_json
 
@@ -15,20 +17,43 @@ def load_model_info(
     source: Path,
     include_dirs: list[Path] | None = None,
     parameters: dict[str, Parameter] | None = None,
+    verilator_args: Sequence[str] | None = None,
+    vhdl: VhdlOptions | None = None,
+    vhdl_output_dir: Path | None = None,
 ) -> ModuleInfo:
-    """Run verilator to glean the default information about a model, specifically its parameters."""
+    """
+    Run verilator to read a module: its parameters and its ports, with the given parameter values.
+    `verilator_args` are extra arguments for Verilator, which the module is later verilated with as well.
+
+    A VHDL source is first turned into SystemVerilog by GHDL, with the parameter values as the values of the
+    generics of the entity (dspsim.ghdl.transpile, docs/Vhdl.md), under `vhdl_output_dir`. The module that
+    is described is that SystemVerilog, which is the source of the ModuleInfo.
+    """
     if include_dirs is None:
         include_dirs = []
     if parameters is None:
         parameters = {}
 
     param_values = {k: p.value for k, p in parameters.items() if p.value is not None}
+    vhdl_files: list[Path] = []
+    if is_vhdl(source):
+        if vhdl_output_dir is None:
+            vhdl_output_dir = Path.cwd() / ".dspsim_cache" / "vhdl"
+        vhdl_files = [Path(source).resolve()]
+        vhdl_files += [Path(f).resolve() for f in (vhdl.sources if vhdl else [])]
+        source = transpile(source, param_values, vhdl, vhdl_output_dir)
+        # The SystemVerilog was written for these values: they are the defaults of its parameters.
+        param_values = {}
     model_data, metadata = verilate_json(
         [source],
         include_dirs=include_dirs,
         parameters=param_values,
+        verilator_args=list(verilator_args or []),
     )
-    return parse_module_json(model_data, metadata)
+    info = parse_module_json(model_data, metadata)
+    info.verilator_args = list(verilator_args or [])
+    info.vhdl_files = vhdl_files
+    return info
 
 
 @dataclass
@@ -132,6 +157,8 @@ class ProjectConfig:
     parameters: dict[str, Parameter]
     trace: Literal["vcd", "fst"] | None
     models: dict[str, ModuleInfo]
+    # Extra arguments for Verilator, for every model. A model can add its own.
+    verilator_args: list[str] = field(default_factory=list)
     # The C++ modules of the library.
     cpp: CppProjectConfig = field(default_factory=CppProjectConfig)
 
@@ -162,24 +189,75 @@ class ProjectConfig:
             for k, v in config.get("parameters", {}).items()
         }
         _global_trace = config.get("trace", None)
+        _global_verilator_args = [str(a) for a in config.get("verilator_args", [])]
 
-        # Populate default models
+        # VHDL models: the other VHDL files of their designs, and how GHDL reads them.
+        _global_vhdl_sources = paths(config.get("vhdl_sources", []))
+        vhdl_output_dir = (output_dir or root / ".dspsim_cache") / "vhdl"
+
+        def vhdl_options(model_config: dict[str, Any]) -> VhdlOptions:
+            return VhdlOptions(
+                sources=_global_vhdl_sources
+                + paths(model_config.get("vhdl_sources", [])),
+                std=str(model_config.get("vhdl_std", config.get("vhdl_std", "08"))),
+                entity=model_config.get("entity"),
+                ghdl_args=[
+                    str(a)
+                    for a in (
+                        *config.get("ghdl_args", []),
+                        *model_config.get("ghdl_args", []),
+                    )
+                ],
+            )
+
+        def load(
+            model_source: Path,
+            include_dirs: list[Path],
+            parameters: dict[str, Parameter] | None,
+            verilator_args: list[str],
+            model_config: dict[str, Any],
+        ) -> ModuleInfo:
+            return load_model_info(
+                model_source,
+                include_dirs,
+                parameters,
+                verilator_args,
+                vhdl_options(model_config),
+                vhdl_output_dir,
+            )
+
+        # Populate default models. A model is loaded again when its parameters change: from the file that it
+        # was first loaded from, which for a VHDL model is not the source of the ModuleInfo.
         default_models: dict[str, ModuleInfo] = {}
+        model_sources: dict[str, Path] = {}
         for s in globbed_sources:
-            default_model = load_model_info(s, _global_include_dirs)
+            model_config = config.get("models", {}).get(s.stem, {})
+            default_model = load(
+                s, _global_include_dirs, None, _global_verilator_args, model_config
+            )
             param_overrides = {
                 k: v
                 for k, v in _global_parameters.items()
                 if k in default_model.parameters
             }
-            default_model = load_model_info(s, _global_include_dirs, param_overrides)
+            default_model = load(
+                s,
+                _global_include_dirs,
+                param_overrides,
+                _global_verilator_args,
+                model_config,
+            )
             default_model.trace = _global_trace
             default_models[default_model.name] = default_model
+            model_sources[default_model.name] = s
 
         # Go through extra/override models
         for model_name, model_config in config.get("models", {}).items():
             model_includes = _global_include_dirs + [
                 Path(p) for p in model_config.get("include_dirs", [])
+            ]
+            model_verilator_args = _global_verilator_args + [
+                str(a) for a in model_config.get("verilator_args", [])
             ]
 
             if model_name in default_models:
@@ -190,10 +268,12 @@ class ProjectConfig:
                     )
 
                 # Reload module with parameter overrides.
-                default_models[model_name] = load_model_info(
-                    Path(default_models[model_name].source),
+                default_models[model_name] = load(
+                    model_sources[model_name],
                     model_includes,
                     default_models[model_name].parameters,
+                    model_verilator_args,
+                    model_config,
                 )
                 # Apply trace override if specified in the model configuration.
                 default_models[model_name].trace = _global_trace
@@ -202,9 +282,12 @@ class ProjectConfig:
 
             else:
                 # Add new model if it doesn't exist in default models.
-                default_model = load_model_info(
+                default_model = load(
                     Path(model_config["source"]),
                     model_includes,
+                    None,
+                    model_verilator_args,
+                    model_config,
                 )
 
                 # Apply parameter overrides
@@ -219,10 +302,12 @@ class ProjectConfig:
                     default_model.parameters[k].value = v
 
                 # Reload model
-                default_model = load_model_info(
+                default_model = load(
                     Path(model_config["source"]),
                     model_includes,
                     default_model.parameters,
+                    model_verilator_args,
+                    model_config,
                 )
                 default_model.name = model_name
                 default_model.trace = _global_trace
@@ -249,6 +334,7 @@ class ProjectConfig:
             parameters=_global_parameters,
             trace=_global_trace,
             models=default_models,
+            verilator_args=_global_verilator_args,
             cpp=cpp,
         )
 

@@ -1,5 +1,6 @@
 """HDL Module information."""
 
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,6 +9,12 @@ from typing import Literal
 type ParamValueT = int | float | str
 
 _INTEGRAL_KEYWORDS = ("bit", "logic", "int", "integer")
+
+# Bits in one word of a port wider than 64 bits.
+WORD_BITS = 32
+
+# Keyword of a struct port. The other keywords are those of Verilog's basic types.
+STRUCT_KEYWORD = "struct"
 
 
 @dataclass
@@ -66,12 +73,35 @@ class Parameter:
 
 @dataclass
 class Port:
+    """
+    A port of a verilated module, or a field of a struct port.
+
+    A struct port (keyword "struct") has no value of its own: its fields are the ports, each a Port with the
+    direction of the struct, and a field can be a struct again. Verilator keeps an unpacked struct as one
+    variable per field and a packed struct as one vector of bits, in which a field starts at bit `lsb`.
+
+    An array of structs has the dimensions of the array as its `shape`, and is presented as a dspsim
+    PortStructArray: an array whose elements are the structs.
+    """
+
     name: str
     keyword: str
     signed: bool
+    # Bits of the port: of one element, for an unpacked array, and of the whole vector, for a packed struct.
     width: int
     direction: str
     shape: tuple[int, ...]
+    # The fields of a struct, by name, in the order they are declared.
+    fields: dict[str, Port] = field(default_factory=dict)
+    # The struct is packed.
+    packed: bool = False
+    # Position of the least significant bit of a field in the packed struct that it is a field of.
+    lsb: int = 0
+
+    @property
+    def is_struct(self) -> bool:
+        """The port is a struct, presented as a dspsim PortStruct with a port per field."""
+        return self.keyword == STRUCT_KEYWORD
 
     @property
     def is_array(self) -> bool:
@@ -79,20 +109,51 @@ class Port:
         return len(self.shape) > 0
 
     @property
+    def is_wide(self) -> bool:
+        """
+        Integral ports of more than 64 bits are wide: dspsim presents them as Verilator stores them, as an array
+        of 32-bit words with the least significant word first.
+        """
+        return self.keyword in _INTEGRAL_KEYWORDS and self.width > 64
+
+    @property
+    def words(self) -> int:
+        """Number of 32-bit words that hold a wide port."""
+        return -(-self.width // WORD_BITS)
+
+    @property
+    def port_shape(self) -> tuple[int, ...]:
+        """Shape of the dspsim port: the unpacked dimensions, then the words of a wide port."""
+        return (*self.shape, self.words) if self.is_wide else self.shape
+
+    @property
+    def is_port_array(self) -> bool:
+        """The dspsim port is an array (InputArray, OutputArray): an unpacked array, a wide port or both."""
+        return len(self.port_shape) > 0
+
+    @property
     def is_signed_int(self) -> bool:
-        """Signed integral ports map to signed stdint types (InputS8, OutputS32, ...)."""
-        return self.signed and self.keyword in _INTEGRAL_KEYWORDS
+        """
+        Signed integral ports map to signed stdint types (InputS8, OutputS32, ...). The words of a wide port
+        are unsigned whatever the sign of the port.
+        """
+        return self.signed and self.keyword in _INTEGRAL_KEYWORDS and not self.is_wide
 
     @property
     def vmacro(self) -> str:
         """The dspsim vport macro used to declare this port on a generated VModule."""
+        if self.is_wide:
+            return f"DSPSIM_V{self.direction.upper()}_WIDE"
         array = "_ARRAY" if self.is_array else ""
         sign = "_S" if self.is_signed_int else ""
         return f"DSPSIM_V{self.direction.upper()}{array}{sign}"
 
     @property
     def stdint_size(self) -> int:
-        if self.width <= 8:
+        """Size in bits of the stdint type of the dspsim port (of one word, for a wide port)."""
+        if self.is_wide:
+            return WORD_BITS
+        elif self.width <= 8:
             return 8
         elif self.width <= 16:
             return 16
@@ -102,6 +163,90 @@ class Port:
             return 64
         else:
             raise ValueError(f"Unsupported width: {self.width}")
+
+    @property
+    def ctype(self) -> str:
+        """C++ value type of the dspsim port (of one word, for a wide port)."""
+        if self.keyword not in _INTEGRAL_KEYWORDS:
+            return "double"
+        return f"{'int' if self.is_signed_int else 'uint'}{self.stdint_size}_t"
+
+    @property
+    def storage_ctype(self) -> str:
+        """
+        C++ type of the words that Verilator stores a packed struct in: one integer up to 64 bits, 32-bit
+        words above.
+        """
+        for size in (8, 16, 32, 64):
+            if self.width <= size:
+                return f"uint{size}_t"
+        return f"uint{WORD_BITS}_t"
+
+    @property
+    def vl_member(self) -> str:
+        """Name of the member of the C++ struct that Verilator generates for an unpacked struct."""
+        return f"__PVT__{self.name}"
+
+    @property
+    def struct_class(self) -> str:
+        """Name of the generated C++ class of a struct port."""
+        return f"{self.name}_struct"
+
+    def vfield_type(self, storage: str | None = None) -> str:
+        """
+        C++ type of this field in the generated class of its struct, or of a struct port in the generated
+        module. `storage` is the type of the words of the packed struct that the field is a part of, or None
+        for a field of an unpacked struct.
+        """
+        direction = self.direction.capitalize()
+        if self.is_struct:
+            if self.is_array:
+                return f"::dspsim::PortStructArrayOf<{self.struct_class}>"
+            return self.struct_class
+        if storage is not None:
+            if self.is_wide:
+                return f"::dspsim::V{direction}WideBits<{self.width}>"
+            return f"::dspsim::V{direction}Bits<{self.ctype}, {self.width}, {storage}>"
+        if self.is_wide:
+            return f"::dspsim::V{direction}Wide<{self.width}>"
+        array = "Array" if self.is_array else ""
+        return f"::dspsim::V{direction}{array}<{self.ctype}, {self.width}>"
+
+    def _struct_args(self, ext: str) -> str:
+        """
+        Constructor arguments, after the name, of a struct or an array of structs that is the verilated port
+        or member `ext`.
+        """
+        if not self.is_array:
+            return ext
+        if self.packed:
+            # One packed vector per struct: pointers to their first words.
+            count = math.prod(self.shape)
+            pointers = f"::dspsim::detail::vl_word_pointers<{self.storage_ctype}>({ext}, {count})"
+        else:
+            pointers = f"::dspsim::detail::vl_element_pointers({ext})"
+        shape = ", ".join(str(n) for n in self.shape)
+        return (
+            f"::dspsim::Shape{{{shape}}}, "
+            f"::dspsim::detail::vl_structs<{self.struct_class}>({pointers})"
+        )
+
+    @property
+    def vport_args(self) -> str:
+        """Constructor arguments, after the name, of a struct port of the generated module."""
+        return self._struct_args(f"top->{self.name}")
+
+    def vfield_args(self, parent: Port) -> str:
+        """
+        Constructor arguments, after the name, of this field in the generated class of the struct `parent`
+        (verilator_struct.jinja), which has the verilated struct as `struct_ext` and, if it is packed, the
+        position `struct_lsb` of its vector in the port.
+        """
+        if parent.packed:
+            # A field of a packed struct shares the vector of the struct.
+            return f"struct_ext, struct_lsb + {self.lsb}"
+        ext = f"struct_ext.{self.vl_member}"
+        return self._struct_args(ext) if self.is_struct else ext
 
 
 @dataclass
@@ -116,25 +261,38 @@ class ModuleInfo:
     python_name: str | None = None
     # Every file that Verilator read for the module: the source and what it includes or instantiates.
     source_files: list[Path] = field(default_factory=list)
+    # Extra arguments for Verilator, used both to read the module and to verilate it.
+    verilator_args: list[str] = field(default_factory=list)
+    # The VHDL files that `source` was written from, for a VHDL model: `source` is then the SystemVerilog that
+    # GHDL and dspsim.ghdl made of the entity.
+    vhdl_files: list[Path] = field(default_factory=list)
 
 
 @dataclass
 class CppPort:
-    """A port member (Input<T>, Output<T>, InputArray<T> or OutputArray<T>) of a C++ module."""
+    """
+    A port member of a C++ module: an Input<T>, Output<T>, InputArray<T> or OutputArray<T>, or a struct port
+    (a class derived from PortStruct, or from PortStructArray for an array of structs), whose fields Python
+    reads from the object.
+    """
 
     name: str
-    direction: Literal["input", "output"]
+    # None for a struct port, whose fields have the direction.
+    direction: Literal["input", "output"] | None
     is_array: bool
-    # Canonical C++ spelling of the element type, e.g. "short".
+    # Canonical C++ spelling of the element type, e.g. "short". The class, for a struct port.
     ctype: str
     # Suffix of the framework classes for the element type ("U8", "S16", "Float", ...), or None if the
     # framework binds no port of that type.
     suffix: str | None
+    is_struct: bool = False
 
     @property
     def framework_type(self) -> str | None:
         """Name of the framework class that Python sees for this port, e.g. "InputArrayS16"."""
-        if self.suffix is None:
+        if self.is_struct:
+            return "PortStructArray" if self.is_array else "PortStruct"
+        if self.suffix is None or self.direction is None:
             return None
         array = "Array" if self.is_array else ""
         return f"{self.direction.capitalize()}{array}{self.suffix}"

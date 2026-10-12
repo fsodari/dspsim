@@ -70,12 +70,19 @@ class Mixer(CppModule):
 |---|---|
 | Public constructors whose first argument is a `dspsim::ModuleName` (`DSPSIM_CTOR` declares the one with no other argument) | `Counter("name")`, `Counter("name", 5, limit=22)` |
 | Public members of type `Input<T>`, `Output<T>`, `InputArray<T>`, `OutputArray<T>`, including those of base classes | Read-only attributes (`.def_ro`) of the framework port types |
+| Public members of a class derived from `dspsim::PortStruct` (a struct port) or `dspsim::PortStructArray` (an array of structs, such as `PortStructArrayOf<S>`), including those of base classes | Read-only attributes of type `PortStruct` or `PortStructArray`, which give the fields by name |
 | Public methods, static or not, including those of base classes | Methods |
 | Template arguments (see [Class templates](#class-templates)) | Class attributes |
 
 A port is usable from Python if the framework binds its type: `uint8_t` to `uint64_t`, `int8_t` to
 `int64_t` and `double` (`InputU8`, `OutputArrayS16`, `InputFloat`, ...). A port of another type is
 still bound, but reading the attribute raises `TypeError`.
+
+A struct port is annotated as `PortStruct`, and an array of structs as `PortStructArray`. Their fields are not parsed: Python reads them from the object
+(`stage.bus_in.fields`, `stage.bus_in.data`), so they are whatever the constructor of the struct adds, and
+the class can be an instance of a class template. `stage.bus_in.bind(signals)` binds it as a whole. See
+[VerilatedPorts.md](VerilatedPorts.md#struct-ports). A port of more than 64 bits is an
+`InputArray<uint32_t>` / `OutputArray<uint32_t>` of 32-bit words, like that of a verilated module.
 
 The class must be declared in `header` itself, not in a file that it includes.
 

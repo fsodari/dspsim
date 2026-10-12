@@ -14,6 +14,9 @@ add_executable(tests
     test_running_processes.cpp
     test_array.cpp
     test_vmodel_array.cpp
+    test_vmodel_wide.cpp
+    test_vmodel_struct.cpp
+    test_vmodel_struct_array.cpp
     test_vport.cpp
     test_context.cpp
     test_listeners.cpp
@@ -27,7 +30,8 @@ add_executable(tests
     test_events.cpp
     test_spawn.cpp
     test_channel.cpp
-    test_process_control.cpp)
+    test_process_control.cpp
+    test_struct.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax
@@ -80,6 +84,42 @@ if(${verilator_FOUND})
         INCLUDE_DIRS ${DSPSIM_HDL_DIR}
         ${TRACE_TYPE}
         VERILATOR_ARGS --quiet)
+    verilate(test_models
+        SOURCES ${DSPSIM_HDL_DIR}/WideModel.sv
+        INCLUDE_DIRS ${DSPSIM_HDL_DIR}
+        ${TRACE_TYPE}
+        VERILATOR_ARGS --quiet)
+    verilate(test_models
+        SOURCES ${DSPSIM_HDL_DIR}/StructModel.sv
+        INCLUDE_DIRS ${DSPSIM_HDL_DIR}
+        ${TRACE_TYPE}
+        VERILATOR_ARGS --quiet)
+    verilate(test_models
+        SOURCES ${DSPSIM_HDL_DIR}/StructArrayModel.sv
+        INCLUDE_DIRS ${DSPSIM_HDL_DIR}
+        ${TRACE_TYPE}
+        VERILATOR_ARGS --quiet)
+endif()
+
+# A VHDL model, if there is a GHDL to turn it into SystemVerilog with and the dspsim Python package to run it
+# (an isolated build of the wheel has neither). The module is called Skid, like the one of Skid.sv: the prefix
+# keeps the two verilated models apart.
+if(${verilator_FOUND})
+    execute_process(
+        COMMAND ${Python_EXECUTABLE} -c "import sys, dspsim.ghdl; sys.exit(not dspsim.ghdl.ghdl_available())"
+        RESULT_VARIABLE no_ghdl
+        OUTPUT_QUIET ERROR_QUIET)
+    if(no_ghdl)
+        message(STATUS "GHDL not found: the C++ test of a VHDL model is left out")
+    else()
+        dspsim_vhdl_source(SKID_VHDL_SOURCE SOURCE ${DSPSIM_HDL_DIR}/vhdl/Skid.vhd)
+        verilate(test_models
+            SOURCES ${SKID_VHDL_SOURCE}
+            ${TRACE_TYPE}
+            PREFIX VSkidVhdl
+            VERILATOR_ARGS --quiet)
+        target_sources(tests PRIVATE test_vmodel_vhdl.cpp)
+    endif()
 endif()
 
 include(CTest)
