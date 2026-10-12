@@ -48,6 +48,11 @@ from dspsim.framework import (
 
 HDL_DIR = Path(__file__).parent.parent / "hdl"
 
+# The name of a model that is built is in the path of its generated files four times, and Verilator adds the
+# names of the packages of the design. Windows limits a path to 260 characters, and the wheel CI runs the tests
+# in a temporary directory with a long path: keep the names of the models here to 13 characters, or to 11 if
+# the design has a package.
+
 if sys.platform == "win32":
     TRACE_SUFFIX = ".vcd"
 else:
@@ -542,7 +547,7 @@ def test_builder_struct_ports():
 def test_builder_struct_bind_between_modules():
     """Two modules connect through the struct of signals of one of them."""
     StructModel = build_vmodule(
-        "StructModelPair", source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR]
+        "StructPair", source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR]
     )
     with Context() as context:
         clk = Clock("clk", 10)
@@ -691,10 +696,10 @@ def test_builder_trace_structs(tmp_path):
         return (tmp_path / f"{name}.vcd").read_text()
 
     # A packed struct is one vector by default.
-    plain = traced("StructTracePlain", None)
+    plain = traced("TracePlain", None)
     assert "p_in [16:0]" in plain
     assert "$scope module p_in" not in plain
-    split = traced("StructTraceSplit", ["--trace-structs"])
+    split = traced("TraceSplit", ["--trace-structs"])
     assert "p_in [16:0]" not in split
     assert "$scope module p_in" in split
 
@@ -703,8 +708,9 @@ def test_builder_struct_arrays():
     """An array of structs is an array whose elements are structs. A packed union is a vector of bits."""
     source = HDL_DIR / "StructArrayModel.sv"
 
+    # A short name: see the note on names at the top of this file.
     @vbuilder(source=source, include_dirs=[HDL_DIR])
-    class StructArrayModel(VModule):
+    class StructArray(VModule):
         clk: InputU8
         a_in: PortStructArray
         a_out: PortStructArray
@@ -721,7 +727,7 @@ def test_builder_struct_arrays():
 
     with Context() as context:
         clk = Clock("clk", 10)
-        dut = StructArrayModel("dut")
+        dut = StructArray("dut")
 
         # The elements are structs, named after their place in the array.
         assert isinstance(dut.a_in, PortStructArray)

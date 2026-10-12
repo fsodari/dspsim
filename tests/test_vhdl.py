@@ -710,7 +710,7 @@ def test_vhdl_model(generics):
 def test_vhdl_generic_errors():
     def build(parameters):
         return build_vmodule(
-            "VhdlModelErrors",
+            "VhdlErrors",
             source=VHDL_DIR / "VhdlModel.vhd",
             include_dirs=[],
             parameters=parameters,
@@ -725,9 +725,7 @@ def test_vhdl_generic_errors():
         build({"DW": 0})
     # A file of the design is missing.
     with pytest.raises(GhdlError, match="vhdl_model_pkg"):
-        build_vmodule(
-            "VhdlModelAlone", source=VHDL_DIR / "VhdlModel.vhd", include_dirs=[]
-        )
+        build_vmodule("VhdlAlone", source=VHDL_DIR / "VhdlModel.vhd", include_dirs=[])
     with pytest.raises(FileNotFoundError, match="VHDL source not found"):
         build_vmodule("VhdlMissing", source=VHDL_DIR / "Missing.vhd", include_dirs=[])
 
@@ -736,7 +734,7 @@ def test_vhdl_generic_errors():
 def test_vhdl_trace(tmp_path):
     """The trace has the signals of the VHDL design, in the hierarchy of its entities."""
     VhdlModel = build_vmodule(
-        "VhdlModelTrace",
+        "VhdlTrace",
         source=VHDL_DIR / "VhdlModel.vhd",
         include_dirs=[],
         trace="vcd",
