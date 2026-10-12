@@ -452,7 +452,8 @@ the libclang 18 of the wheel does not know those. The builder then warns once
 (`CppParseWarning: libclang could not parse 14 declarations of the standard library ...`) and reads
 the module without them, which works unless the module's own interface depends on those
 declarations. An error in your own headers is always an error. Installing a newer libclang removes
-the warning. Visual Studio 2022 needs no newer one; Visual Studio 2026 does.
+the warning. As of this writing the wheel's libclang reads the standard libraries of GCC 15,
+Visual Studio 2022 and Xcode 16 without it, and warns for Visual Studio 2026 and Xcode 26.
 
 ## How it works
 
