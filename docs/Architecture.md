@@ -155,9 +155,11 @@ fast way to pass a struct whose fields go in one direction (see the `structs` su
 way: a port and a signal per field, which can have different directions, be driven by different processes
 and be waited for one by one.
 
-Python reads and writes such a value as a numpy record, through a description of the struct
-(`DSPSIM_STRUCT`), and a field of a struct signal is a signal of its own (`bus.field(&Bus::tag)`,
-`bus["tag"]`), for ports of the field's type. [StructValues.md](StructValues.md) has both.
+A field of a struct signal is a signal of its own (`bus.field(&Bus::tag)`), for ports of the field's type
+and for processes that read, write or wait for one field. In Python the fields are attributes
+(`bus.tag.d = 1`), through a description of the struct (`DSPSIM_STRUCT`), and the whole value is a numpy
+record. A field signal is the one kind of model that can be created after its design is elaborated.
+[StructValues.md](StructValues.md) has the details.
 
 `Signal<T>::write()` schedules the signal with `SignalBase::request_update()`, which is not inline: the
 member functions of `Signal<T>` are in the header, for the types of models, and need nothing of the

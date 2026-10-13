@@ -21,6 +21,7 @@
 namespace dspsim
 {
     class DerivedSignalBase;
+    class RecordSignalBase;
     template <typename T>
     class FlaggedStack;
 
@@ -38,12 +39,18 @@ namespace dspsim
         friend class BitSel;
         // Derived signals register with their sources, and write through to them.
         friend class DerivedSignalBase;
+        // A signal of a struct finds the signals of its fields among the derived signals of their source.
+        friend class RecordSignalBase;
         // The update stack keeps its "is scheduled" flag in the signal.
         template <typename T>
         friend class FlaggedStack;
 
     public:
         SignalBase(const std::string &name, int width);
+
+        /// This signal as a signal of a struct, or nullptr if its value is not a struct. A cast would do,
+        /// but not everywhere between a model's extension module and the framework (see value_typeid()).
+        virtual RecordSignalBase *record();
 
         /// Width of the signal in bits.
         /// Inline: bit selections read it for every update of a derived signal.
@@ -76,20 +83,16 @@ namespace dspsim
         virtual const std::type_info &value_typeid() const = 0;
         /// The bytes of the committed value: sizeof the value type of them.
         virtual const void *value_data() const = 0;
+        /// The bytes of the pending value: what was written last.
+        virtual const void *pending_data() const = 0;
         /// write() the value that these bytes are. Throws std::logic_error if the value type cannot be copied
         /// as bytes.
         virtual void write_data(const void *value) = 0;
 
-        /// The field of that name of a signal whose value is a struct with a DSPSIM_STRUCT, as a signal of
-        /// its own (see FieldSignal in <dspsim/field_signal.h>). Asked for again, it is the same signal. Throws
-        /// std::invalid_argument if the value has no such field or the field is an array (see field_array()),
-        /// and std::logic_error if it does not exist yet and the design is elaborated.
-        SignalBase &field(const std::string &name);
-        /// The elements of the field of that name as an array of signals, each a view of one element. A field
-        /// that is not an array gives an array without dimensions, of one signal.
-        detail::NdView<SignalBase> field_array(const std::string &name);
-
     protected:
+        /// A signal of a given context, which can be elaborated already: see Model. For derived signals.
+        SignalBase(Context *context, const std::string &name, int width);
+
         // Called during the update phase to commit pending changes to the signal. An override commits this
         // signal and notifies its events. It must not write to a signal or request the update of a channel:
         // writes belong to the evaluation phase. The engine does not check this.
@@ -162,6 +165,41 @@ namespace dspsim
     };
 
     /*
+        A signal whose value is a struct: the base class of Signal<T> for a class type T (other than a
+        std::array). It adds nothing to a signal but its fields by name, for code that does not know the
+        type. Python has such a signal as a RecordSignal, whose fields are attributes.
+    */
+    class RecordSignalBase : public SignalBase
+    {
+    public:
+        using SignalBase::SignalBase;
+
+        RecordSignalBase *record() override;
+
+        /// The field of that name, as a signal of its own (see FieldSignal in <dspsim/field_signal.h>). It
+        /// is created when it is first asked for, at any time, and it is the same signal after that. The
+        /// struct needs a DSPSIM_STRUCT. Throws std::invalid_argument if it has none, has no such field,
+        /// or if the field is an array (see field_array()).
+        SignalBase &field(const std::string &name);
+        /// The elements of the field of that name as an array of signals, each a view of one element. A field
+        /// that is not an array gives an array without dimensions, of one signal.
+        detail::NdView<SignalBase> field_array(const std::string &name);
+        /// The names of the fields, in the order of the DSPSIM_STRUCT. Empty without one.
+        std::vector<std::string> field_names() const;
+    };
+
+    namespace detail
+    {
+        /// A value type that is a struct, whose signals and ports have fields.
+        template <typename T>
+        concept RecordValue = std::is_class_v<T> && !is_std_array<T>::value;
+
+        /// The base class of Signal<T>.
+        template <typename T>
+        using signal_base_t = std::conditional_t<RecordValue<T>, RecordSignalBase, SignalBase>;
+    }
+
+    /*
         A signal with a value of type T: what a process writes becomes the value that the processes read in
         the update phase of the delta cycle, and the processes that are sensitive to the signal are then
         evaluated if the value changed.
@@ -192,12 +230,14 @@ namespace dspsim
         signals of the numeric types are instantiated in the core library (see the end of this file).
     */
     template <typename T>
-    class Signal : public SignalBase
+    class Signal : public detail::signal_base_t<T>
     {
         static_assert(std::copyable<T> && std::default_initializable<T> && std::equality_comparable<T>,
                       "The value type of a Signal must be copyable, default constructible and comparable with ==");
 
     public:
+        using Base = detail::signal_base_t<T>;
+
         /// For a type that is not a number the width is not used.
         Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = {});
         virtual ~Signal() = default;
@@ -225,14 +265,14 @@ namespace dspsim
         const ValueType *value_type() const override;
         const std::type_info &value_typeid() const override;
         const void *value_data() const override;
+        const void *pending_data() const override;
         void write_data(const void *value) override;
 
         /// A field of the struct that is the value, as a signal of its own: `bus.field(&Bus::tag)` is a
         /// Signal<uint8_t> that has the value of that field in the delta cycle in which the struct changes,
         /// and its events. What is written to it changes that field of the struct and leaves the others.
-        /// Each call creates a signal, which the context owns, so call it before the design is elaborated.
-        /// Defined in <dspsim/field_signal.h>, where FieldSignal is.
-        using SignalBase::field;
+        /// Each call creates a signal, which the context owns. Defined in <dspsim/field_signal.h>, where
+        /// FieldSignal is.
         template <typename F, typename S = T>
         Signal<F> &field(F S::*member, const std::string &name = "")
             requires std::same_as<S, T>;
@@ -240,6 +280,12 @@ namespace dspsim
         template <typename A = T>
         Signal<typename A::value_type> &element(std::size_t index, const std::string &name = "")
             requires std::same_as<A, T> && detail::is_std_array<A>::value;
+        /// The field of that name: RecordSignalBase::field(), which the template above would hide.
+        SignalBase &field(const std::string &name)
+            requires detail::RecordValue<T>
+        {
+            return this->RecordSignalBase::field(name);
+        }
 
         /*
             Static Methods
@@ -250,6 +296,9 @@ namespace dspsim
         const T &read_d_() const;
 
     protected:
+        /// A signal of a given context, which can be elaborated already: see Model. For derived signals.
+        Signal(Context *context, const std::string &name, int width, T init);
+
         void update() override;
         uint64_t read_bits() const override;
         void write_bits(uint64_t value, uint64_t mask) override;
@@ -265,20 +314,26 @@ namespace dspsim
     */
     template <typename T>
     Signal<T>::Signal(const std::string &name, int width, T init)
-        : SignalBase(name, width), d_(init), q_(std::move(init))
+        : Base(name, width), d_(init), q_(std::move(init))
+    {
+    }
+
+    template <typename T>
+    Signal<T>::Signal(Context *context, const std::string &name, int width, T init)
+        : Base(context, name, width), d_(init), q_(std::move(init))
     {
     }
 
     template <typename T>
     Signal<T> &Signal<T>::init(const T &value)
     {
-        if (derived_)
+        if (this->derived_)
         {
-            throw std::logic_error("Cannot init derived signal " + hier_name() + ": init its source signals instead");
+            throw std::logic_error("Cannot init derived signal " + this->hier_name() + ": init its source signals instead");
         }
         d_ = value;
         q_ = value;
-        refresh_dependents();
+        this->refresh_dependents();
         return *this;
     }
 
@@ -293,9 +348,9 @@ namespace dspsim
     {
         // A derived signal is a view of its sources: write the value through to them. The sources schedule
         // their updates, and this signal is recomputed from them in the update phase.
-        if (derived_) [[unlikely]]
+        if (this->derived_) [[unlikely]]
         {
-            write_through(&value);
+            this->write_through(&value);
             return;
         }
         d_ = value;
@@ -304,7 +359,7 @@ namespace dspsim
         // is cheaper than taking it off the stack.
         if (d_ != q_) [[likely]]
         {
-            request_update();
+            this->request_update();
         }
     }
 
@@ -333,6 +388,12 @@ namespace dspsim
     }
 
     template <typename T>
+    const void *Signal<T>::pending_data() const
+    {
+        return &d_;
+    }
+
+    template <typename T>
     void Signal<T>::write_data(const void *value)
     {
         if constexpr (std::is_trivially_copyable_v<T>)
@@ -345,7 +406,7 @@ namespace dspsim
         else
         {
             (void)value;
-            throw std::logic_error("The value of signal " + hier_name() + " cannot be copied as bytes");
+            throw std::logic_error("The value of signal " + this->hier_name() + " cannot be copied as bytes");
         }
     }
 
@@ -373,20 +434,20 @@ namespace dspsim
         {
             if (d_ && !q_)
             {
-                pos().notify_committed();
+                this->pos().notify_committed();
             }
             else if (!d_ && q_)
             {
-                neg().notify_committed();
+                this->neg().notify_committed();
             }
         }
-        change().notify_committed();
+        this->change().notify_committed();
 
         this->q_ = this->d_;
 
-        if (has_dependents_) [[unlikely]]
+        if (this->has_dependents_) [[unlikely]]
         {
-            schedule_dependents();
+            this->schedule_dependents();
         }
     }
 
@@ -395,7 +456,7 @@ namespace dspsim
     {
         if constexpr (std::is_integral_v<T>)
         {
-            return zext(static_cast<uint64_t>(q_), width());
+            return zext(static_cast<uint64_t>(q_), this->width());
         }
         else
         {
@@ -413,7 +474,7 @@ namespace dspsim
             if constexpr (std::is_signed_v<T>)
             {
                 // Keep signed values sign extended from the signal's width.
-                write(static_cast<T>(sext(raw, width())));
+                write(static_cast<T>(sext(raw, this->width())));
             }
             else
             {
@@ -431,7 +492,7 @@ namespace dspsim
     template <typename T>
     detail::FieldRoot Signal<T>::field_root()
     {
-        return derived_ ? derived_field_root() : detail::FieldRoot{this, &d_, &q_};
+        return this->derived_ ? this->derived_field_root() : detail::FieldRoot{this, &d_, &q_};
     }
 
     // Instantiated in signal.cpp.
@@ -520,5 +581,6 @@ namespace dspsim
 
 } // namespace dspsim
 
-// A field of a signal is a signal: FieldSignal and Signal<T>::field() need the classes above.
+// A field of a signal is a signal: FieldSignal and Signal<T>::field() need the classes above. The header
+// includes this one, so either can be included first.
 #include <dspsim/field_signal.h>

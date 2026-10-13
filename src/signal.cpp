@@ -12,15 +12,30 @@
 namespace dspsim
 {
     SignalBase::SignalBase(const std::string &name, int width)
-        : Model(name, "signal"),
+        : SignalBase(Context::obtain().get(), name, width)
+    {
+    }
+
+    SignalBase::SignalBase(Context *context, const std::string &name, int width)
+        : Model(context, name, "signal"),
           width_(width),
           dependents_(),
           scheduled_(false),
-          change_event_(context()),
-          posedge_event_(context()),
-          negedge_event_(context())
+          change_event_(context),
+          posedge_event_(context),
+          negedge_event_(context)
     {
-        context()->add_signal(this);
+        context->add_signal(this);
+    }
+
+    RecordSignalBase *SignalBase::record()
+    {
+        return nullptr;
+    }
+
+    RecordSignalBase *RecordSignalBase::record()
+    {
+        return this;
     }
 
     BitSel SignalBase::slice(int hi, int lo)
@@ -86,7 +101,21 @@ namespace dspsim
         }
     } // namespace
 
-    SignalBase &SignalBase::field(const std::string &name)
+    std::vector<std::string> RecordSignalBase::field_names() const
+    {
+        std::vector<std::string> names;
+        const ValueType *type = value_type();
+        if (type && type->kind == ValueType::Kind::structure && type->shape.empty())
+        {
+            for (auto &f : type->layout->fields)
+            {
+                names.push_back(f.name);
+            }
+        }
+        return names;
+    }
+
+    SignalBase &RecordSignalBase::field(const std::string &name)
     {
         const StructField &f = struct_field(*this, name);
         if (!f.type.shape.empty())
@@ -97,7 +126,7 @@ namespace dspsim
         return field_array(name).flat(0);
     }
 
-    detail::NdView<SignalBase> SignalBase::field_array(const std::string &name)
+    detail::NdView<SignalBase> RecordSignalBase::field_array(const std::string &name)
     {
         const StructField &f = struct_field(*this, name);
         const detail::FieldRoot root = field_root();
@@ -106,8 +135,9 @@ namespace dspsim
             throw std::logic_error("Signal " + hier_name() + " is a view of a bit selection and has no fields");
         }
         const std::size_t count = std::accumulate(f.type.shape.begin(), f.type.shape.end(), std::size_t{1}, std::multiplies<>());
-        const auto names = f.type.shape.empty() ? std::vector<std::string>{this->name() + "." + name}
-                                                : detail::struct_element_names(this->name() + "." + name, f.type.shape);
+        // The names of the signals, which are only needed for those that do not exist yet: a field is asked
+        // for every time it is read or written from Python.
+        std::vector<std::string> names;
 
         std::vector<SignalBase *> elements;
         for (std::size_t i = 0; i < count; ++i)
@@ -128,7 +158,10 @@ namespace dspsim
             }
             if (!signal)
             {
-                detail::check_field_root(*this, root);
+                if (names.empty())
+                {
+                    names = detail::struct_element_names(this->name() + "." + name, f.type.shape);
+                }
                 signal = &f.make_signal(names[i], element);
             }
             elements.push_back(signal);
@@ -143,11 +176,6 @@ namespace dspsim
             if (!root.signal)
             {
                 throw std::logic_error("Signal " + signal.hier_name() + " is a view of a bit selection and has no fields");
-            }
-            if (signal.context()->elaborated())
-            {
-                throw std::logic_error("A field of signal " + signal.hier_name() +
-                                       " must be asked for before the design is elaborated: it is a signal of its own");
             }
         }
 

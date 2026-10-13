@@ -1,7 +1,7 @@
 """
-Signals and ports whose value is a struct, an array or another type without classes of its own in Python:
-they are a SignalBase or PortBase, read and written as numpy values, and the fields of a struct signal are
-signals.
+Signals and ports whose value is a struct, an array or another type without classes of its own in Python.
+A struct is a RecordSignal or a RecordPort: its fields are attributes, each a signal that is read and
+written on its own, and the whole value is a numpy record. Any other type is a SignalBase or a PortBase.
 """
 
 from pathlib import Path
@@ -25,6 +25,8 @@ from dspsim.framework import (
     PortBase,
     PortBaseArrayView,
     Record,
+    RecordPort,
+    RecordSignal,
     SignalBase,
     SignalBaseArrayView,
     SignalS16,
@@ -48,15 +50,18 @@ BUS = np.dtype(
 
 @cppbuilder(header=CPP_DIR / "ValuePorts.h", cls="demo::ValueStage")
 class ValueStage(CppModule):
-    bus_in: PortBase
-    bus_out: PortBase
-    sum: PortBase
+    bus_in: RecordPort
+    bus_out: RecordPort
+    sum: RecordPort
     frame_in: PortBase
     frame_out: PortBase
     samples: PortBaseArrayView
     conjugates: PortBaseArrayView
     scale: PortBase
     flag: PortBase
+    named_in: RecordPort
+    named_out: RecordPort
+    # A RecordPort is a PortBase.
     opaque_in: PortBase
     opaque_out: PortBase
     evaluations: OutputU32
@@ -73,7 +78,15 @@ def plain(value):
 
 PORTS = [
     *("bus_in", "bus_out", "sum", "frame_in", "frame_out", "samples", "conjugates"),
-    *("scale", "flag", "opaque_in", "opaque_out", "evaluations"),
+    *(
+        "scale",
+        "flag",
+        "named_in",
+        "named_out",
+        "opaque_in",
+        "opaque_out",
+        "evaluations",
+    ),
 ]
 
 
@@ -91,7 +104,7 @@ def connect(stage) -> dict[str, SignalBase | SignalBaseArrayView]:
 
 
 def test_cpp_value_port_info():
-    """A port of a type without framework classes is a PortBase in Python."""
+    """A port of a type without framework classes is a PortBase in Python (a RecordPort, for a struct)."""
     info = load_cpp_module_info(CPP_DIR / "ValuePorts.h", "demo::ValueStage")
     types = {name: port.framework_type for name, port in info.ports.items()}
     assert types["bus_in"] == "PortBase"
@@ -107,14 +120,16 @@ def test_struct_port():
     """A struct is read as a numpy record and written from a record, a tuple or a mapping."""
     with Context() as context:
         stage = ValueStage("stage")
-        assert type(stage.bus_in) is PortBase
+        assert type(stage.bus_in) is RecordPort
+        assert isinstance(stage.bus_in, PortBase)
         assert stage.bus_in.dtype == BUS
         assert stage.sum.dtype == IQ
         assert not stage.bus_in.is_output and stage.bus_out.is_output
 
         s = connect(stage)
         bus_in, bus_out = s["bus_in"], s["bus_out"]
-        assert type(bus_in) is SignalBase
+        assert type(bus_in) is RecordSignal
+        assert isinstance(bus_in, SignalBase)
         assert bus_in.name == "bus_in"
         assert bus_in.dtype == BUS
         assert bus_in.fields == ["tag", "valid", "data", "iq", "taps", "gain"]
@@ -198,6 +213,9 @@ def test_other_value_types():
     with Context() as context:
         stage = ValueStage("stage")
         s = connect(stage)
+        # Not structs: a PortBase and a SignalBase.
+        assert type(stage.frame_in) is PortBase
+        assert type(s["frame_in"]) is SignalBase
         assert stage.frame_in.dtype == np.dtype(("<i2", (4,)))
         assert stage.scale.dtype == np.dtype("<f4")
         assert stage.flag.dtype == np.dtype("?")
@@ -227,7 +245,9 @@ def test_struct_port_array():
         assert isinstance(stage.samples, PortBaseArrayView)
         assert stage.samples.shape == (2, 3)
         assert stage.samples.dtype == IQ
-        assert type(stage.samples[1, 2]) is PortBase
+        assert type(stage.samples[1, 2]) is RecordPort
+        assert all(type(port) is RecordPort for port in stage.samples)
+        assert type(stage.samples.flat(5)) is RecordPort
         assert stage.samples[1, 2].name == "samples[1][2]"
         assert stage.samples[1].shape == (3,)
 
@@ -236,6 +256,7 @@ def test_struct_port_array():
         assert isinstance(samples, SignalBaseArrayView)
         assert samples.shape == (2, 3)
         assert samples[0, 1].name == "samples[0][1]"
+        assert type(samples[0, 1]) is RecordSignal
         context.elaborate()
 
         values = np.zeros((2, 3), IQ)
@@ -323,73 +344,175 @@ class FieldModule(Module):
 
 
 def test_struct_fields():
-    """A field of a struct signal is a signal: ports of the field's type bind to it."""
+    """The fields of a struct signal are attributes: signals that are read and written on their own."""
+    with Context() as context:
+        stage = ValueStage("stage")
+        s = connect(stage)
+        bus_in, bus_out = s["bus_in"], s["bus_out"]
+        context.elaborate()
+        s["scale"].write(1.0)
+
+        # Each field is written on its own, and the others keep their value. Nothing had to be asked for
+        # before the design was elaborated.
+        bus_in.tag.d = 7
+        bus_in.data.write(100)
+        bus_in.iq.re.d = 3
+        bus_in.iq.im.d = -4
+        bus_in.taps.d = [1, 2, 3]
+        bus_in.gain.d = 1.5
+        context.run(1)
+        assert plain(bus_in.q) == (7, False, 100, (3, -4), [1, 2, 3], 1.5)
+        bus_in.valid.d = True
+        bus_in.taps[0].d = 9
+        context.run(1)
+        assert plain(bus_in.q) == (7, True, 100, (3, -4), [9, 2, 3], 1.5)
+
+        # And read on its own.
+        assert bus_out.tag.q == 8
+        assert bus_out.data.read() == 200
+        assert (bus_out.iq.re.q, bus_out.iq.im.q) == (-4, 3)
+        assert bus_out.taps.q.tolist() == [3, 2, 9]
+        assert bus_out.taps[2].q == 9
+        assert bus_out.gain.value == 1.5
+        assert bus_out.valid.q is False
+        # A nested struct as a whole.
+        assert plain(bus_out.iq.q) == (-4, 3)
+        bus_in.iq.d = (10, 20)
+        context.run(1)
+        assert plain(bus_out.iq.read()) == (20, 10)
+        # What was written last, before it is committed.
+        bus_in.tag.d = 50
+        assert bus_in.tag.d == 50
+        assert bus_in.tag.q == 7
+        assert bus_in.d.tag == 50
+        context.run(1)
+
+        # A field is a signal of the class of its type, and the same object every time.
+        tag = bus_out.tag
+        assert isinstance(tag, FieldSignalU16) and isinstance(tag, SignalU16)
+        assert tag.name == "bus_out.tag"
+        assert tag.source is bus_out
+        assert bus_out.tag is tag
+        assert bus_out["tag"] is tag
+        assert isinstance(bus_in.data, FieldSignalU32)
+        assert isinstance(bus_in.gain, FieldSignalFloat)
+        # A nested struct has fields of its own, an array is an array of signals.
+        assert type(bus_in.iq) is RecordSignal
+        assert bus_in.iq.dtype == IQ
+        assert bus_in.iq.fields == ["re", "im"]
+        assert isinstance(bus_in.iq.re, FieldSignalS16) and isinstance(
+            bus_in.iq.re, SignalS16
+        )
+        assert bus_in.iq.re.name == "bus_in.iq.re"
+        assert isinstance(bus_out.taps, SignalBaseArrayView)
+        assert bus_out.taps.shape == (3,)
+        assert isinstance(bus_out.taps[2], FieldSignalU8)
+        # A bool has no class of its own.
+        assert type(bus_in.valid) is SignalBase
+        assert "tag" in bus_in and "nothing" not in bus_in
+
+        with pytest.raises(AttributeError, match="has no attribute 'nothing'"):
+            _ = bus_in.nothing
+        with pytest.raises(KeyError, match="no field 'nothing'"):
+            bus_in["nothing"]
+        with pytest.raises(TypeError):
+            tag["x"]
+
+        # The fields of a port are those of its signal.
+        assert stage.bus_out.tag is tag
+        assert stage.bus_out.iq.re.q == 20
+        assert stage.bus_out.fields == bus_out.fields
+        assert stage.bus_out["data"] is bus_out.data
+
+
+def test_struct_field_events_and_binding():
+    """A field has its own events, and ports of the field's type bind to it."""
     with Context() as context:
         stage = ValueStage("stage")
         s = connect(stage)
         bus_in, bus_out = s["bus_in"], s["bus_out"]
 
-        tag = bus_out["tag"]
-        assert isinstance(tag, FieldSignalU16) and isinstance(tag, SignalU16)
-        assert tag.name == "bus_out.tag"
-        assert tag.source is bus_out
-        # Asked for again, it is the same signal.
-        assert bus_out["tag"] is tag
-        assert isinstance(bus_in["data"], FieldSignalU32)
-        assert isinstance(bus_in["gain"], FieldSignalFloat)
-        # A nested struct is a signal with fields of its own.
-        iq = bus_in["iq"]
-        assert type(iq) is SignalBase
-        assert iq.dtype == IQ
-        assert isinstance(iq["re"], FieldSignalS16) and isinstance(iq["re"], SignalS16)
-        assert iq["re"].name == "bus_in.iq.re"
-        # A bool has no class of its own.
-        assert type(bus_in["valid"]) is SignalBase
-        # The elements of an array are signals.
-        taps = bus_out["taps"]
-        assert isinstance(taps, SignalBaseArrayView)
-        assert taps.shape == (3,)
-        assert isinstance(taps[2], FieldSignalU8)
-        with pytest.raises(KeyError, match="no field 'nothing'"):
-            bus_in["nothing"]
-        with pytest.raises(TypeError, match="has no fields"):
-            tag["x"]
-
         # A module with a port per field reads one field of a bus and drives two of another.
         fields = FieldModule("fields")
-        fields.tag.bind(tag)
-        fields.re.bind(iq["re"])
-        fields.data.bind(bus_in["data"])
+        fields.tag.bind(bus_out.tag)
+        fields.re.bind(bus_in.iq.re)
+        fields.data.bind(bus_in.data)
         context.elaborate()
 
         bus_in.write((5, False, 1, (2, 3), [4, 5, 6], 1.0))
         context.run(1)
         # The stage adds one to the tag; the module writes it back to two fields of the input.
-        assert tag.read() == 6
+        assert bus_out.tag.q == 6
         assert fields.seen[-1] == 6
         assert plain(bus_in.read()) == (5, False, 1006, (-6, 3), [4, 5, 6], 1.0)
-        assert bus_out.read().data == 2012
-        assert taps.read().tolist() == [6, 5, 4]
-        assert taps[0].read() == 6
+        assert bus_out.data.q == 2012
 
         # The events of a field only occur when the field changes.
         seen = len(fields.seen)
-        value = bus_in.read()
-        value.gain = 2.0
-        value.taps = [0, 0, 0]
-        bus_in.write(value)
+        bus_in.gain.d = 2.0
+        bus_in.taps.d = [0, 0, 0]
         context.run(1)
         assert len(fields.seen) == seen
-        assert plain(iq.read()) == (-6, 3)
-
-        # Fields are written through to the struct.
-        bus_in["valid"].write(True)
-        iq.write((9, 9))
+        bus_in.tag.d = 6
         context.run(1)
-        assert bus_in.read().valid
-        assert plain(bus_in.read().iq) == (9, 9)
+        assert fields.seen[seen:] == [7]
 
-        # A new field cannot be made once the design is elaborated; one that exists is still there.
-        assert bus_out["tag"] is tag
-        with pytest.raises(RuntimeError, match="before the design is elaborated"):
-            bus_out["data"]
+
+class LateWatcher(Module):
+    """Waits for a field that it only asks for while the simulation runs."""
+
+    def __init__(self, name: str, bus):
+        self.bus = bus
+        self.seen: list[int] = []
+        self.add_task(self.run())
+
+    async def run(self):
+        while True:
+            await self.wait(self.bus.data.change())
+            self.seen.append(self.bus.data.q)
+
+
+def test_struct_field_created_while_running():
+    """A process can wait for a field that nobody asked for before the design was elaborated."""
+    with Context() as context:
+        stage = ValueStage("stage")
+        s = connect(stage)
+        watcher = LateWatcher("watcher", s["bus_out"])
+        context.elaborate()
+        context.run(1)
+
+        s["bus_in"].data.d = 4
+        context.run(1)
+        s["bus_in"].tag.d = 1
+        context.run(1)
+        s["bus_in"].data.d = 5
+        context.run(1)
+        assert watcher.seen == [8, 10]
+
+
+def test_struct_field_names():
+    """A field comes before the attributes that every signal has, except those a struct signal is used with."""
+    with Context() as context:
+        stage = ValueStage("stage")
+        s = connect(stage)
+        named_in, named_out = s["named_in"], s["named_out"]
+        context.elaborate()
+
+        # `id` and `width` are fields, not the id of the model and the width of the signal.
+        named_in.id.d = 5
+        named_in.width.d = 600
+        context.run(1)
+        assert (named_out.id.q, named_out.width.q) == (6, 601)
+        assert named_in.id.name == "named_in.id"
+        # `value` and `name` are the value and the name of the struct signal: those fields are items.
+        assert named_out.name == "named_out"
+        assert plain(named_out.value) == (6, 601, 1, 1)
+        named_in["value"].d = -3
+        named_in["name"].d = 9
+        context.run(1)
+        assert (named_out["value"].q, named_out["name"].q) == (-2, 10)
+        assert named_out.fields == ["id", "width", "value", "name"]
+        # The same on the port.
+        assert stage.named_out.id.q == 6
+        assert stage.named_out.name == "named_out"
+        assert stage.named_out["name"].q == 10

@@ -1,5 +1,6 @@
 #pragma once
-#include <dspsim/derived_signal.h>
+#include <dspsim/detail/derived_signal_base.h>
+#include <dspsim/signal.h>
 
 #include <concepts>
 #include <cstddef>
@@ -24,8 +25,9 @@ namespace dspsim
         This is how a module with a struct as the value of a port connects to modules with a port per field.
         A struct signal costs nothing for the fields that nobody asked for.
 
-        Field signals are created by Signal<T>::field() or SignalBase::field(name), before the design is
-        elaborated, and are owned by the context. The source must outlive the simulation.
+        Field signals are created by Signal<T>::field() or RecordSignalBase::field(name) and are owned by
+        the context. Unlike other signals they can be created at any time, also while the simulation runs:
+        nothing has to find them when the design is elaborated. The source must outlive the simulation.
     */
     template <typename F>
     class FieldSignal final : public Signal<F>, public DerivedSignalBase
@@ -56,7 +58,7 @@ namespace dspsim
     namespace detail
     {
         /// Throws std::logic_error unless a field signal of `signal` can be created: `root` is its
-        /// field_root().
+        /// field_root(), which has no signal if `signal` is a view of a bit selection.
         void check_field_root(const SignalBase &signal, const FieldRoot &root);
         /// Name of the signal of the field at `offset` bytes of the value of `signal`: "bus.tag" if the value
         /// has a DSPSIM_STRUCT that lists a field there, "bus.field" otherwise.
@@ -71,7 +73,7 @@ namespace dspsim
 
     template <typename F>
     FieldSignal<F>::FieldSignal(const std::string &name, const detail::FieldRoot &field)
-        : Signal<F>(name, default_bitwidth<F>::value, *static_cast<const F *>(field.q)),
+        : Signal<F>(field.signal->context(), name, default_bitwidth<F>::value, *static_cast<const F *>(field.q)),
           source_(field.signal),
           source_d_(static_cast<F *>(field.d)),
           source_q_(static_cast<const F *>(field.q))
@@ -110,6 +112,8 @@ namespace dspsim
     void FieldSignal<F>::write_through(const void *value)
     {
         *source_d_ = *static_cast<const F *>(value);
+        // What was written last, for read_d_(). The value itself comes back from the source when it updates.
+        this->d_ = *source_d_;
         // The source compares its pending value with the committed one when it updates.
         request_update(*source_);
     }
@@ -131,7 +135,7 @@ namespace dspsim
     Signal<F> &Signal<T>::field(F S::*member, const std::string &name)
         requires std::same_as<S, T>
     {
-        const detail::FieldRoot root = field_root();
+        const detail::FieldRoot root = this->field_root();
         detail::check_field_root(*this, root);
         const detail::FieldRoot field{root.signal, &(static_cast<T *>(root.d)->*member), &(static_cast<const T *>(root.q)->*member)};
         const auto offset = static_cast<std::size_t>(static_cast<const char *>(field.q) - static_cast<const char *>(root.q));
@@ -143,7 +147,7 @@ namespace dspsim
     Signal<typename A::value_type> &Signal<T>::element(std::size_t index, const std::string &name)
         requires std::same_as<A, T> && detail::is_std_array<A>::value
     {
-        const detail::FieldRoot root = field_root();
+        const detail::FieldRoot root = this->field_root();
         detail::check_field_root(*this, root);
         const detail::FieldRoot field{root.signal, &static_cast<T *>(root.d)->at(index), &static_cast<const T *>(root.q)->at(index)};
         const std::string element_name = name.empty() ? this->name() + "[" + std::to_string(index) + "]" : name;

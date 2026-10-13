@@ -1,5 +1,6 @@
 """The library build: dspsim_add_module() builds the models of a pyproject.toml into one extension module."""
 
+import gc
 import importlib.util
 from pathlib import Path
 
@@ -13,8 +14,8 @@ from dspsim.framework import (
     Context,
     InputS8,
     OutputS64,
-    PortBase,
     PortStruct,
+    RecordPort,
     SignalS32,
 )
 from dspsim.project import ProjectConfig
@@ -130,6 +131,10 @@ def test_library(tmp_path):
         for pattern in ("**/library*.so", "**/library*.pyd")
         for path in build_dir.glob(pattern)
     ]
+    # A library has its models under their own names, and a process has one class of a C++ class of a
+    # name. The classes of a library that another test loaded (both have a Skid) must be gone first, and an
+    # extension module is only freed by the garbage collector.
+    gc.collect()
     spec = importlib.util.spec_from_file_location("library", module_path)
     assert spec is not None and spec.loader is not None
     library = importlib.util.module_from_spec(spec)
@@ -151,7 +156,7 @@ def test_library(tmp_path):
 
         # Struct ports, as in a JIT build: a struct is the value of one port.
         structs = library.StructModel("structs")
-        assert type(structs.u_in) is PortBase
+        assert type(structs.u_in) is RecordPort
         assert structs.u_in.dtype.names == (
             *("data", "valid", "taps", "iq", "wide", "flags"),
         )

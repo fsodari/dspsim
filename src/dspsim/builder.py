@@ -58,6 +58,7 @@ from dspsim.framework import (
     PortBaseArrayView,
     PortStruct,
     PortStructArray,
+    RecordPort,
     _Module,
 )
 from dspsim.ghdl import VhdlOptions
@@ -197,10 +198,16 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     annotations = _get_class_annotations(namespace)
     ports = {}
     for an, typ in annotations.items():
-        if typ in (PortStruct, PortStructArray, PortBase, PortBaseArrayView):
-            # A struct port, or an array of structs: as a port with the struct as its value (PortBase), or
-            # as a port per field (PortStruct). The annotation says nothing about its fields or its
-            # direction, and (0,) marks an array of unknown shape.
+        if typ in (
+            PortStruct,
+            PortStructArray,
+            RecordPort,
+            PortBase,
+            PortBaseArrayView,
+        ):
+            # A struct port, or an array of structs: as a port with the struct as its value (a RecordPort,
+            # which is a PortBase), or as a port per field (PortStruct). The annotation says nothing about
+            # its fields or its direction, and (0,) marks an array of unknown shape.
             ports[an] = Port(
                 name=an,
                 keyword=STRUCT_KEYWORD,
@@ -208,7 +215,7 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
                 width=-1,
                 direction="",
                 shape=(0,) if typ in (PortStructArray, PortBaseArrayView) else (),
-                as_value=typ in (PortBase, PortBaseArrayView),
+                as_value=typ in (RecordPort, PortBase, PortBaseArrayView),
             )
         elif typ in _valid_port_types:
             # Type names look like InputU8 or OutputArrayS32.
@@ -236,6 +243,7 @@ _valid_cpp_port_types = [
     *_valid_port_types,
     PortBase,
     PortBaseArrayView,
+    RecordPort,
     PortStruct,
     PortStructArray,
     InputFloat,
@@ -291,7 +299,8 @@ def _validate_cpp_ports(
                 f"Port '{name}' has no Python type: "
                 f"dspsim has no bindings for ports of '{model_port.ctype}'"
             )
-        if typ.__name__ != expected:
+        # A port of a type without classes of its own is a PortBase, and a RecordPort if the type is a struct.
+        if typ.__name__ != expected and (expected, typ) != ("PortBase", RecordPort):
             raise TypeError(
                 f"Type mismatch for port '{name}': expected {expected}, got {typ.__name__}"
             )
@@ -324,7 +333,7 @@ def _validate_ports(
                 if p.is_array:
                     cls = "PortBaseArrayView" if as_value else "PortStructArray"
                     return f"an array of structs ({cls})"
-                return f"a struct ({'PortBase' if as_value else 'PortStruct'})"
+                return f"a struct ({'RecordPort' if as_value else 'PortStruct'})"
 
             # A struct port is a value unless the module is built with struct_ports="fields".
             model_as_value = struct_ports == "value"

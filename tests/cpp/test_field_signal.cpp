@@ -343,16 +343,20 @@ TEST_CASE("the fields of a struct signal by name", "[value][field]")
 {
     auto ctx = Context::create();
     Signal<Bus> bus{"bus"};
-    SignalBase &any = bus;
+    // A signal of a struct, without the type of the struct.
+    REQUIRE(static_cast<SignalBase &>(bus).record() == &bus);
+    RecordSignalBase &any = bus;
+    REQUIRE(any.field_names() == std::vector<std::string>{"tag", "valid", "data", "iq", "taps", "grid", "gain", "mode"});
 
     SignalBase &tag = any.field("tag");
+    REQUIRE(tag.record() == nullptr);
     REQUIRE(tag.name() == "bus.tag");
     REQUIRE(dynamic_cast<Signal<uint16_t> *>(&tag) != nullptr);
     // Asked for again, it is the same signal.
     REQUIRE(&any.field("tag") == &tag);
 
     // A nested struct is a signal with fields, and a struct and its first field are different signals.
-    SignalBase &iq = any.field("iq");
+    RecordSignalBase &iq = *any.field("iq").record();
     SignalBase &re = iq.field("re");
     REQUIRE(dynamic_cast<Signal<Iq> *>(&iq) != nullptr);
     REQUIRE(dynamic_cast<Signal<int16_t> *>(&re) != nullptr);
@@ -374,16 +378,21 @@ TEST_CASE("the fields of a struct signal by name", "[value][field]")
     auto grid = any.field_array("grid");
     REQUIRE(grid.shape() == Shape{2, 2});
     REQUIRE(grid[{1, 0}].name() == "bus.grid[1][0]");
-    SignalBase &grid_im = grid[{1, 0}].field("im");
+    SignalBase &grid_im = grid[{1, 0}].record()->field("im");
     // A field that is not an array is an array of one.
     REQUIRE(any.field_array("tag").shape().empty());
     REQUIRE(&any.field_array("tag").flat(0) == &tag);
 
     REQUIRE_THROWS_WITH(any.field("nothing"), ContainsSubstring("has no field 'nothing'"));
     REQUIRE_THROWS_WITH(any.field("taps"), ContainsSubstring("is an array"));
-    REQUIRE_THROWS_WITH(tag.field("x"), ContainsSubstring("has no fields"));
+    // A struct without a DSPSIM_STRUCT is a signal of a struct, with no fields that are known.
     Signal<Plain> plain{"plain"};
+    REQUIRE(plain.record() != nullptr);
+    REQUIRE(plain.field_names().empty());
     REQUIRE_THROWS_WITH(plain.field("a"), ContainsSubstring("has no fields"));
+    // An array is not a struct.
+    Signal<std::array<uint8_t, 2>> pair{"pair"};
+    REQUIRE(pair.record() == nullptr);
     ctx->elaborate();
 
     Bus value;
@@ -406,8 +415,62 @@ TEST_CASE("the fields of a struct signal by name", "[value][field]")
     ctx->run(1);
     REQUIRE(bus.read().grid[1][0] == Iq{7, -8});
 
-    // A field that exists is still there after elaboration; a new one cannot be made.
+    // A field that exists is still there after elaboration.
     REQUIRE(&any.field("tag") == &tag);
-    REQUIRE_THROWS_WITH(any.field("data"), ContainsSubstring("before the design is elaborated"));
-    REQUIRE_THROWS_WITH(bus.field(&Bus::data), ContainsSubstring("before the design is elaborated"));
+}
+
+TEST_CASE("a field signal can be created while the simulation runs", "[value][field]")
+{
+    auto ctx = Context::create();
+    Signal<Bus> bus{"bus"};
+    BusPorts dut{"dut"};
+    dut.in.bind(bus);
+    dut.out.bind_any(*dut.out.create_signal("out"));
+    ctx->elaborate();
+
+    Bus value;
+    value.tag = 7;
+    value.data = 100;
+    value.iq = {1, 2};
+    bus.write(value);
+    ctx->run(1);
+
+    // The design is elaborated: any other signal cannot be created any more.
+    REQUIRE_THROWS_AS(Signal<uint8_t>("late"), ContextConstructionError);
+    // A field starts with the value that the struct has.
+    auto &data = static_cast<Signal<uint32_t> &>(bus.field("data"));
+    Signal<int16_t> &im = bus.field(&Bus::iq).field(&Iq::im);
+    REQUIRE(data.read() == 100);
+    REQUIRE(im.read() == 2);
+    REQUIRE(data.context() == ctx.get());
+    REQUIRE(&bus.field("data") == &data);
+
+    // It follows the struct, has events, and is written through to the struct.
+    int changes = 0;
+    ctx->register_process_func([&] { ++changes; }, "changes")->always(data.change())->initialize(false);
+    value.data = 101;
+    bus.write(value);
+    ctx->run(1);
+    REQUIRE(data.read() == 101);
+    REQUIRE(changes == 1);
+    value.tag = 8;
+    bus.write(value);
+    ctx->run(1);
+    REQUIRE(changes == 1);
+
+    im.write(-9);
+    data.write(5);
+    REQUIRE(data.read_d_() == 5);
+    ctx->run(1);
+    REQUIRE(bus.read().iq == Iq{1, -9});
+    REQUIRE(bus.read().data == 5);
+    REQUIRE(bus.read().tag == 8);
+    REQUIRE(changes == 2);
+
+    // The fields of a port are those of its signal.
+    RecordPortBase &in = dut.in;
+    REQUIRE(static_cast<PortBase &>(dut.in).record() == &in);
+    REQUIRE(&in.field("data") == &data);
+    REQUIRE(in.field_names().size() == 8);
+    REQUIRE(in.field_array("taps").shape() == Shape{3});
 }

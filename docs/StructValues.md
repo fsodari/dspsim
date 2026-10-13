@@ -99,8 +99,8 @@ The structs of verilated modules are generated with their `DSPSIM_STRUCT`.
 
 ## In Python
 
-A signal or a port whose value type has no class of its own in Python (`SignalU8`, `InputS16`, ...) is a
-`SignalBase` or a `PortBase`, whatever the type is. They read and write the value through its description.
+A signal or a port whose value is a struct is a `RecordSignal` or a `RecordPort`, whatever the struct is.
+Its fields are attributes, each a signal of its own that is read and written like any other signal:
 
 ```python
 dut = Stage("dut")
@@ -110,67 +110,90 @@ dut.s.bind(s)
 dut.m.bind(m)
 context.elaborate()
 
+s.data.d = 7  # write one field: the others keep their value
+s.tag.d = 1
+s.iq.re.d = 3  # a field of a nested struct
+s.taps.d = [1, 2, 3]  # an array, or one element: s.taps[0].d = 1
+context.run(10)
+
+m.data.q  # read one field
+m.iq.re.q
+m.taps.q  # numpy array
+await self.wait(m.tag.change())  # wait for one field
+monitor.tag.bind(m.tag)  # bind a port of the field's type
+dut.m.data.q  # the fields of a port are those of its signal
+```
+
+- A field is the signal of that field (the next section): a `FieldSignalU8` ... `FieldSignalFloat` for a
+  number, which is a `SignalU8` ... with `q`, `d`, `value`, `read()`, `write()` and the events; a
+  `RecordSignal` for a nested struct; an array of signals for an array. It is created when it is first
+  asked for, at any time, also while the simulation runs, and it is the same object after that.
+- Writes to several fields in one evaluation commit together, as one change of the struct.
+- **Names.** A field comes before the attributes that every signal has, so `bus.id`, `bus.width` or
+  `bus.kind` are the fields of those names. The exceptions are the names that a struct signal is used
+  with: `read`, `write`, `value`, `q`, `d`, `dtype`, `fields`, `change`, `name`, `hier_name` (and for a port
+  `bind`, `signal`, `is_output`). A field with such a name is an item, `bus["value"]`, as every field is.
+- The fields of a port are those of the signal that it is bound to, so the port has them once it is bound.
+
+The whole value is read and written as a numpy record:
+
+```python
 s.dtype  # the numpy dtype of the value, with the offsets of the C++ struct
 s.fields  # ["data", "tag", "iq", "taps"]
 s.write((7, 1, (3, -4), [1, 2, 3]))  # a tuple with the fields in order
 s.write(
     {"data": 7, "tag": 1, "iq": {"re": 3, "im": -4}, "taps": [1, 2, 3]}
-)  # or every field by name
+)  # or by name
 context.run(10)
 
-value = m.read()  # a Record: a copy of the value
+value = m.read()  # a Record: a copy of the value; also m.q and m.value
 value.data, value.iq.re  # fields are attributes ...
 value["data"]  # ... and items
-value.tag = 5  # change the copy
-value.taps[0] = 9
-s.write(value)  # and write it back
+value.tag = 5  # change the copy and write it back
+s.write(value)
 ```
 
-- `read()` (and `value`, `q`) returns a `dspsim.Record` for a struct: a `numpy.record` whose fields come
-  first as attributes. In a plain `numpy.record`, `value.data` is numpy's buffer and `value.size`,
-  `value.real` or `value.shape` are numpy's too, whatever the fields are called; in a `Record` they are the
-  fields. Only `dtype`, `getfield` and `setfield` are never fields as attributes (use `value["dtype"]`).
-  A nested struct is a `Record` and an array a numpy array, both views of the value.
+- A `dspsim.Record` is a `numpy.record` whose fields come first as attributes. In a plain `numpy.record`,
+  `value.data` is numpy's buffer and `value.size`, `value.real` or `value.shape` are numpy's too, whatever
+  the fields are called; in a `Record` they are the fields. Only `dtype`, `getfield` and `setfield` are
+  never fields as attributes (use `value["dtype"]`). A nested struct is a `Record` and an array a numpy
+  array, both views of the value.
 - `write()` takes a `Record`, a tuple with the fields in order, a mapping with every field by name (a
   missing or unknown name is a `ValueError`), or anything else that numpy converts to the dtype.
-- A value that is an array (`std::array<int16_t, 4>`) is a numpy array, and a number that has no class of
-  its own (`float`, `bool`) a Python number.
 - `port.bind(signal)` checks that the signal has the value type of the port, and raises `ValueError`
   otherwise. `port.signal(name)` works for every port.
+
+A signal or port of another type without a class of its own is a `SignalBase` or a `PortBase`, with the
+same `read()`, `write()`, `q`, `d` and `dtype`: an array as its value (`std::array<int16_t, 4>`) is a numpy
+array, and a `float` or a `bool` a Python number.
 
 An array of such ports or signals (`InputArray<Bus>`) is a `PortBaseArrayView` or a `SignalBaseArrayView`:
 indexed and sliced like the other arrays, bound as a whole (`ports.bind(ports.signals("name"))`), and read
 and written as one numpy array with the shape of the array:
 
 ```python
+buses[1, 2].data.d = 5  # an element is a RecordSignal
 values = (
     buses.read()
 )  # numpy array of shape buses.shape; values["data"] is one field of all
-values[1, 2].iq.re  # an element is a Record
+values[1, 2].iq.re  # an element of the array is a Record
 buses.write(values)  # an array, nested lists, or one value for every element
-buses[1, 2].write((7, 1, (3, -4), [1, 2, 3]))
 ```
 
 Python modules cannot declare a port with a struct as its value: there is no C++ type behind it. They
-declare a port per field and bind to the fields of the struct signal, which is the next section.
+declare a port per field and bind it to the field of the struct signal (`self.tag.bind(bus.tag)`).
 
 ## The fields of a struct signal
 
 A field of a struct signal is a signal of its own, in the way a slice of the bits of a signal is
-([BitSlicing.md](BitSlicing.md)):
+([BitSlicing.md](BitSlicing.md)). In Python it is the attribute of that name; in C++:
 
 ```cpp
 dspsim::Signal<Bus> bus{"bus"};
 monitor.tag.bind(bus.field(&Bus::tag));                 // an Input<uint8_t> reads one field
 driver.re.bind(bus.field(&Bus::iq).field(&Iq::re));     // a field of a field
 tap.d.bind(bus.field(&Bus::taps).element(1));           // an element of an array
-```
-
-```python
-monitor.tag.bind(bus["tag"])  # a FieldSignalU8, which is a SignalU8
-driver.re.bind(bus["iq"]["re"])
-bus["taps"]  # an array of the signals of the elements
-await self.wait(bus["tag"].change())  # only when the tag changes
+dspsim::SignalBase &data = bus.field("data");           // by name, with the DSPSIM_STRUCT
 ```
 
 - The field signal (`FieldSignal<F>`, [field_signal.h](../src/include/dspsim/field_signal.h)) has the value of
@@ -179,11 +202,13 @@ await self.wait(bus["tag"].change())  # only when the tag changes
   to several fields and to the whole struct in one evaluation phase combine: the last write of a field wins.
 - This is how a module with a struct as the value of a port connects to modules with a port per field, such
   as Python modules. It costs nothing for the fields that nobody asked for.
-- A field signal is a signal that the context owns, so it has to be created before the design is elaborated.
-  `SignalBase::field(name)` and `sig["name"]` return the same signal when they are asked again, also after
-  elaboration; a field that was never asked for raises then. In Python, a number is a `FieldSignalU8` ...
-  `FieldSignalFloat` (a subclass of `SignalU8` ...), and a nested struct or a `bool` a `SignalBase`.
+- A field signal can be created at any time, unlike other signals, which belong to the construction of a
+  design: nothing has to find it when the design is elaborated. A field starts with the value that the
+  struct has. `RecordSignalBase::field(name)` returns the same signal when it is asked again;
+  `Signal<T>::field(&T::member)` creates one with each call.
 - By name, a field needs the `DSPSIM_STRUCT` of the struct. `Signal<T>::field(&T::member)` does not.
+- A signal with a struct as its value is a `RecordSignalBase` (and a port a `RecordPortBase`): the base
+  class of `Signal<T>` for a class type `T` other than a `std::array`, which has the fields by name.
 
 ## How it works
 
@@ -191,8 +216,11 @@ await self.wait(bus["tag"].change())  # only when the tag changes
   signal with `SignalBase::request_update()`. That function is in the core library, so that a signal of a
   model's type, which is compiled with the model, needs nothing of the scheduler.
 - `SignalBase` and `PortBase` have a few virtual functions for a value without its type: `value_type()`
-  (the description, or `nullptr`), `value_typeid()`, `value_data()` and `write_data()` (the value as
-  bytes), and `PortBase::create_signal()` and `bind_any()`. They are not on the run cycle.
+  (the description, or `nullptr`), `value_typeid()`, `value_data()`, `pending_data()` and `write_data()`
+  (the value as bytes), `record()`, and `PortBase::create_signal()` and `bind_any()`. They are not on the
+  run cycle.
+- In Python, `RecordSignal` and `RecordPort` have a `__getattribute__` that looks for a field first. They
+  are classes of their own so that the signals of numbers (`SignalU8`, ...) keep the plain attribute access.
 - The Python side of a value is in `dspsim/_values.py`: the bindings (`value_bindings.h`) pass the
   description as nested tuples and the value as bytes, and numpy does the rest.
 - A field signal is a `DerivedSignalBase`, like the signal of a bit selection: the source schedules it when

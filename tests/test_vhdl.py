@@ -1,5 +1,6 @@
 """VHDL models: GHDL synthesizes the entity to Verilog, and a generated SystemVerilog wrapper restores its interface."""
 
+import gc
 import importlib.util
 import random
 import re
@@ -26,11 +27,11 @@ from dspsim.framework import (
     OutputS8,
     OutputS16,
     OutputU8,
-    PortBase,
     PortBaseArrayView,
     PortStruct,
     PortStructArray,
-    SignalBase,
+    RecordPort,
+    RecordSignal,
     SignalS16,
     SignalU8,
     from_words,
@@ -518,7 +519,7 @@ def signals_for(port, name: str):
     """The signal, signal array or struct of signals that a port binds to."""
     if isinstance(port, PortStruct | PortStructArray | PortBaseArrayView):
         return port.signals(name)
-    if type(port) is PortBase:
+    if isinstance(port, RecordPort):
         # A record as the value of one port.
         return port.signal(name)
     # InputArrayU8 binds to a SignalArrayU8, OutputS16 to a SignalS16.
@@ -582,7 +583,7 @@ def record_bus(record) -> dict:
 
 def write_bus(signals, bus: dict) -> None:
     """Write a bus to the signals of a record port: one signal with the record as its value, or one per element."""
-    if isinstance(signals, SignalBase):
+    if isinstance(signals, RecordSignal):
         signals.write(bus_value(bus))
         return
     signals.data.d = bus["data"]
@@ -597,7 +598,7 @@ def write_bus(signals, bus: dict) -> None:
 
 
 def read_bus(signals) -> dict:
-    if isinstance(signals, SignalBase):
+    if isinstance(signals, RecordSignal):
         return record_bus(signals.read())
     return {
         "data": signals.data.q,
@@ -727,7 +728,7 @@ def test_vhdl_model(generics, struct_ports):
         assert dut.vec_in.shape == (n,)
         if struct_ports == "value":
             # A record is a numpy record, with the elements in the order of the VHDL type.
-            assert type(dut.bus_in) is PortBase
+            assert type(dut.bus_in) is RecordPort
             assert dut.bus_in.dtype.names == (
                 *("data", "valid", "id", "level", "state", "last", "iq", "taps"),
             )
@@ -815,6 +816,11 @@ def test_vhdl_model(generics, struct_ports):
                 )
                 assert frame_samples[i] == changed_bus(samples[i], 100 * (i + 1))
             assert frame_out_count == 100 - frame_count
+            if struct_ports == "value":
+                # The elements of a record one by one, as with a port per element.
+                assert signals["bus_out"].level.q == -bus["level"]
+                assert signals["bus_out"].iq.re.q == bus["im"]
+                assert signals["frame_out"].count.q == 100 - frame_count
 
 
 @needs_ghdl
@@ -950,6 +956,10 @@ dspsim_add_module(vhdl_library ${CMAKE_SOURCE_DIR}/pyproject.toml vhdl_library_t
         for pattern in ("**/vhdl_library*.so", "**/vhdl_library*.pyd")
         for path in build_dir.glob(pattern)
     ]
+    # A library has its models under their own names, and a process has one class of a C++ class of a
+    # name. The classes of a library that another test loaded (both have a Skid) must be gone first, and an
+    # extension module is only freed by the garbage collector.
+    gc.collect()
     spec = importlib.util.spec_from_file_location("vhdl_library", module_path)
     assert spec is not None and spec.loader is not None
     library = importlib.util.module_from_spec(spec)

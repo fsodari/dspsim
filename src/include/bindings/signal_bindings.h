@@ -17,11 +17,6 @@ namespace dspsim::bindings
                        .def_prop_ro("width", &SignalBase::width)
                        // Bit selections. sig[hi:lo] is inclusive, as in SystemVerilog. Selections are unsigned.
                        .def("slice", &SignalBase::slice, nb::arg("hi"), nb::arg("lo"))
-                       // sig["field"] is a field of a struct, as a signal of its own (or the array of the
-                       // signals of an array field).
-                       .def("__getitem__", [](SignalBase &s, const std::string &field)
-                            { return signal_field(s, field); }, nb::arg("field"),
-                            nb::sig("def __getitem__(self, field: str, /) -> typing.Any"))
                        .def("__getitem__", [](SignalBase &s, nb::handle key)
                             {
                                 auto range = resolve_bit_key(key, s.width());

@@ -100,6 +100,7 @@ ${DSPSIM_INCLUDE_DIR}/dspsim/channel.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/clock.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/context.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/coro.h
+        ${DSPSIM_INCLUDE_DIR}/dspsim/detail/derived_signal_base.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/detail/engine_access.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/derived_signal.h
         ${DSPSIM_INCLUDE_DIR}/dspsim/field_signal.h

@@ -3,6 +3,7 @@
 #include <dspsim/event.h>
 #include <dspsim/ndarray.h>
 
+#include <concepts>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -16,6 +17,7 @@ namespace dspsim
 {
     template <typename V, typename Derived>
     class VModule;
+    class RecordPortBase;
 
     /*
         Ports represent the interface between modules and signals in the simulation framework.
@@ -36,6 +38,9 @@ namespace dspsim
 
         // Get the width of the port.
         int width() const;
+
+        /// This port as a port of a struct, or nullptr if its value is not a struct. See SignalBase::record().
+        virtual RecordPortBase *record();
 
         // Processes can be sensitive to port changes.
         // Defined inline: processes wait on these on every evaluation (wait(clk.pos())).
@@ -120,6 +125,37 @@ namespace dspsim
     };
 
     /*
+        A port whose value is a struct: the base class of Input<T> and Output<T> for a class type T (other
+        than a std::array). Python has such a port as a RecordPort.
+
+        The fields are those of the signal that the port is bound to, as signals (RecordSignalBase::field()).
+        They throw std::logic_error while the port has no signal: before it is bound, and before elaboration
+        if it is bound to the port of a parent module.
+    */
+    class RecordPortBase : public PortBase
+    {
+    public:
+        using PortBase::PortBase;
+
+        RecordPortBase *record() override;
+
+        SignalBase &field(const std::string &name) const;
+        detail::NdView<SignalBase> field_array(const std::string &name) const;
+        /// The names of the fields, in the order of the DSPSIM_STRUCT of the struct. Empty without one.
+        std::vector<std::string> field_names() const;
+
+    private:
+        RecordSignalBase &bound_record() const;
+    };
+
+    namespace detail
+    {
+        /// The base class of Input<T> and Output<T>.
+        template <typename T>
+        using port_base_t = std::conditional_t<RecordValue<T>, RecordPortBase, PortBase>;
+    }
+
+    /*
         An input port of a module: reads the signal that it is bound to, directly or through the port of a
         parent module. T is the value type of the signal, see Signal<T>.
 
@@ -127,9 +163,11 @@ namespace dspsim
         the types of models. The ports of the numeric types are instantiated in the core library.
     */
     template <typename T>
-    class Input : public PortBase
+    class Input : public detail::port_base_t<T>
     {
     public:
+        using Base = detail::port_base_t<T>;
+
         Input(const std::string &name, int width = default_bitwidth<T>::value);
 
         const ValueType *value_type() const override;
@@ -147,7 +185,7 @@ namespace dspsim
 
         // Read the value of the port (bound signal).
         // read() and the conversion are defined inline: model code calls them on every evaluation.
-        const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
+        const T &read() const { return static_cast<Signal<T> *>(this->bound_signal_)->read(); }
 
         // Implicit conversion to read the value of the bound signal from the port
         operator const T &() const { return read(); }
@@ -158,9 +196,11 @@ namespace dspsim
     };
 
     template <typename T>
-    class Output : public PortBase
+    class Output : public detail::port_base_t<T>
     {
     public:
+        using Base = detail::port_base_t<T>;
+
         Output(const std::string &name, int width = default_bitwidth<T>::value);
 
         const ValueType *value_type() const override;
@@ -180,12 +220,12 @@ namespace dspsim
 
         // read(), write() and the operators are defined inline: model code calls them on every evaluation.
         // Read the value of the bound signal.
-        const T &read() const { return static_cast<Signal<T> *>(bound_signal_)->read(); }
+        const T &read() const { return static_cast<Signal<T> *>(this->bound_signal_)->read(); }
         // Implicit conversion to read the value of the bound signal from the port
         operator const T &() const { return read(); }
 
         // Write to the bound signal.
-        void write(const T &value) { static_cast<Signal<T> *>(bound_signal_)->write(value); }
+        void write(const T &value) { static_cast<Signal<T> *>(this->bound_signal_)->write(value); }
         // Implicit conversion to write to the bound signal from the port
         Output<T> &operator=(const T &value)
         {
@@ -206,7 +246,7 @@ namespace dspsim
         the integer types of the core library and is defined there.
     */
     template <typename T>
-    Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
+    Input<T>::Input(const std::string &name, int width) : Base(name, width, "input")
     {
     }
 
@@ -225,35 +265,35 @@ namespace dspsim
     template <typename T>
     std::shared_ptr<SignalBase> Input<T>::create_signal(const std::string &name) const
     {
-        return Signal<T>::create(name, width());
+        return Signal<T>::create(name, this->width());
     }
 
     template <typename T>
     void Input<T>::bind(Signal<T> &signal)
     {
-        bind_base(signal);
+        this->bind_base(signal);
     }
 
     template <typename T>
     void Input<T>::bind(Input<T> &port)
     {
-        bind_base(port);
+        this->bind_base(port);
     }
 
     template <typename T>
     void Input<T>::bind_signal(Signal<T> &signal)
     {
-        bind_base(signal);
+        this->bind_base(signal);
     }
 
     template <typename T>
     void Input<T>::bind_port(Input<T> &port)
     {
-        bind_base(port);
+        this->bind_base(port);
     }
 
     template <typename T>
-    Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
+    Output<T>::Output(const std::string &name, int width) : Base(name, width, "output")
     {
     }
 
@@ -272,37 +312,37 @@ namespace dspsim
     template <typename T>
     std::shared_ptr<SignalBase> Output<T>::create_signal(const std::string &name) const
     {
-        return Signal<T>::create(name, width());
+        return Signal<T>::create(name, this->width());
     }
 
     template <typename T>
     void Output<T>::bind(Signal<T> &signal)
     {
-        bind_base(signal);
+        this->bind_base(signal);
     }
 
     template <typename T>
     void Output<T>::bind(Output<T> &port)
     {
-        bind_base(port);
+        this->bind_base(port);
     }
 
     template <typename T>
     void Output<T>::bind_signal(Signal<T> &signal)
     {
-        bind_base(signal);
+        this->bind_base(signal);
     }
 
     template <typename T>
     void Output<T>::bind_port(Output<T> &port)
     {
-        bind_base(port);
+        this->bind_base(port);
     }
 
     template <typename T>
     const T &Output<T>::read_d_() const
     {
-        return static_cast<Signal<T> *>(bound_signal_)->read_d_();
+        return static_cast<Signal<T> *>(this->bound_signal_)->read_d_();
     }
 
     // Instantiated in port.cpp.
@@ -443,6 +483,20 @@ namespace dspsim
                 throw std::invalid_argument("InputArray: shape mismatch");
         }
     };
+
+    /// A port as the class that the bindings have for a port whose value type has no class of its own:
+    /// RecordPortBase if the value is a struct, PortBase otherwise.
+    template <typename P>
+        requires std::derived_from<P, RecordPortBase>
+    RecordPortBase &port_base(P &port)
+    {
+        return port;
+    }
+    template <typename P>
+    PortBase &port_base(P &port)
+    {
+        return port;
+    }
 
     /// The ports of an array (InputArray<T>, OutputArray<T> or a view of one) as an array of ports without
     /// the type of their value. The array must outlive it.

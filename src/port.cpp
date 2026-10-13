@@ -69,6 +69,50 @@ namespace dspsim
     {
     }
 
+    RecordPortBase *PortBase::record()
+    {
+        return nullptr;
+    }
+
+    RecordPortBase *RecordPortBase::record()
+    {
+        return this;
+    }
+
+    RecordSignalBase &RecordPortBase::bound_record() const
+    {
+        RecordSignalBase *signal = bound_signal() ? bound_signal()->record() : nullptr;
+        if (!signal)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet: its fields are those of the signal");
+        }
+        return *signal;
+    }
+
+    SignalBase &RecordPortBase::field(const std::string &name) const
+    {
+        return bound_record().field(name);
+    }
+
+    detail::NdView<SignalBase> RecordPortBase::field_array(const std::string &name) const
+    {
+        return bound_record().field_array(name);
+    }
+
+    std::vector<std::string> RecordPortBase::field_names() const
+    {
+        std::vector<std::string> names;
+        const ValueType *type = value_type();
+        if (type && type->kind == ValueType::Kind::structure && type->shape.empty())
+        {
+            for (auto &f : type->layout->fields)
+            {
+                names.push_back(f.name);
+            }
+        }
+        return names;
+    }
+
     const ValueType *PortBase::value_type() const
     {
         return nullptr;
@@ -216,14 +260,14 @@ namespace dspsim
     void Input<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
-        bind_base(make_derived_signal<T>(*this, selection));
+        this->bind_base(make_derived_signal<T>(*this, selection));
     }
 
     template <typename T>
     void Output<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
-        bind_base(make_derived_signal<T>(*this, selection));
+        this->bind_base(make_derived_signal<T>(*this, selection));
     }
 
     template class Input<uint8_t>;

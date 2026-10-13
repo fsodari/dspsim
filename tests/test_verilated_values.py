@@ -26,6 +26,8 @@ from dspsim.framework import (
     PortBaseArrayView,
     PortStruct,
     Record,
+    RecordPort,
+    RecordSignal,
     SignalBase,
     SignalBaseArrayView,
     SignalU16,
@@ -98,17 +100,18 @@ def test_value_struct_ports():
     @vbuilder(source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR])
     class StructValue(VModule):
         clk: InputU8
-        u_in: PortBase
-        u_out: PortBase
-        p_in: PortBase
-        p_out: PortBase
-        w_in: PortBase
-        w_out: PortBase
+        u_in: RecordPort
+        u_out: RecordPort
+        p_in: RecordPort
+        p_out: RecordPort
+        w_in: RecordPort
+        w_out: RecordPort
 
     with Context() as context:
         clk = Clock("clk", 10)
         dut = StructValue("dut")
-        assert type(dut.u_in) is PortBase
+        assert type(dut.u_in) is RecordPort
+        assert isinstance(dut.u_in, PortBase)
         assert dut.u_in.name == "u_in"
         assert not dut.u_in.is_output and dut.u_out.is_output
         # The fields have the types of the ports that they would be: 12 bits in an int16, 100 bits in words.
@@ -123,7 +126,7 @@ def test_value_struct_ports():
 
         s = connect(dut, STRUCT_PORTS)
         dut.clk.bind(clk)
-        assert type(s["u_in"]) is SignalBase
+        assert type(s["u_in"]) is RecordSignal
         assert s["u_in"].fields == ["data", "valid", "taps", "iq", "wide", "flags"]
         context.elaborate()
 
@@ -260,8 +263,8 @@ def test_value_struct_arrays():
         f_out: PortBaseArrayView
         w_in: PortBaseArrayView
         w_out: PortBaseArrayView
-        o_in: PortBase
-        o_out: PortBase
+        o_in: RecordPort
+        o_out: RecordPort
         u_in: InputU16
         u_out: OutputU16
         pk_in: InputU16
@@ -275,7 +278,7 @@ def test_value_struct_arrays():
         assert (dut.a_in.shape, dut.a_in.size, len(dut.a_in)) == ((2, 3), 6, 6)
         assert dut.a_in.dtype.names == ("data", "taps", "iq", "wide", "flags")
         element = dut.a_in[1, 2]
-        assert type(element) is PortBase
+        assert type(element) is RecordPort
         assert element.name == "a_in[1][2]"
         assert dut.a_in[1].shape == (3,)
         assert dut.a_in[:, 1:].shape == (2, 2)
@@ -406,7 +409,7 @@ class DataMonitor(Module):
 
 
 def test_value_struct_fields():
-    """The fields of the struct signal of a verilated module are signals for ports of their types."""
+    """The fields of the struct signal of a verilated module are read, written, waited for and bound one by one."""
     StructValue = build_vmodule(
         "StructValue", source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR]
     )
@@ -415,61 +418,79 @@ def test_value_struct_fields():
         dut = StructValue("dut")
         s = connect(dut, STRUCT_PORTS)
         dut.clk.bind(clk)
-        data = s["u_out"]["data"]
-        assert isinstance(data, FieldSignalS16)
-        assert data.name == "u_out.data"
+        u_in, u_out = s["u_in"], s["u_out"]
         monitor = DataMonitor("monitor")
-        monitor.data.bind(data)
-        # A field of the input is driven on its own.
-        valid = s["u_in"]["valid"]
+        monitor.data.bind(u_out.data)
         context.elaborate()
 
-        s["u_in"].write((5, 0, [0] * 4, (0, 0), [0] * 4, (0, 0)))
+        # Field by field, as with a port per field.
+        u_in.data.d = 5
+        u_in.taps.d = [1, 2, 3, 4]
+        u_in.iq.re.d = 11
+        u_in.wide.d = to_words(1 << 99, 4)
+        # `id` is the field of the struct, not the id that every model has.
+        u_in.flags.id.d = 2
         context.run(10)
+        assert isinstance(u_out.data, FieldSignalS16)
+        assert u_out.data.name == "u_out.data"
+        assert u_out.data.q == -5
+        assert u_out.taps.q.tolist() == [4, 3, 2, 1]
+        assert u_out.iq.im.q == 11
+        assert from_words(u_out.wide.q) == (1 << 99) ^ ((1 << 100) - 1)
+        assert (u_out.flags.id.q, u_out.flags.last.q) == (3, 1)
         assert monitor.seen == [-5]
-        # Another field changes: the monitor is not woken.
-        valid.write(1)
+        # Through the ports, too.
+        assert dut.u_out.data.q == -5
+        assert dut.u_in.flags.id.q == 2
+
+        # Another field changes: the monitor is not woken, and the other fields keep their value.
+        u_in.valid.d = 1
         context.run(10)
-        assert s["u_out"].read().valid == 1
-        assert s["u_out"].read().data == -5
+        assert (u_out.valid.q, u_out.data.q) == (1, -5)
         assert monitor.seen == [-5]
-        value = s["u_in"].read()
-        value.data = 6
-        s["u_in"].write(value)
+        u_in.data.d = 6
         context.run(10)
         assert monitor.seen == [-5, -6]
+        assert u_in.q.iq.re == 11
+
+        # The fields of a packed struct, and of one in an array.
+        s["p_in"].flags.id.d = 4
+        s["w_in"].mid.d = -(1 << 38)
+        context.run(10)
+        assert s["p_out"].flags.id.q == 6
+        assert s["w_out"].mid.q == 1 << 38
 
 
 def test_value_struct_annotations():
-    """A struct port is annotated as a PortBase, or as a PortStruct if the module has a port per field."""
+    """A struct port is annotated as a RecordPort, or as a PortStruct if the module has a port per field."""
     source = HDL_DIR / "StructModel.sv"
 
     with pytest.raises(
         TypeError,
-        match=r"expected a struct \(PortBase\), got a struct \(PortStruct\)",
+        match=r"expected a struct \(RecordPort\), got a struct \(PortStruct\)",
     ) as error:
 
         @vbuilder(source=source, include_dirs=[HDL_DIR])
         class ValueAsField(VModule):
             clk: InputU8
             u_in: PortStruct
-            u_out: PortBase
-            p_in: PortBase
-            p_out: PortBase
-            w_in: PortBase
-            w_out: PortBase
+            u_out: RecordPort
+            p_in: RecordPort
+            p_out: RecordPort
+            w_in: RecordPort
+            w_out: RecordPort
 
     assert 'struct_ports="fields"' in str(error.value)
 
     with pytest.raises(
         TypeError,
-        match=r"expected a struct \(PortStruct\), got a struct \(PortBase\)",
+        match=r"expected a struct \(PortStruct\), got a struct \(RecordPort\)",
     ):
 
         @vbuilder(source=source, include_dirs=[HDL_DIR], struct_ports="fields")
         class FieldAsValue(VModule):
             clk: InputU8
-            u_in: PortBase
+            u_in: RecordPort
             u_out: PortStruct
             p_in: PortStruct
             p_out: PortStruct
@@ -478,18 +499,18 @@ def test_value_struct_annotations():
 
     with pytest.raises(
         TypeError,
-        match=r"expected a struct \(PortBase\), got an array of structs",
+        match=r"expected a struct \(RecordPort\), got an array of structs",
     ):
 
         @vbuilder(source=source, include_dirs=[HDL_DIR])
         class ValueAsArray(VModule):
             clk: InputU8
             u_in: PortBaseArrayView
-            u_out: PortBase
-            p_in: PortBase
-            p_out: PortBase
-            w_in: PortBase
-            w_out: PortBase
+            u_out: RecordPort
+            p_in: RecordPort
+            p_out: RecordPort
+            w_in: RecordPort
+            w_out: RecordPort
 
     with pytest.raises(TypeError, match="Struct mismatch for port 'u_in'"):
 
@@ -497,8 +518,8 @@ def test_value_struct_annotations():
         class ValueAsPort(VModule):
             clk: InputU8
             u_in: InputU8
-            u_out: PortBase
-            p_in: PortBase
-            p_out: PortBase
-            w_in: PortBase
-            w_out: PortBase
+            u_out: RecordPort
+            p_in: RecordPort
+            p_out: RecordPort
+            w_in: RecordPort
+            w_out: RecordPort

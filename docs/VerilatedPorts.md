@@ -11,8 +11,8 @@ JIT builder (`vbuilder`, `build_vmodule`) and to library builds, because both re
 | `real` | `Input<double>` / `Output<double>` | `InputFloat`, `OutputFloat` |
 | unpacked array `logic [7:0] a [2][3]` | `InputArray<T>` / `OutputArray<T>` of that shape | `InputArrayU8` ... |
 | more than 64 bits | array of 32-bit words | `InputArrayU32`, `OutputArrayU32` |
-| struct, packed or unpacked | one port with the struct as its value | `PortBase`, read and written as a numpy record |
-| array of structs | an array of such ports | `PortBaseArrayView` |
+| struct, packed or unpacked | one port with the struct as its value | `RecordPort`: fields are attributes, the value a numpy record |
+| array of structs | an array of such ports | `PortBaseArrayView` of `RecordPort`s |
 | struct, with `struct_ports = "fields"` | `PortStruct` with a port per field | `PortStruct` |
 | array of structs, with `struct_ports = "fields"` | `PortStructArray`, whose elements are `PortStruct`s | `PortStructArray` |
 | packed array, packed union | the vector of its bits: one of the first, second or fourth rows | |
@@ -81,12 +81,23 @@ stage.bus_in.bind(bus_in)
 stage.bus_out.bind(bus_out)
 context.elaborate()
 
-stage.bus_in.dtype  # numpy dtype with the fields data, valid, taps, iq
-bus_in.write((-100, 1, [1, 2, 3, 4], (5, -6)))
+bus_in.data.d = -100  # the fields are attributes: signals that are written ...
+bus_in.valid.d = 1
+bus_in.taps.d = [1, 2, 3, 4]
+bus_in.iq.re.d = 5
 context.run(10)
+bus_out.data.q  # ... and read on their own
+bus_out.iq.re.q
+await self.wait(bus_out.valid.pos())  # and waited for
+
+bus_in.write((-100, 1, [1, 2, 3, 4], (5, -6)))  # or the whole struct at once
 value = bus_out.read()  # a Record: value.data, value.iq.re, value.taps[0]
+stage.bus_in.dtype  # numpy dtype with the fields data, valid, taps, iq
 ```
 
+- The signal is a `RecordSignal` and the port a `RecordPort`. A field is the signal of that field, created
+  when it is first asked for, at any time. Fields written in one evaluation commit together, and the model
+  is evaluated once. See [StructValues.md](StructValues.md) for the names that are not fields as attributes.
 - A field has the type that a port of its own would have: the smallest of 8, 16, 32 and 64 bits that fits,
   signed if the field is, `double` for a `real`, an array for an unpacked array, and 32-bit words (least
   significant first) for more than 64 bits. A field that is a struct is a struct in the value.
@@ -101,15 +112,15 @@ value = bus_out.read()  # a Record: value.data, value.iq.re, value.taps[0]
 - An array of structs (`input bus_t buses [2][3]`) is an array of such ports, a `PortBaseArrayView` in Python:
   `dut.buses.signals("buses")` creates the signals, and `read()` gives one numpy array of shape `(2, 3)`.
 - To connect a struct port to modules with a port per field, bind those ports to the fields of the signal:
-  `monitor.data.bind(bus_out["data"])`.
+  `monitor.data.bind(bus_out.data)`.
 
 ### A port per field: `struct_ports = "fields"`
 
 With `struct_ports="fields"` a struct port is a `PortStruct` (`dspsim/struct.h`) instead: a group of ports
 with named fields, each with a signal of its own. Every field of the struct is a port of the kind that the
-table above gives for its type, and a field that is a struct is a `PortStruct` again. Use it when the fields
-are bound, driven or waited for one by one; it costs a signal per field (about 1.6 times the cycles of the
-value in the `verilated` benchmarks for a packed struct of four fields).
+table above gives for its type, and a field that is a struct is a `PortStruct` again. A field is then a port
+of the module, with a width and a direction of its own. It costs a signal per field: about 1.6 times the
+cycles of the value in the `verilated` benchmarks for a packed struct of four fields.
 
 ```python
 @vbuilder(source=source, struct_ports="fields")
@@ -299,9 +310,9 @@ class Stage(Module):
 ## Annotations
 
 The port annotations of a `vbuilder` class name the Python class of each port, and are checked against the
-model: `a: InputArrayU32` for a wide port, `bus_in: PortBase` for a struct port and `buses: PortBaseArrayView`
-for an array of structs, or `PortStruct` and `PortStructArray` with `struct_ports="fields"` (the fields are
-not annotated).
+model: `a: InputArrayU32` for a wide port, `bus_in: RecordPort` for a struct port and
+`buses: PortBaseArrayView` for an array of structs, or `PortStruct` and `PortStructArray` with
+`struct_ports="fields"` (the fields are not annotated).
 
 ## Verilator arguments
 
@@ -336,4 +347,4 @@ build.
 - The names of the members of Verilator's C++ structs (`__PVT__<field>`) are internal to Verilator, like the
   `m_storage` of its arrays that `vport.h` reads. They are in one place, `Port.vl_member` in `module_info.py`.
 - A struct value and a `PortStruct` of the same struct type do not bind to each other as a whole. Bind the
-  ports of the `PortStruct` to the fields of the struct signal (`ports.data.bind(bus["data"])`).
+  ports of the `PortStruct` to the fields of the struct signal (`ports.data.bind(bus.data)`).

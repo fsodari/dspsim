@@ -99,9 +99,10 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         .def_prop_ro("{{port.name}}", [](M &self) { return ::dspsim::port_base_array(self.{{port.name}}); },
             nanobind::keep_alive<0, 1>())
         {%-elif port.suffix is none%}
-        // A port whose value type the framework has no class for (a struct): Python has its base class, which
-        // reads and writes the value through the description of the type (DSPSIM_STRUCT).
-        .def_prop_ro("{{port.name}}", [](M &self) -> ::dspsim::PortBase & { return self.{{port.name}}; },
+        // A port whose value type the framework has no class for: Python has it as a RecordPort if the value
+        // is a struct and as a PortBase otherwise, and reads and writes the value through the description of
+        // the type (DSPSIM_STRUCT).
+        .def_prop_ro("{{port.name}}", [](M &self) -> decltype(auto) { return ::dspsim::port_base(self.{{port.name}}); },
             nanobind::rv_policy::reference_internal)
         {%-else%}
         .def_ro("{{port.name}}", &M::{{port.name}})

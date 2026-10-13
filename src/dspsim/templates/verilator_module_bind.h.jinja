@@ -23,8 +23,8 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         .def_prop_ro("{{port.name}}", []({{model.name}} &self) { return ::dspsim::port_base_array(self.{{port.name}}); },
             nanobind::keep_alive<0, 1>())
         {%-elif port.is_struct and model.struct_ports == "value"%}
-        // A struct port: Python reads and writes its value as a numpy record.
-        .def_prop_ro("{{port.name}}", []({{model.name}} &self) -> ::dspsim::PortBase & { return self.{{port.name}}; },
+        // A struct port: a RecordPort, whose value Python reads and writes as a numpy record.
+        .def_prop_ro("{{port.name}}", []({{model.name}} &self) -> ::dspsim::RecordPortBase & { return self.{{port.name}}; },
             nanobind::rv_policy::reference_internal)
         {%-elif port.is_struct%}
         .def_prop_ro("{{port.name}}", []({{model.name}} &self) -> ::dspsim::{{ "PortStructArray" if port.is_array else "PortStruct" }} & { return self.{{port.name}}; },

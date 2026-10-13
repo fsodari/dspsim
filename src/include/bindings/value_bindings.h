@@ -6,6 +6,10 @@
     of the value go to and from dspsim._values, which makes a numpy value of them (a numpy.record for a
     struct). The typed classes (SignalU8, InputS16, ...) have their own read() and write(), which hide these.
 
+    A signal or port whose value is a struct is a RecordSignal or a RecordPort (RecordSignalBase,
+    RecordPortBase): the fields of the struct are attributes, each the signal of that field, and they come
+    before the attributes that every signal has, so that a field called `id` or `width` is the field.
+
     SignalBaseArrayView and PortBaseArrayView are arrays of them: of the elements of an array of struct ports,
     or of an array field of a struct signal.
 */
@@ -16,8 +20,12 @@
 #include "nb_include.h"
 #include "ndarray_bindings.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace dspsim::bindings
@@ -26,6 +34,59 @@ namespace dspsim::bindings
 
     using SignalBaseArrayView = detail::NdView<SignalBase>;
     using PortBaseArrayView = detail::NdView<PortBase>;
+
+    /// The Python object of a signal: of the class of its value type if it has one (SignalU8, FieldSignalS16,
+    /// ...), a RecordSignal if its value is a struct, a SignalBase otherwise. nanobind finds the first by the
+    /// type of the object and falls back to the type of the pointer, which this chooses.
+    static inline nb::object signal_object(SignalBase *signal, nb::rv_policy policy = nb::rv_policy::reference, nb::handle parent = nb::handle())
+    {
+        if (RecordSignalBase *record = signal->record())
+        {
+            return nb::cast(record, policy, parent);
+        }
+        return nb::cast(signal, policy, parent);
+    }
+
+    static inline nb::object signal_object(const std::shared_ptr<SignalBase> &signal)
+    {
+        if (RecordSignalBase *record = signal->record())
+        {
+            return nb::cast(std::shared_ptr<RecordSignalBase>(signal, record));
+        }
+        return nb::cast(signal);
+    }
+
+    /// The Python object of a port: see signal_object().
+    static inline nb::object port_object(PortBase *port, nb::rv_policy policy = nb::rv_policy::reference, nb::handle parent = nb::handle())
+    {
+        if (RecordPortBase *record = port->record())
+        {
+            return nb::cast(record, policy, parent);
+        }
+        return nb::cast(port, policy, parent);
+    }
+
+    template <>
+    struct ElementCaster<SignalBase>
+    {
+        static constexpr bool custom = true;
+
+        static nb::object cast(SignalBase *element, nb::handle parent)
+        {
+            return signal_object(element, nb::rv_policy::reference_internal, parent);
+        }
+    };
+
+    template <>
+    struct ElementCaster<PortBase>
+    {
+        static constexpr bool custom = true;
+
+        static nb::object cast(PortBase *element, nb::handle parent)
+        {
+            return port_object(element, nb::rv_policy::reference_internal, parent);
+        }
+    };
 
     /// dspsim._values: the numpy side of the conversions.
     static inline nb::module_ values_module()
@@ -103,6 +164,14 @@ namespace dspsim::bindings
         return values_module().attr("from_bytes")(value_description(type), data);
     }
 
+    /// The pending value of a signal: what was written last.
+    static inline nb::object read_pending(const SignalBase &signal)
+    {
+        const ValueType &type = described_type(signal);
+        nb::bytes data(static_cast<const char *>(signal.pending_data()), value_bytes(type));
+        return values_module().attr("from_bytes")(value_description(type), data);
+    }
+
     /// Write a Python object to a signal or port.
     template <typename Model>
     static inline void write_value(Model &model, nb::handle value)
@@ -157,24 +226,68 @@ namespace dspsim::bindings
         }
     }
 
-    /// sig["field"]: the signal of a field, or the array of signals of the elements of an array field. The
-    /// field signals are owned by the context, like the signal of a bit selection.
-    static inline nb::object signal_field(SignalBase &signal, const std::string &name)
+    /// A field of a struct signal or port: the signal of the field, or the array of the signals of the
+    /// elements of a field that is an array. The field signals are owned by the context, like the signal of a
+    /// bit selection. Throws std::invalid_argument if there is no such field.
+    template <typename Record>
+    static inline nb::object record_field(Record &record, const std::string &name)
     {
-        // Only a struct has fields: for any other signal a name is the wrong type of key.
-        const ValueType *type = signal.value_type();
-        if (!type || type->kind != ValueType::Kind::structure || !type->shape.empty())
+        auto elements = record.field_array(name);
+        if (elements.ndim() == 0)
         {
-            throw nb::type_error(("Signal " + signal.hier_name() + " has no fields: its value is not a struct with a DSPSIM_STRUCT").c_str());
+            return signal_object(&elements.flat(0));
         }
+        return nb::cast(std::move(elements));
+    }
+
+    /// Whether a struct signal or port has a field of that name.
+    template <typename Record>
+    static inline bool has_record_field(const Record &record, std::string_view name)
+    {
+        const ValueType *type = record.value_type();
+        return type && type->kind == ValueType::Kind::structure && type->shape.empty() && type->layout->find(name);
+    }
+
+    /// __getattribute__ of a struct signal or port: a field comes before the attributes of the class, except
+    /// those in `api`, which are what a struct signal or port is used with. So `bus.id` is the field `id` of
+    /// the struct and not the id that every model has, while `bus.read` is always the method; a field called
+    /// `read` is an item, bus["read"].
+    template <typename Record, std::size_t N>
+    static inline nb::object record_attribute(nb::handle self, nb::handle name, const std::array<std::string_view, N> &api)
+    {
+        const std::string attribute = nb::cast<std::string>(name);
+        const bool reserved = attribute.starts_with("__") || std::find(api.begin(), api.end(), attribute) != api.end();
+        if (!reserved)
+        {
+            auto &record = nb::cast<Record &>(self);
+            if (has_record_field(record, attribute))
+            {
+                try
+                {
+                    return record_field(record, attribute);
+                }
+                catch (const std::logic_error &e)
+                {
+                    // A port that has no signal yet.
+                    throw nb::attribute_error(e.what());
+                }
+            }
+        }
+        PyObject *result = PyObject_GenericGetAttr(self.ptr(), name.ptr());
+        if (!result)
+        {
+            throw nb::python_error();
+        }
+        return nb::steal(result);
+    }
+
+    /// record["field"]: the same as the attribute, for a field whose name is taken.
+    template <typename Record>
+    static inline nb::object record_item(Record &record, const std::string &name)
+    {
         try
         {
-            auto elements = signal.field_array(name);
-            if (elements.ndim() == 0)
-            {
-                return nb::cast(&elements.flat(0), nb::rv_policy::reference);
-            }
-            return nb::cast(std::move(elements));
+            return record_field(record, name);
         }
         catch (const std::invalid_argument &e)
         {
@@ -194,20 +307,35 @@ namespace dspsim::bindings
             .def_prop_rw("value", &read_value<SignalBase>, &write_value<SignalBase>,
                          nb::for_getter(nb::sig("def value(self, /) -> typing.Any")),
                          nb::for_setter(nb::sig("def value(self, value: typing.Any, /) -> None")))
-            .def_prop_ro("q", &read_value<SignalBase>, nb::sig("def q(self, /) -> typing.Any"))
-            .def_prop_ro("fields", [](const SignalBase &s)
-                         {
-                             std::vector<std::string> names;
-                             const ValueType *type = s.value_type();
-                             if (type && type->kind == ValueType::Kind::structure && type->shape.empty())
-                             {
-                                 for (auto &f : type->layout->fields)
-                                 {
-                                     names.push_back(f.name);
-                                 }
-                             }
-                             return names; },
-                         "The names of the fields of a signal whose value is a struct.");
+            // "d" is the value that was written last and that the next update makes visible.
+            .def_prop_rw("d", &read_pending, &write_value<SignalBase>,
+                         nb::for_getter(nb::sig("def d(self, /) -> typing.Any")),
+                         nb::for_setter(nb::sig("def d(self, value: typing.Any, /) -> None")))
+            .def_prop_ro("q", &read_value<SignalBase>, nb::sig("def q(self, /) -> typing.Any"));
+    }
+
+    /// RecordSignal: a signal whose value is a struct. The fields are attributes and items.
+    static inline auto bind_record_signal(nb::module_ &m, const char *name)
+    {
+        // What a struct signal is used with: these names are never fields as attributes.
+        static constexpr std::array<std::string_view, 10> api{"read", "write", "value", "q", "d", "dtype", "fields", "change", "name", "hier_name"};
+        return nb::class_<RecordSignalBase, SignalBase>(m, name)
+            .def_prop_ro("fields", &RecordSignalBase::field_names, "The names of the fields.")
+            .def("__getattribute__", [](nb::handle self, nb::handle attribute)
+                 { return record_attribute<RecordSignalBase>(self, attribute, api); },
+                 nb::sig("def __getattribute__(self, name: str, /) -> typing.Any"))
+            // The key is the name of a field. The signature also has the keys of SignalBase, the bits of a
+            // number, which a struct does not have: an override must take what the base class takes.
+            .def("__getitem__", [](RecordSignalBase &record, nb::handle key)
+                 {
+                     if (!nb::isinstance<nb::str>(key))
+                     {
+                         throw nb::type_error("The key of a struct signal is the name of a field");
+                     }
+                     return record_item(record, nb::cast<std::string>(key)); }, nb::arg("key"),
+                 nb::sig("def __getitem__(self, key: str | int | slice, /) -> typing.Any"))
+            .def("__contains__", [](const RecordSignalBase &record, const std::string &field)
+                 { return has_record_field(record, field); });
     }
 
     /// The members of PortBase for a value without its type.
@@ -241,8 +369,27 @@ namespace dspsim::bindings
             .def_prop_ro("q", &read_value<PortBase>, nb::sig("def q(self, /) -> typing.Any"))
             .def("bind", bind, nb::arg("target"), nb::sig("def bind(self, target: typing.Any, /) -> None"))
             .def("__call__", bind, nb::arg("target"), nb::sig("def __call__(self, target: typing.Any, /) -> None"))
-            .def("signal", &PortBase::create_signal, nb::arg("name"),
+            .def("signal", [](const PortBase &port, const std::string &name)
+                 { return signal_object(port.create_signal(name)); }, nb::arg("name"),
+                 nb::sig("def signal(self, name: str) -> typing.Any"),
                  "Create a signal that the port can bind to: of its value type and width.");
+    }
+
+    /// RecordPort: a port whose value is a struct. The fields are those of the signal that it is bound to.
+    static inline auto bind_record_port(nb::module_ &m, const char *name)
+    {
+        // What a struct port is used with: these names are never fields as attributes.
+        static constexpr std::array<std::string_view, 12> api{"read", "write", "value", "q", "dtype", "fields", "change", "name",
+                                                              "hier_name", "bind", "signal", "is_output"};
+        return nb::class_<RecordPortBase, PortBase>(m, name)
+            .def_prop_ro("fields", &RecordPortBase::field_names, "The names of the fields.")
+            .def("__getattribute__", [](nb::handle self, nb::handle attribute)
+                 { return record_attribute<RecordPortBase>(self, attribute, api); },
+                 nb::sig("def __getattribute__(self, name: str, /) -> typing.Any"))
+            .def("__getitem__", &record_item<RecordPortBase>, nb::arg("field"),
+                 nb::sig("def __getitem__(self, field: str, /) -> typing.Any"))
+            .def("__contains__", [](const RecordPortBase &record, const std::string &field)
+                 { return has_record_field(record, field); });
     }
 
     static inline void check_same_shape(const Shape &a, const Shape &b)
@@ -262,6 +409,8 @@ namespace dspsim::bindings
                        .def("read", &read_values<Array>)
                        .def("write", &write_values<Array>, nb::arg("value"))
                        .def_prop_rw("value", &read_values<Array>, &write_values<Array>, nb::arg("value"))
+                       // Written like the other signals: array.d = values.
+                       .def_prop_rw("d", &read_values<Array>, &write_values<Array>, nb::arg("value"))
                        .def_prop_ro("q", &read_values<Array>)
                        .def("to_numpy", &read_values<Array>)
                        .def("__array__", [](const Array &a, nb::handle, nb::handle)
@@ -316,6 +465,7 @@ namespace dspsim::bindings
     static inline auto bind_field_signal(nb::module_ &m, const char *name)
     {
         return nb::class_<FieldSignal<T>, Signal<T>>(m, name)
-            .def_prop_ro("source", &FieldSignal<T>::source, nb::rv_policy::reference);
+            .def_prop_ro("source", [](const FieldSignal<T> &field)
+                         { return signal_object(&field.source()); }, nb::sig("def source(self, /) -> SignalBase"));
     }
 } // namespace dspsim::bindings

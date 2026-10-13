@@ -31,6 +31,18 @@ namespace demo
     };
     DSPSIM_STRUCT(Bus, tag, valid, data, iq, taps, gain)
 
+    /// Fields with the names of attributes that every signal has in Python.
+    struct Named
+    {
+        uint8_t id = 0;
+        uint16_t width = 0;
+        int8_t value = 0;
+        uint8_t name = 0;
+
+        bool operator==(const Named &) const = default;
+    };
+    DSPSIM_STRUCT(Named, id, width, value, name)
+
     /// A struct that Python cannot see into: it has no DSPSIM_STRUCT.
     struct Opaque
     {
@@ -57,6 +69,9 @@ namespace demo
         /// A number that the framework has no classes for.
         dspsim::Input<float> scale{"scale"};
         dspsim::Output<bool> flag{"flag"};
+        /// A struct whose fields have the names of attributes of a signal. The stage adds one to each.
+        dspsim::Input<Named> named_in{"named_in"};
+        dspsim::Output<Named> named_out{"named_out"};
         /// A struct without a description.
         dspsim::Input<Opaque> opaque_in{"opaque_in"};
         dspsim::Output<Opaque> opaque_out{"opaque_out"};
@@ -93,6 +108,9 @@ namespace demo
                 const Iq &sample = samples.flat(i).read();
                 conjugates.flat(i).write({sample.re, static_cast<int16_t>(-sample.im)});
             }
+            const Named &named = named_in.read();
+            named_out.write({static_cast<uint8_t>(named.id + 1), static_cast<uint16_t>(named.width + 1),
+                             static_cast<int8_t>(named.value + 1), static_cast<uint8_t>(named.name + 1)});
             flag.write(scale.read() > 1);
             opaque_out.write({opaque_in.read().count + 1});
             evaluations.write(++count_);
