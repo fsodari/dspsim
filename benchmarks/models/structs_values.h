@@ -2,7 +2,7 @@
     What the designs of the structs benchmarks compute, for both engines: the values that travel through the
     pipelines, and the functions of the source, a stage and the sink. structs.h and structs_sc.h only differ
     in how a value is read from the ports and written to them. The values are also the value types of the
-    SystemC signals that carry a whole struct.
+    signals that carry a whole struct.
 
     This file depends on nothing but the standard library.
 */
@@ -59,6 +59,28 @@ namespace benchmarks
     }
 
     /*
+        The duplex design: the bus, and an acknowledgement that travels the other way, from stage to stage
+        back to the source.
+    */
+    /// The bus that the source makes of the input of the testbench and the acknowledgement that it gets.
+    inline BusValue duplex_source(uint32_t in, uint16_t ack)
+    {
+        return bus_source(in + ack);
+    }
+
+    /// The acknowledgement that a stage registers, from the one it gets and the bus that it reads.
+    inline uint16_t ack_stage(uint16_t ack, const BusValue &v)
+    {
+        return static_cast<uint16_t>(ack + v.tag);
+    }
+
+    /// The acknowledgement that the sink registers.
+    inline uint16_t ack_sink(const BusValue &v)
+    {
+        return static_cast<uint16_t>(v.data ^ static_cast<uint16_t>(v.iq.re));
+    }
+
+    /*
         The arrays design: K elements with two fields each, as arrays of the fields or as an array of structs.
     */
     struct ElemValue
@@ -110,5 +132,80 @@ namespace benchmarks
     inline uint32_t array_sink(uint32_t hash, const ElemValue &v)
     {
         return hash * 31 + (v.data ^ v.gain);
+    }
+
+    /*
+        The three processes of the arrays design: source(out, value), stage(in, out) and sink(in).
+    */
+    /// The processes of a kind that reads and writes element by element: read(in, i), write(out, i, value).
+    template <typename Kind, int K>
+    struct Elementwise
+    {
+        template <typename Out>
+        static void source(Out &out, uint32_t value)
+        {
+            for (std::size_t i = 0; i < K; ++i)
+            {
+                Kind::write(out, i, array_source(value, i));
+            }
+        }
+
+        template <typename In, typename Out>
+        static void stage(const In &in, Out &out)
+        {
+            for (std::size_t i = 0; i < K; ++i)
+            {
+                Kind::write(out, i, array_stage(Kind::read(in, i)));
+            }
+        }
+
+        template <typename In>
+        static uint32_t sink(const In &in)
+        {
+            uint32_t hash = 0;
+            for (std::size_t i = 0; i < K; ++i)
+            {
+                hash = array_sink(hash, Kind::read(in, i));
+            }
+            return hash;
+        }
+    };
+
+    /// The same processes on all elements as one value, for a kind with one signal per link.
+    template <int K>
+    SoaValue<K> soa_source(uint32_t value)
+    {
+        SoaValue<K> next;
+        for (std::size_t i = 0; i < K; ++i)
+        {
+            const ElemValue element = array_source(value, i);
+            next.data[i] = element.data;
+            next.gain[i] = element.gain;
+        }
+        return next;
+    }
+
+    template <int K>
+    SoaValue<K> soa_stage(const SoaValue<K> &current)
+    {
+        SoaValue<K> next;
+        for (std::size_t i = 0; i < K; ++i)
+        {
+            const ElemValue element = array_stage({current.data[i], current.gain[i]});
+            next.data[i] = element.data;
+            next.gain[i] = element.gain;
+        }
+        return next;
+    }
+
+    template <int K>
+    uint32_t soa_sink(const SoaValue<K> &current)
+    {
+        uint32_t hash = 0;
+        for (std::size_t i = 0; i < K; ++i)
+        {
+            hash = array_sink(hash, {current.data[i], current.gain[i]});
+        }
+        return hash;
     }
 }

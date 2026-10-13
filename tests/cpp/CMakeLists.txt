@@ -31,7 +31,8 @@ add_executable(tests
     test_spawn.cpp
     test_channel.cpp
     test_process_control.cpp
-    test_struct.cpp)
+    test_struct.cpp
+    test_value_signal.cpp)
 target_link_libraries(tests PRIVATE dspsim-core Catch2::Catch2WithMain)
 target_compile_options(tests PRIVATE 
     # GCC and Clang syntax

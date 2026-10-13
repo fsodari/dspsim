@@ -135,23 +135,6 @@ namespace dspsim
     }
 
     template <typename T>
-    Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
-    {
-    }
-
-    template <typename T>
-    void Input<T>::bind(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Input<T>::bind(Input<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
     void Input<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
@@ -159,57 +142,10 @@ namespace dspsim
     }
 
     template <typename T>
-    void Input<T>::bind_signal(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Input<T>::bind_port(Input<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
-    Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
-    {
-    }
-
-    template <typename T>
-    void Output<T>::bind(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Output<T>::bind(Output<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
     void Output<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
         bind_base(make_derived_signal<T>(*this, selection));
-    }
-
-    template <typename T>
-    void Output<T>::bind_signal(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Output<T>::bind_port(Output<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
-    const T &Output<T>::read_d_() const
-    {
-        return static_cast<Signal<T> *>(bound_signal_)->read_d_();
     }
 
     template class Input<uint8_t>;

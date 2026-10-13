@@ -2,12 +2,16 @@
 #include <dspsim/model.h>
 #include <dspsim/event.h>
 #include <dspsim/ndarray.h>
+#include <dspsim/bits.h>
 #include <dspsim/bitsel.h>
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -67,6 +71,12 @@ namespace dspsim
         // writes belong to the evaluation phase. The engine does not check this.
         virtual void update() = 0;
 
+        /// Schedule update() for the update phase of this delta cycle, however often it is called.
+        /// Signal<T>::write() calls it when the pending value differs from the committed one. It is not
+        /// inline, so that a Signal<T> of a user's type, which is compiled outside of the core library, needs
+        /// nothing of the scheduler (signal.h does not include context.h).
+        void request_update();
+
         /// The committed value as raw bits, masked to width(). Only called on integral signals (BitSel checks).
         virtual uint64_t read_bits() const = 0;
         /// Replace the bits of the pending value selected by mask with the bits of value, and schedule an update.
@@ -112,12 +122,41 @@ namespace dspsim
         SensitivityEvent negedge_event_;
     };
 
+    /*
+        A signal with a value of type T: what a process writes becomes the value that the processes read in
+        the update phase of the delta cycle, and the processes that are sensitive to the signal are then
+        evaluated if the value changed.
+
+        T is any type that can be copied, compared with == and constructed without arguments: a number, or
+        a struct, a std::array, an enumeration ... of a model. With a struct as its value, a signal carries
+        all the fields at once: a write replaces the whole value, the signal commits once and has one change
+        event, whichever field changed. (A PortStruct is the other way to give a module a struct port: a port
+        and a signal per field, which can have different directions and be driven by different processes.)
+
+            struct Sample
+            {
+                int16_t re = 0;
+                int16_t im = 0;
+                bool operator==(const Sample &) const = default;
+            };
+            Signal<Sample> x{"x"};          // Input<Sample>, Output<Sample>, SignalArray<Sample> ...
+            x.write({3, -4});
+
+        Only a number has edges and a width in bits, and only an integer can be sliced. The events pos()
+        and neg() of a signal of another type never occur.
+
+        The member functions are defined in this header, below the class, for the types of models. The
+        signals of the numeric types are instantiated in the core library (see the end of this file).
+    */
     template <typename T>
     class Signal : public SignalBase
     {
+        static_assert(std::copyable<T> && std::default_initializable<T> && std::equality_comparable<T>,
+                      "The value type of a Signal must be copyable, default constructible and comparable with ==");
 
     public:
-        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0);
+        /// For a type that is not a number the width is not used.
+        Signal(const std::string &name = "", int width = default_bitwidth<T>::value, T init = {});
         virtual ~Signal() = default;
         /// Set the committed and pending value without notifying events. Derived signals have no value of
         /// their own, so init() throws std::logic_error for them; init the source signals instead.
@@ -143,7 +182,7 @@ namespace dspsim
         /*
             Static Methods
         */
-        static std::shared_ptr<Signal<T>> create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = 0);
+        static std::shared_ptr<Signal<T>> create(const std::string &name = "", int width = default_bitwidth<T>::value, T init = {});
 
         // The pending value. Shouldn't be needed in a design, but it's available.
         const T &read_d_() const;
@@ -156,6 +195,155 @@ namespace dspsim
     protected:
         T d_, q_;
     };
+
+    /*
+        The member functions of Signal<T>. They are in the header so that a model can have signals of its
+        own types; for the numeric types they are compiled once, in the core library.
+    */
+    template <typename T>
+    Signal<T>::Signal(const std::string &name, int width, T init)
+        : SignalBase(name, width), d_(init), q_(std::move(init))
+    {
+    }
+
+    template <typename T>
+    Signal<T> &Signal<T>::init(const T &value)
+    {
+        if (source_selection_)
+        {
+            throw std::logic_error("Cannot init derived signal " + hier_name() + ": init its source signals instead");
+        }
+        d_ = value;
+        q_ = value;
+        refresh_dependents();
+        return *this;
+    }
+
+    template <typename T>
+    const std::string Signal<T>::repr() const
+    {
+        return "";
+    }
+
+    template <typename T>
+    void Signal<T>::write(const T &value)
+    {
+        if constexpr (std::is_integral_v<T>)
+        {
+            // A derived signal is a view of its sources: write the bits through to them. The sources schedule
+            // their updates, and this signal is recomputed from them in the update phase.
+            if (source_selection_) [[unlikely]]
+            {
+                source_selection_->write(static_cast<uint64_t>(value));
+                return;
+            }
+        }
+        d_ = value;
+
+        // A signal that is written back to its committed value stays scheduled: update() ignores it, which
+        // is cheaper than taking it off the stack.
+        if (d_ != q_) [[likely]]
+        {
+            request_update();
+        }
+    }
+
+    template <typename T>
+    bool Signal<T>::is_integral() const
+    {
+        return std::is_integral_v<T>;
+    }
+
+    template <typename T>
+    std::shared_ptr<Signal<T>> Signal<T>::create(const std::string &name, int width, T init)
+    {
+        return Model::create<Signal<T>>(name, width, std::move(init));
+    }
+
+    template <typename T>
+    const T &Signal<T>::read_d_() const
+    {
+        return d_;
+    }
+
+    template <typename T>
+    void Signal<T>::update()
+    {
+        if (d_ == q_) [[unlikely]]
+        {
+            return;
+        }
+
+        if constexpr (std::is_arithmetic_v<T>)
+        {
+            if (d_ && !q_)
+            {
+                pos().notify_committed();
+            }
+            else if (!d_ && q_)
+            {
+                neg().notify_committed();
+            }
+        }
+        change().notify_committed();
+
+        this->q_ = this->d_;
+
+        if (has_dependents_) [[unlikely]]
+        {
+            schedule_dependents();
+        }
+    }
+
+    template <typename T>
+    uint64_t Signal<T>::read_bits() const
+    {
+        if constexpr (std::is_integral_v<T>)
+        {
+            return zext(static_cast<uint64_t>(q_), width());
+        }
+        else
+        {
+            // BitSel only refers to integral signals.
+            std::unreachable();
+        }
+    }
+
+    template <typename T>
+    void Signal<T>::write_bits(uint64_t value, uint64_t mask)
+    {
+        if constexpr (std::is_integral_v<T>)
+        {
+            const uint64_t raw = (static_cast<uint64_t>(d_) & ~mask) | (value & mask);
+            if constexpr (std::is_signed_v<T>)
+            {
+                // Keep signed values sign extended from the signal's width.
+                write(static_cast<T>(sext(raw, width())));
+            }
+            else
+            {
+                write(static_cast<T>(raw));
+            }
+        }
+        else
+        {
+            (void)value;
+            (void)mask;
+            std::unreachable();
+        }
+    }
+
+    // Instantiated in signal.cpp.
+    extern template class Signal<uint8_t>;
+    extern template class Signal<uint16_t>;
+    extern template class Signal<uint32_t>;
+    extern template class Signal<uint64_t>;
+    extern template class Signal<int8_t>;
+    extern template class Signal<int16_t>;
+    extern template class Signal<int32_t>;
+    extern template class Signal<int64_t>;
+    extern template class Signal<float>;
+    extern template class Signal<double>;
 
     /*
         Non-owning view of a selection of a SignalArray (or another view). Obtained with SignalArray::slice.
@@ -183,7 +371,7 @@ namespace dspsim
     {
     public:
         SignalArray(const std::string &name, Shape shape,
-                    int width = default_bitwidth<T>::value, T init = 0)
+                    int width = default_bitwidth<T>::value, T init = {})
             : detail::NdArray<Signal<T>>(name, std::move(shape), [&](const std::string &n, std::size_t)
                                          { return std::make_unique<Signal<T>>(n, width, init); })
         {
@@ -197,7 +385,7 @@ namespace dspsim
         // Heap-allocate an array whose lifetime is managed by the context (like Signal::create).
         // The context shares ownership of the array, and with it of its elements.
         static std::shared_ptr<SignalArray<T>> create(const std::string &name, Shape shape,
-                                                      int width = default_bitwidth<T>::value, T init = 0)
+                                                      int width = default_bitwidth<T>::value, T init = {})
         {
             auto array = std::make_shared<SignalArray<T>>(name, std::move(shape), width, init);
             // An array without elements registered nothing with the context: nothing refers to it.

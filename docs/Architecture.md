@@ -130,6 +130,34 @@ A signal can also be sliced and packed (`sig[{hi, lo}]`, `pack(a, b)`). Signals 
 from such a selection are recomputed in a second pass of the update phase. See
 [BitSlicing.md](BitSlicing.md).
 
+`T` is any type that can be copied, compared with `==` and constructed without arguments. The numbers
+(`uint8_t` to `int64_t`, `float`, `double`) are the types that the core library instantiates and that
+Python knows. A model can use others, which are compiled with the model:
+
+```cpp
+struct Sample
+{
+    int16_t re = 0;
+    int16_t im = 0;
+    bool operator==(const Sample &) const = default;
+};
+
+dspsim::Input<Sample> in{"in"};       // also Output<Sample>, Signal<Sample>, SignalArray<Sample> ...
+out.write({in.read().im, in.read().re});
+```
+
+With a struct (or a `std::array`, an enumeration, ...) as its value, a signal carries all the fields at
+once: a write replaces the whole value, the signal is compared and committed once, and it has one change
+event, whichever field changed. Its `pos()` and `neg()` never occur, and it cannot be sliced. This is the
+fast way to pass a struct whose fields go in one direction (see the `structs` suite in
+[Benchmarks.md](Benchmarks.md)): one signal instead of one per field. A `PortStruct` (below) is the other
+way: a port and a signal per field, which can have different directions, be driven by different processes
+and be waited for one by one. Such signals and ports are C++ only for now: they have no Python bindings.
+
+`Signal<T>::write()` schedules the signal with `SignalBase::request_update()`, which is not inline: the
+member functions of `Signal<T>` are in the header, for the types of models, and need nothing of the
+scheduler that way.
+
 ### `SensitivityEvent` / `TimeEvent` ([event.h](../src/include/dspsim/event.h) / [event.cpp](../src/event.cpp))
 A `SensitivityEvent` holds the processes that are sensitive to it, in two lists: static
 subscribers (scheduled every time the event occurs) and dynamic subscribers (scheduled
@@ -307,6 +335,8 @@ back. The generated subclass registers it with `DSPSIM_METHOD(eval)->always("*")
 model is evaluated whenever one of its inputs changes. `open_trace()` asks the context to
 call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
 the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
+A generated module has an `eval()` of its own that does the same with one `sync()` call per port,
+written out by name: the port classes are final, so none of those calls is virtual.
 
 `vport.h` has a port class for each way Verilator stores a port, all derived from the ordinary
 `Input<T>`/`Output<T>` and their arrays, with a `sync()` that copies between the bound signal and the
@@ -366,6 +396,12 @@ The public headers are written to be cheap to include, since every model, test a
   `SensitivityEvent::Subscribers`; both structs are defined in the `.cpp` file.
 - Definitions live in the `.cpp` files, except for templates over a user's type and the one-line accessors
   on the run cycle, which stay inline in the headers. Each of those has a comment saying so.
+  - `Signal<T>`, `Input<T>` and `Output<T>` are templates over a user's type: a model can have signals with
+    a struct as their value. Their member functions are defined in the headers, below the classes. For the
+    numeric types they are still compiled once, in `signal.cpp` and `port.cpp`: the headers declare those
+    instantiations `extern template`, so model code calls into the core library as before (the instruction
+    counts of the benchmarks did not change when the definitions moved). `Input<T>::bind(const BitSel &)`
+    and `DerivedSignal<T>` only exist for the integer types and stay in the `.cpp` files.
   - Model code calls these on every evaluation: `Signal::read()`, `Input::read()`, `Output::write()`, the
     `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`,
     `Module::wait()` (the wait on the static sensitivity list), the awaitables'

@@ -10,6 +10,14 @@
     The source is combinational and the stages and the sink are clocked. The modules are the same for every
     kind of a design. A kind says what the ports of a link are, how a value is read from them and written to
     them, and how two modules are connected.
+
+    dspsim has two ways to give a module a struct port, and both are here:
+
+    - A PortStruct: a port and a signal per field, grouped and bound as a whole (the kinds "struct", "soa",
+      "aos"). The fields can have different directions (the duplex design). It is the same simulation as the
+      ports without the struct (the kinds "ports").
+    - A port with the struct as its value (Input<BusValue>): one signal carries all fields, and a write
+      compares and copies the whole value (the kinds "value", "soa_value", "aos_value").
 */
 #pragma once
 #include "structs_values.h"
@@ -35,8 +43,27 @@ namespace benchmarks
         }
     };
 
+    /// Bind an output and an input to a signal of their own.
+    template <typename T>
+    void connect_ports(dspsim::Output<T> &out, dspsim::Input<T> &in, const std::string &name)
+    {
+        auto signal = dspsim::Signal<T>::create(name);
+        out.bind(*signal);
+        in.bind(*signal);
+    }
+
+    /// Bind two struct ports to the signals that one of them creates.
+    template <typename Out, typename In>
+    void connect_structs(Out &out, In &in, const std::string &name)
+    {
+        auto link = out.signals(name);
+        out.bind(link);
+        in.bind(link);
+    }
+
     /*
-        The bus design. The ports of a bus are the same members whether they are a struct or not.
+        The bus design. A kind has the port types In and Out, constructed from a name, connect(), read(in)
+        and write(out, value). The ports of a bus are the same members whether they are a struct or not.
     */
     template <typename Base, template <typename> class Port>
     struct IqPorts : Base
@@ -67,58 +94,82 @@ namespace benchmarks
         }
     };
 
-    /// Bus kind "ports": a port per field, each bound to a signal of its own.
-    struct BusFields
-    {
-        using In = BusPorts<NoStruct, dspsim::Input>;
-        using Out = BusPorts<NoStruct, dspsim::Output>;
-
-        static void connect(Out &out, In &in, const std::string &name)
-        {
-            connect(out.data, in.data, name + ".data");
-            connect(out.tag, in.tag, name + ".tag");
-            connect(out.iq.re, in.iq.re, name + ".iq.re");
-            connect(out.iq.im, in.iq.im, name + ".iq.im");
-        }
-
-    private:
-        template <typename T>
-        static void connect(dspsim::Output<T> &out, dspsim::Input<T> &in, const std::string &name)
-        {
-            auto signal = dspsim::Signal<T>::create(name);
-            out.bind(*signal);
-            in.bind(*signal);
-        }
-    };
-
-    /// Bus kind "struct": the ports are a PortStruct, bound as a whole to the signals that it creates.
-    struct BusStruct
-    {
-        using In = BusPorts<dspsim::PortStruct, dspsim::Input>;
-        using Out = BusPorts<dspsim::PortStruct, dspsim::Output>;
-
-        static void connect(Out &out, In &in, const std::string &name)
-        {
-            auto link = out.signals(name);
-            out.bind(link);
-            in.bind(link);
-        }
-    };
-
-    template <typename Base>
-    BusValue read_bus(const BusPorts<Base, dspsim::Input> &bus)
+    /// The fields of a bus, read from a port per field and written to them. P has the members of BusPorts.
+    template <typename P>
+    BusValue read_fields(const P &bus)
     {
         return {bus.data.read(), bus.tag.read(), {bus.iq.re.read(), bus.iq.im.read()}};
     }
 
-    template <typename Base>
-    void write_bus(BusPorts<Base, dspsim::Output> &bus, const BusValue &value)
+    template <typename P>
+    void write_fields(P &bus, const BusValue &value)
     {
         bus.data.write(value.data);
         bus.tag.write(value.tag);
         bus.iq.re.write(value.iq.re);
         bus.iq.im.write(value.iq.im);
     }
+
+    /// Common to the two kinds with a port per field. Base says whether the ports are a struct.
+    template <typename Base>
+    struct BusAccess
+    {
+        using In = BusPorts<Base, dspsim::Input>;
+        using Out = BusPorts<Base, dspsim::Output>;
+
+        static BusValue read(const In &bus)
+        {
+            return read_fields(bus);
+        }
+
+        static void write(Out &bus, const BusValue &value)
+        {
+            write_fields(bus, value);
+        }
+    };
+
+    /// Bus kind "ports": a port per field, each bound to a signal of its own.
+    struct BusFields : BusAccess<NoStruct>
+    {
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_ports(out.data, in.data, name + ".data");
+            connect_ports(out.tag, in.tag, name + ".tag");
+            connect_ports(out.iq.re, in.iq.re, name + ".iq.re");
+            connect_ports(out.iq.im, in.iq.im, name + ".iq.im");
+        }
+    };
+
+    /// Bus kind "struct": the ports are a PortStruct, bound as a whole to the signals that it creates.
+    struct BusStruct : BusAccess<dspsim::PortStruct>
+    {
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_structs(out, in, name);
+        }
+    };
+
+    /// Bus kind "value": one port and one signal, with the struct as the value.
+    struct BusSignal
+    {
+        using In = dspsim::Input<BusValue>;
+        using Out = dspsim::Output<BusValue>;
+
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_ports(out, in, name);
+        }
+
+        static const BusValue &read(const In &bus)
+        {
+            return bus.read();
+        }
+
+        static void write(Out &bus, const BusValue &value)
+        {
+            bus.write(value);
+        }
+    };
 
     template <typename Kind>
     DSPSIM_MODULE(BusSource)
@@ -135,7 +186,7 @@ namespace benchmarks
 
         void eval()
         {
-            write_bus(m, bus_source(in.read()));
+            Kind::write(m, bus_source(in.read()));
         }
     };
 
@@ -156,7 +207,7 @@ namespace benchmarks
 
         void eval()
         {
-            write_bus(m, bus_stage(read_bus(s)));
+            Kind::write(m, bus_stage(Kind::read(s)));
         }
     };
 
@@ -177,15 +228,146 @@ namespace benchmarks
 
         void eval()
         {
-            out.write(bus_sink(read_bus(s)));
+            out.write(bus_sink(Kind::read(s)));
+        }
+    };
+
+    /*
+        The duplex design: the bus, and a field in the other direction. A link carries the bus from the module
+        that drives it to the one that reads it, and an acknowledgement back, like an interface with modports
+        in SystemVerilog. Every stage registers both. Out is the side of a link that drives the bus, In the
+        side that reads it; read() and write() are those of the bus.
+    */
+    /// One side of a link. Fwd is the direction of the bus on that side, Bwd that of the acknowledgement.
+    template <typename Base, template <typename> class Fwd, template <typename> class Bwd>
+    struct DuplexPorts : Base
+    {
+        Fwd<uint32_t> data;
+        Fwd<uint8_t> tag;
+        IqPorts<Base, Fwd> iq;
+        Bwd<uint16_t> ack;
+
+        explicit DuplexPorts(const std::string &name)
+            : Base(name), data(name + ".data"), tag(name + ".tag"), iq(name + ".iq"), ack(name + ".ack")
+        {
+            this->add("data", data);
+            this->add("tag", tag);
+            this->add("iq", iq);
+            this->add("ack", ack);
+        }
+    };
+
+    /// Common to the duplex kinds. Base says whether the ports of a side are a struct.
+    template <typename Base>
+    struct DuplexAccess
+    {
+        using In = DuplexPorts<Base, dspsim::Input, dspsim::Output>;
+        using Out = DuplexPorts<Base, dspsim::Output, dspsim::Input>;
+
+        static BusValue read(const In &bus)
+        {
+            return read_fields(bus);
+        }
+
+        static void write(Out &bus, const BusValue &value)
+        {
+            write_fields(bus, value);
+        }
+    };
+
+    /// Duplex kind "ports": a port per field, each bound to a signal of its own.
+    struct DuplexFields : DuplexAccess<NoStruct>
+    {
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_ports(out.data, in.data, name + ".data");
+            connect_ports(out.tag, in.tag, name + ".tag");
+            connect_ports(out.iq.re, in.iq.re, name + ".iq.re");
+            connect_ports(out.iq.im, in.iq.im, name + ".iq.im");
+            connect_ports(in.ack, out.ack, name + ".ack");
+        }
+    };
+
+    /// Duplex kind "struct": each side is one PortStruct with fields in both directions, bound as a whole.
+    struct DuplexStruct : DuplexAccess<dspsim::PortStruct>
+    {
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_structs(out, in, name);
+        }
+    };
+
+    template <typename Kind>
+    DSPSIM_MODULE(DuplexSource)
+    {
+    public:
+        dspsim::Input<uint32_t> in{"in"};
+        typename Kind::Out m{"m"};
+
+        DSPSIM_CTOR(DuplexSource)
+        {
+            DSPSIM_METHOD(eval)
+                ->always(in, m.ack);
+        }
+
+        void eval()
+        {
+            Kind::write(m, duplex_source(in.read(), m.ack.read()));
+        }
+    };
+
+    template <typename Kind>
+    DSPSIM_MODULE(DuplexStage)
+    {
+    public:
+        dspsim::Input<uint8_t> clk{"clk"};
+        typename Kind::In s{"s"};
+        typename Kind::Out m{"m"};
+
+        DSPSIM_CTOR(DuplexStage)
+        {
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos())
+                ->initialize(false);
+        }
+
+        void eval()
+        {
+            const BusValue value = Kind::read(s);
+            Kind::write(m, bus_stage(value));
+            s.ack.write(ack_stage(m.ack.read(), value));
+        }
+    };
+
+    template <typename Kind>
+    DSPSIM_MODULE(DuplexSink)
+    {
+    public:
+        dspsim::Input<uint8_t> clk{"clk"};
+        typename Kind::In s{"s"};
+        dspsim::Output<uint32_t> out{"out"};
+
+        DSPSIM_CTOR(DuplexSink)
+        {
+            DSPSIM_METHOD(eval)
+                ->always(clk.pos())
+                ->initialize(false);
+        }
+
+        void eval()
+        {
+            const BusValue value = Kind::read(s);
+            out.write(bus_sink(value));
+            s.ack.write(ack_sink(value));
         }
     };
 
     /*
         The arrays design: every link carries K elements with the fields data and gain.
 
-        A kind has the port types In and Out, constructed from a name, connect(), and read(in, i) and
-        write(out, i, value) for element i.
+        A kind has the port types In and Out, constructed from a name, connect(), and the three processes
+        source(out, value), stage(in, out) and sink(in). A kind that reads and writes element by element has
+        read(in, i) and write(out, i, value) and takes the processes from Elementwise.
     */
     /// The elements as an array per field. Base says whether the two arrays are a struct.
     template <typename Base, template <typename> class PortArray, int K>
@@ -222,7 +404,7 @@ namespace benchmarks
 
     /// Arrays kind "ports": a port array per field, each bound to a signal array of its own.
     template <int K>
-    struct ArrayFields : SoaAccess<NoStruct, K>
+    struct ArrayFields : SoaAccess<NoStruct, K>, Elementwise<ArrayFields<K>, K>
     {
         using typename SoaAccess<NoStruct, K>::In;
         using typename SoaAccess<NoStruct, K>::Out;
@@ -240,16 +422,42 @@ namespace benchmarks
 
     /// Arrays kind "soa": a struct of arrays, a PortStruct whose fields are port arrays.
     template <int K>
-    struct ArraySoa : SoaAccess<dspsim::PortStruct, K>
+    struct ArraySoa : SoaAccess<dspsim::PortStruct, K>, Elementwise<ArraySoa<K>, K>
     {
         using typename SoaAccess<dspsim::PortStruct, K>::In;
         using typename SoaAccess<dspsim::PortStruct, K>::Out;
 
         static void connect(Out &out, In &in, const std::string &name)
         {
-            auto link = out.signals(name);
-            out.bind(link);
-            in.bind(link);
+            connect_structs(out, in, name);
+        }
+    };
+
+    /// Arrays kind "soa_value": one port and one signal, with a struct of arrays as the value.
+    template <int K>
+    struct ArraySoaValue
+    {
+        using In = dspsim::Input<SoaValue<K>>;
+        using Out = dspsim::Output<SoaValue<K>>;
+
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            connect_ports(out, in, name);
+        }
+
+        static void source(Out &out, uint32_t value)
+        {
+            out.write(soa_source<K>(value));
+        }
+
+        static void stage(const In &in, Out &out)
+        {
+            out.write(soa_stage(in.read()));
+        }
+
+        static uint32_t sink(const In &in)
+        {
+            return soa_sink(in.read());
         }
     };
 
@@ -274,17 +482,9 @@ namespace benchmarks
         explicit AosPorts(const std::string &name) : dspsim::PortStructArrayOf<ElemPorts<Port>>(name, {K}) {}
     };
 
-    /// Bind two arrays of structs to the signals that one of them creates.
-    inline void connect_structs(dspsim::PortStructArray &out, dspsim::PortStructArray &in, const std::string &name)
-    {
-        auto link = out.signals(name);
-        out.bind(link);
-        in.bind(link);
-    }
-
-    /// Arrays kind "aos": an array of structs. An element is the struct at a flat index.
+    /// Common to the kinds whose ports are an array of structs.
     template <int K>
-    struct ArrayAos
+    struct AosAccess
     {
         using In = AosPorts<dspsim::Input, K>;
         using Out = AosPorts<dspsim::Output, K>;
@@ -293,6 +493,14 @@ namespace benchmarks
         {
             connect_structs(out, in, name);
         }
+    };
+
+    /// Arrays kind "aos": an array of structs. An element is the struct at a flat index.
+    template <int K>
+    struct ArrayAos : AosAccess<K>, Elementwise<ArrayAos<K>, K>
+    {
+        using typename AosAccess<K>::In;
+        using typename AosAccess<K>::Out;
 
         static ElemValue read(const In &in, std::size_t i)
         {
@@ -310,10 +518,10 @@ namespace benchmarks
 
     /// Arrays kind "aos_index": the same array of structs, with every access written as ports[{i}].field.
     template <int K>
-    struct ArrayAosIndex : ArrayAos<K>
+    struct ArrayAosIndex : AosAccess<K>, Elementwise<ArrayAosIndex<K>, K>
     {
-        using typename ArrayAos<K>::In;
-        using typename ArrayAos<K>::Out;
+        using typename AosAccess<K>::In;
+        using typename AosAccess<K>::Out;
 
         static ElemValue read(const In &in, std::size_t i)
         {
@@ -330,7 +538,7 @@ namespace benchmarks
     /// Arrays kind "aos_view": an array of structs that is accessed by field, through the views of one field
     /// of every element, which the module keeps.
     template <int K>
-    struct ArrayAosView
+    struct ArrayAosView : Elementwise<ArrayAosView<K>, K>
     {
         struct In
         {
@@ -373,7 +581,40 @@ namespace benchmarks
         }
     };
 
-    template <typename Kind, int K>
+    /// Arrays kind "aos_value": an array of K ports and of K signals, with the struct of an element as their
+    /// value.
+    template <int K>
+    struct ArrayAosValue : Elementwise<ArrayAosValue<K>, K>
+    {
+        struct In : dspsim::InputArray<ElemValue>
+        {
+            explicit In(const std::string &name) : dspsim::InputArray<ElemValue>(name, {K}) {}
+        };
+
+        struct Out : dspsim::OutputArray<ElemValue>
+        {
+            explicit Out(const std::string &name) : dspsim::OutputArray<ElemValue>(name, {K}) {}
+        };
+
+        static void connect(Out &out, In &in, const std::string &name)
+        {
+            auto link = dspsim::SignalArray<ElemValue>::create(name, {K});
+            out.bind(*link);
+            in.bind(*link);
+        }
+
+        static const ElemValue &read(const In &in, std::size_t i)
+        {
+            return in.flat(i).read();
+        }
+
+        static void write(Out &out, std::size_t i, const ElemValue &value)
+        {
+            out.flat(i).write(value);
+        }
+    };
+
+    template <typename Kind>
     DSPSIM_MODULE(ArraySource)
     {
     public:
@@ -388,15 +629,11 @@ namespace benchmarks
 
         void eval()
         {
-            const uint32_t value = in.read();
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                Kind::write(m, i, array_source(value, i));
-            }
+            Kind::source(m, in.read());
         }
     };
 
-    template <typename Kind, int K>
+    template <typename Kind>
     DSPSIM_MODULE(ArrayStage)
     {
     public:
@@ -413,14 +650,11 @@ namespace benchmarks
 
         void eval()
         {
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                Kind::write(m, i, array_stage(Kind::read(s, i)));
-            }
+            Kind::stage(s, m);
         }
     };
 
-    template <typename Kind, int K>
+    template <typename Kind>
     DSPSIM_MODULE(ArraySink)
     {
     public:
@@ -437,12 +671,7 @@ namespace benchmarks
 
         void eval()
         {
-            uint32_t hash = 0;
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                hash = array_sink(hash, Kind::read(s, i));
-            }
-            out.write(hash);
+            out.write(Kind::sink(s));
         }
     };
 
@@ -480,6 +709,9 @@ namespace benchmarks
     template <typename Kind>
     using BusPipeline = StructPipeline<Kind, BusSource<Kind>, BusStage<Kind>, BusSink<Kind>>;
 
-    template <typename Kind, int K>
-    using ArrayPipeline = StructPipeline<Kind, ArraySource<Kind, K>, ArrayStage<Kind, K>, ArraySink<Kind, K>>;
+    template <typename Kind>
+    using DuplexPipeline = StructPipeline<Kind, DuplexSource<Kind>, DuplexStage<Kind>, DuplexSink<Kind>>;
+
+    template <typename Kind>
+    using ArrayPipeline = StructPipeline<Kind, ArraySource<Kind>, ArrayStage<Kind>, ArraySink<Kind>>;
 }

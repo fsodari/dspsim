@@ -34,10 +34,26 @@ from dspsim.module_info import (
     CppTemplateParameter,
 )
 
-# The dspsim port classes, as libclang spells their canonical types: "dspsim::InputArray<short>".
+# The dspsim port classes, as libclang spells their canonical types: "dspsim::InputArray<short>", or
+# "dspsim::Input<int16_t>" for a class that port.h instantiates explicitly (see _DECLARED_VALUE_TYPES).
 _PORT_TYPE = re.compile(
     r"dspsim::(?P<direction>Input|Output)(?P<array>Array)?<(?P<T>.+)>"
 )
+
+# The value types of the ports that the core library instantiates, as port.h names them in its explicit
+# instantiation declarations (`extern template class Input<uint8_t>;`), with their numpy types. libclang
+# spells such a class with the template argument that the declaration wrote, "dspsim::Input<uint8_t>", where
+# it spells any other class canonically, "dspsim::Input<unsigned char>". Keep in step with port.h.
+_DECLARED_VALUE_TYPES = {
+    "uint8_t": "uint8",
+    "uint16_t": "uint16",
+    "uint32_t": "uint32",
+    "uint64_t": "uint64",
+    "int8_t": "int8",
+    "int16_t": "int16",
+    "int32_t": "int32",
+    "int64_t": "int64",
+}
 
 # The C++ types that have a numpy scalar type, by the name of the numpy type.
 _NUMPY_TYPES = {
@@ -667,12 +683,17 @@ def _ports(cls: Any, numpy_types: dict[str, str]) -> dict[str, CppPort]:
                     is_struct=True,
                 )
             continue
+        ctype = match["T"]
+        numpy_type = numpy_types.get(ctype)
+        if numpy_type is None and (numpy_type := _DECLARED_VALUE_TYPES.get(ctype)):
+            # The canonical name of the type, as for a port that libclang spells canonically.
+            ctype = next((c for c, n in numpy_types.items() if n == numpy_type), ctype)
         ports[field.spelling] = CppPort(
             name=field.spelling,
             direction="input" if match["direction"] == "Input" else "output",
             is_array=match["array"] is not None,
-            ctype=match["T"],
-            suffix=_PORT_SUFFIXES.get(numpy_types.get(match["T"], "")),
+            ctype=ctype,
+            suffix=_PORT_SUFFIXES.get(numpy_type or ""),
         )
     return ports
 

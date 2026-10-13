@@ -97,6 +97,13 @@ namespace dspsim
         std::vector<PortBase *> bound_ports_;
     };
 
+    /*
+        An input port of a module: reads the signal that it is bound to, directly or through the port of a
+        parent module. T is the value type of the signal, see Signal<T>.
+
+        The member functions of Input<T> and Output<T> are defined in this header, below the classes, for
+        the types of models. The ports of the numeric types are instantiated in the core library.
+    */
     template <typename T>
     class Input : public PortBase
     {
@@ -163,6 +170,97 @@ namespace dspsim
         // Read the pending value. Shouldn't be used, but is available.
         const T &read_d_() const;
     };
+
+    /*
+        The member functions of Input<T> and Output<T>, except bind(const BitSel &), which only exists for
+        the integer types of the core library and is defined there.
+    */
+    template <typename T>
+    Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
+    {
+    }
+
+    template <typename T>
+    void Input<T>::bind(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Input<T>::bind(Input<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
+    void Input<T>::bind_signal(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Input<T>::bind_port(Input<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
+    Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
+    {
+    }
+
+    template <typename T>
+    void Output<T>::bind(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Output<T>::bind(Output<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
+    void Output<T>::bind_signal(Signal<T> &signal)
+    {
+        bind_base(signal);
+    }
+
+    template <typename T>
+    void Output<T>::bind_port(Output<T> &port)
+    {
+        bind_base(port);
+    }
+
+    template <typename T>
+    const T &Output<T>::read_d_() const
+    {
+        return static_cast<Signal<T> *>(bound_signal_)->read_d_();
+    }
+
+    // Instantiated in port.cpp.
+    extern template class Input<uint8_t>;
+    extern template class Input<uint16_t>;
+    extern template class Input<uint32_t>;
+    extern template class Input<uint64_t>;
+    extern template class Input<int8_t>;
+    extern template class Input<int16_t>;
+    extern template class Input<int32_t>;
+    extern template class Input<int64_t>;
+    extern template class Input<float>;
+    extern template class Input<double>;
+
+    extern template class Output<uint8_t>;
+    extern template class Output<uint16_t>;
+    extern template class Output<uint32_t>;
+    extern template class Output<uint64_t>;
+    extern template class Output<int8_t>;
+    extern template class Output<int16_t>;
+    extern template class Output<int32_t>;
+    extern template class Output<int64_t>;
+    extern template class Output<float>;
+    extern template class Output<double>;
 
     template <typename T>
     class InputArray;

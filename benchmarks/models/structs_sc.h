@@ -1,10 +1,11 @@
 /*
     SystemC counterparts of structs.h.
 
-    SystemC has two ways to give a module a struct port, and both are here. A group of ports, one per field,
-    is what a dspsim struct port is too: the kinds "ports". A single port whose value type is the struct
+    SystemC has two ways to give a module a struct port, and both are here. A port per field is the first:
+    the kinds "ports". SystemC cannot group such ports, so they are also what the dspsim kinds with a
+    PortStruct ("struct", "soa", "aos") are compared with. A single port whose value type is the struct
     (sc_in<BusValue>) is the other: one signal carries all fields, and a write compares and copies the whole
-    value. The kinds "struct", "soa" and "aos" use that one.
+    value. Those are the kinds "value", "soa_value" and "aos_value".
 */
 #pragma once
 #include "structs_values.h"
@@ -74,7 +75,7 @@ namespace benchmarks
         }
     };
 
-    /// Bus kind "struct": one port and one signal, with the struct as the value.
+    /// Bus kind "value": one port and one signal, with the struct as the value.
     struct BusValueSC
     {
         using In = sc_core::sc_in<BusValue>;
@@ -157,46 +158,125 @@ namespace benchmarks
     };
 
     /*
-        The arrays design. A kind has In, Out, Link and bind() like a bus kind, and the three processes:
-        source(out, value), stage(in, out) and sink(in).
+        The duplex design: the bus, and an acknowledgement in the other direction. SystemC has no port that
+        groups both directions, so there is one kind: a port and a signal per field. Out is the side of a link
+        that drives the bus, In the side that reads it.
     */
-    /// The processes of a kind that reads and writes element by element: read(in, i), write(out, i, value).
-    template <typename Kind, int K>
-    struct ElementwiseSC
+    struct DuplexFieldsSC
     {
-        template <typename Out>
-        static void source(Out &out, uint32_t value)
+        template <template <typename> class Fwd, template <typename> class Bwd>
+        struct Ports
         {
-            for (std::size_t i = 0; i < K; ++i)
+            Fwd<uint32_t> data;
+            Fwd<uint8_t> tag;
+            Fwd<int16_t> re;
+            Fwd<int16_t> im;
+            Bwd<uint16_t> ack;
+
+            explicit Ports(const std::string &name)
+                : data((name + "_data").c_str()), tag((name + "_tag").c_str()), re((name + "_iq_re").c_str()),
+                  im((name + "_iq_im").c_str()), ack((name + "_ack").c_str())
             {
-                Kind::write(out, i, array_source(value, i));
             }
+        };
+        using In = Ports<sc_core::sc_in, sc_core::sc_out>;
+        using Out = Ports<sc_core::sc_out, sc_core::sc_in>;
+        using Link = Ports<sc_core::sc_signal, sc_core::sc_signal>;
+
+        template <typename P>
+        static void bind(P &ports, Link &link)
+        {
+            ports.data(link.data);
+            ports.tag(link.tag);
+            ports.re(link.re);
+            ports.im(link.im);
+            ports.ack(link.ack);
         }
 
-        template <typename In, typename Out>
-        static void stage(const In &in, Out &out)
+        static BusValue read(const In &in)
         {
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                Kind::write(out, i, array_stage(Kind::read(in, i)));
-            }
+            return {in.data.read(), in.tag.read(), {in.re.read(), in.im.read()}};
         }
 
-        template <typename In>
-        static uint32_t sink(const In &in)
+        static void write(Out &out, const BusValue &value)
         {
-            uint32_t hash = 0;
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                hash = array_sink(hash, Kind::read(in, i));
-            }
-            return hash;
+            out.data.write(value.data);
+            out.tag.write(value.tag);
+            out.re.write(value.iq.re);
+            out.im.write(value.iq.im);
         }
     };
 
+    template <typename Kind>
+    SC_MODULE(DuplexSourceSC)
+    {
+        sc_core::sc_in<uint32_t> in{"in"};
+        typename Kind::Out m{"m"};
+
+        SC_CTOR(DuplexSourceSC)
+        {
+            SC_METHOD(eval);
+            sensitive << in << m.ack;
+        }
+
+        void eval()
+        {
+            Kind::write(m, duplex_source(in.read(), m.ack.read()));
+        }
+    };
+
+    template <typename Kind>
+    SC_MODULE(DuplexStageSC)
+    {
+        sc_core::sc_in<bool> clk{"clk"};
+        typename Kind::In s{"s"};
+        typename Kind::Out m{"m"};
+
+        SC_CTOR(DuplexStageSC)
+        {
+            SC_METHOD(eval);
+            sensitive << clk.pos();
+            dont_initialize();
+        }
+
+        void eval()
+        {
+            const BusValue value = Kind::read(s);
+            Kind::write(m, bus_stage(value));
+            s.ack.write(ack_stage(m.ack.read(), value));
+        }
+    };
+
+    template <typename Kind>
+    SC_MODULE(DuplexSinkSC)
+    {
+        sc_core::sc_in<bool> clk{"clk"};
+        typename Kind::In s{"s"};
+        sc_core::sc_out<uint32_t> out{"out"};
+
+        SC_CTOR(DuplexSinkSC)
+        {
+            SC_METHOD(eval);
+            sensitive << clk.pos();
+            dont_initialize();
+        }
+
+        void eval()
+        {
+            const BusValue value = Kind::read(s);
+            out.write(bus_sink(value));
+            s.ack.write(ack_sink(value));
+        }
+    };
+
+    /*
+        The arrays design. A kind has In, Out, Link and bind() like a bus kind, and the three processes:
+        source(out, value), stage(in, out) and sink(in) (structs_values.h has them for a kind that reads and
+        writes element by element).
+    */
     /// Arrays kind "ports": a vector of ports and a vector of signals per field.
     template <int K>
-    struct ArrayFieldsSC : ElementwiseSC<ArrayFieldsSC<K>, K>
+    struct ArrayFieldsSC : Elementwise<ArrayFieldsSC<K>, K>
     {
         template <template <typename> class Port>
         struct Ports
@@ -229,9 +309,9 @@ namespace benchmarks
         }
     };
 
-    /// Arrays kind "soa": one port and one signal, with a struct of arrays as the value.
+    /// Arrays kind "soa_value": one port and one signal, with a struct of arrays as the value.
     template <int K>
-    struct ArraySoaSC
+    struct ArraySoaValueSC
     {
         using In = sc_core::sc_in<SoaValue<K>>;
         using Out = sc_core::sc_out<SoaValue<K>>;
@@ -245,47 +325,24 @@ namespace benchmarks
 
         static void source(Out &out, uint32_t value)
         {
-            SoaValue<K> next;
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                set(next, i, array_source(value, i));
-            }
-            out.write(next);
+            out.write(soa_source<K>(value));
         }
 
         static void stage(const In &in, Out &out)
         {
-            const SoaValue<K> &current = in.read();
-            SoaValue<K> next;
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                set(next, i, array_stage({current.data[i], current.gain[i]}));
-            }
-            out.write(next);
+            out.write(soa_stage(in.read()));
         }
 
         static uint32_t sink(const In &in)
         {
-            const SoaValue<K> &current = in.read();
-            uint32_t hash = 0;
-            for (std::size_t i = 0; i < K; ++i)
-            {
-                hash = array_sink(hash, {current.data[i], current.gain[i]});
-            }
-            return hash;
-        }
-
-    private:
-        static void set(SoaValue<K> &value, std::size_t i, const ElemValue &element)
-        {
-            value.data[i] = element.data;
-            value.gain[i] = element.gain;
+            return soa_sink(in.read());
         }
     };
 
-    /// Arrays kind "aos": a vector of ports and a vector of signals, with the struct of an element as the value.
+    /// Arrays kind "aos_value": a vector of ports and a vector of signals, with the struct of an element as
+    /// the value.
     template <int K>
-    struct ArrayAosSC : ElementwiseSC<ArrayAosSC<K>, K>
+    struct ArrayAosValueSC : Elementwise<ArrayAosValueSC<K>, K>
     {
         template <typename Port>
         struct Vector : sc_core::sc_vector<Port>
@@ -409,6 +466,9 @@ namespace benchmarks
 
     template <typename Kind>
     using BusPipelineSC = StructPipelineSC<Kind, BusSourceSC<Kind>, BusStageSC<Kind>, BusSinkSC<Kind>>;
+
+    template <typename Kind>
+    using DuplexPipelineSC = StructPipelineSC<Kind, DuplexSourceSC<Kind>, DuplexStageSC<Kind>, DuplexSinkSC<Kind>>;
 
     template <typename Kind>
     using ArrayPipelineSC = StructPipelineSC<Kind, ArraySourceSC<Kind>, ArrayStageSC<Kind>, ArraySinkSC<Kind>>;

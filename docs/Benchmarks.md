@@ -112,34 +112,67 @@ its designs, and `scripts/benchmarks.py --list` lists every case.
 | `sensitivity` | `fanin`, `anyof`, `tree`, `fanout` | Sensitivity lists: a process sensitive to many signals, a dynamic wait on any of n events, combinational logic that settles over several delta cycles, a signal with many readers. |
 | `timing` | `timers`, `clocks`, `timeout`, `delay` | Simulated time: a time queue with many entries, several clocks, waits with a timeout that does or does not expire, propagation delays. |
 | `tasks` | `subtask`, `bus`, `spawn`, `run_until` | Coroutine features: awaited sub-tasks against function calls on a thread's stack, a transaction-level bus master, processes created while the simulation runs, a testbench that drives the design with `run_until()`. |
-| `structs` | `bus`: registers in series whose ports are a struct with a nested struct. `arrays`: the same with 16 elements of two fields per link. | Struct ports. The kinds are ways to declare the ports of a link (see below), not process kinds. |
+| `structs` | `bus`: registers in series whose ports are a struct with a nested struct. `duplex`: the bus with a field that goes the other way, from every stage back to the one before it. `arrays`: the bus design with 16 elements of two fields per link. | Struct ports. The kinds are ways to declare the ports of a link (see below), not process kinds. |
+| `verilated` | `bus`: 100 verilated register stages in series ([benchmarks/hdl/Bus.sv](../benchmarks/hdl/Bus.sv)). | Verilated models: the same module as a C++ model inside a dspsim module and as the SystemC model that Verilator writes (`--sc`). The kinds are the ways the module declares its bus (see below). Only built when CMake finds Verilator. |
 
 ### The kinds of the `structs` suite
 
-A dspsim struct port (`PortStruct`) is a group of ports: every field has a port and a signal of its own,
-and the struct only refers to them. So the kinds of a design in this suite are the same simulation, and
-they measure what it costs to reach the ports through a struct:
+dspsim has two ways to give a module a struct port, and the suite has both:
+
+- A `PortStruct` is a group of ports: every field has a port and a signal of its own, and the struct only
+  refers to them. The fields can have different directions, like the modports of a SystemVerilog interface
+  (the `duplex` design). The kinds with one (`struct`, `soa`, `aos`) are the same simulation as `ports`,
+  and they measure what it costs to reach the ports through a struct. SystemC cannot group ports, so these
+  kinds are compared with its port per field.
+- A port with the struct as its value (`Input<BusValue>`, bound to a `Signal<BusValue>`): one signal
+  carries all fields, and a write compares and copies the whole value. SystemC has the same
+  (`sc_in<BusValue>`). These are the kinds `value`, `soa_value` and `aos_value`.
 
 | kind | dspsim | SystemC |
 | --- | --- | --- |
 | `ports` | a port per field, each bound on its own | a port per field |
-| `struct` | a `PortStruct`, bound as a whole | one port with the struct as its value (`sc_in<BusValue>`) |
-| `soa` | a `PortStruct` whose fields are port arrays | one port with a struct of arrays as its value |
-| `aos` | a `PortStructArrayOf`, element by `flat(i)` | a vector of ports with the struct of an element as their value |
-| `aos_view` | the same array, through the views by field (`input_array<T>("data")`) that the module keeps | |
-| `aos_index` | the same array, every access written as `ports[{i}].field` | |
+| `struct` | a `PortStruct`, bound as a whole | a port per field |
+| `value` | one port with the struct as its value | one port with the struct as its value |
+| `soa` | a `PortStruct` whose fields are port arrays | a port per field |
+| `soa_value` | one port with a struct of arrays as its value | the same |
+| `aos` | a `PortStructArrayOf`, element by `flat(i)` | a port per field |
+| `aos_value` | an array of ports with the struct of an element as their value | a vector of such ports |
+| `aos_view` | the array of `aos`, through the views by field (`input_array<T>("data")`) that the module keeps | |
+| `aos_index` | the array of `aos`, every access written as `ports[{i}].field` | |
 
 What to expect:
 
 - In dspsim, `struct` and `soa` run the same instructions as `ports`, and `aos` and `aos_view` are within
-  a few percent of it: a struct costs nothing while the simulation runs.
-- `aos_index` costs more than twice as much. `ports[{i}]` takes a `dspsim::Index`, a `std::vector`, so
-  every access allocates one. This is the cost of `[{...}]` on any array, not of structs; in a process,
-  use `flat(i)`, a range-based `for`, or keep a reference to the element.
-- The `ports` kinds are the like-for-like comparison with SystemC. In the other kinds SystemC has one
-  signal per struct where dspsim has one per field, so it commits one value where dspsim commits several
-  (`soa`: 1 against 32). dspsim has no signal with a struct as its value, and these rows show what that
-  would be worth; they are not regressions.
+  a few percent of it: a `PortStruct` costs nothing while the simulation runs, with fields in one direction
+  or in both.
+- `aos_index` is within a few percent of the others too. An index written in braces (`ports[{i}]`) is
+  taken as a `std::initializer_list`; made into a `dspsim::Index`, a `std::vector`, it would allocate on
+  every access, and this kind cost 2.6 times as much when it did.
+- The value kinds commit one signal where the others commit one per field (`soa_value`: 1 against 32), in
+  both engines: about half the cycles of `ports` for the bus, a sixteenth for the struct of arrays. That
+  is what a struct with fields in one direction is worth as a value instead of a `PortStruct`.
+
+### The kinds of the `verilated` suite
+
+The stages are verilated and do almost nothing, so the cost is what an engine does around a model: copying
+port values in and out, evaluating it, committing its outputs. `Bus.sv` has the stage three times, with the
+bus declared in three ways:
+
+| kind | SystemVerilog | dspsim | SystemC (`verilator --sc`) |
+| --- | --- | --- | --- |
+| `ports` | a port per field | a port per field | a port per field |
+| `packed` | a packed struct | a struct port: a port per field, each a range of bits of the model's one integer | one 64-bit port |
+| `unpacked` | an unpacked struct | a struct port: a port per field | not supported by Verilator |
+
+The dspsim modules are declared the way the generator declares them (`models/verilated.h`), with the
+`eval()` that it writes: one call per port to copy its value, none of them virtual. That is worth 16 to 19%
+here against `VModule::eval()`, which goes through the port lists of the module. `ports` is the
+like-for-like comparison. In `packed` SystemC moves one value per link where dspsim moves four, and each
+dspsim field is read from and written to its bits of the model separately. Both engines run Verilator's
+own evaluation code, including the mutex that a model locks around every evaluation.
+
+All verilated models of the suite are one library (`bench-vmodels`), because a program can only have one
+copy of Verilator's runtime, and a target with a SystemC model compiles it for SystemC.
 
 ## How it is put together
 

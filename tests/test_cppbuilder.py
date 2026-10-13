@@ -865,9 +865,11 @@ def test_cpp_function_info():
     assert (
         methods["output()"].return_policy == "nanobind::rv_policy::reference_internal"
     )
-    assert methods["output()"].classes == ["dspsim::Output<int>"]
+    # The ports and signals of the numeric types are instantiated explicitly (port.h, signal.h), and
+    # libclang spells such a class the way that declaration does.
+    assert methods["output()"].classes == ["dspsim::Output<int32_t>"]
     assert methods["read_from(const dspsim::Signal<int32_t> &)"].classes == [
-        "dspsim::Signal<int>"
+        "dspsim::Signal<int32_t>"
     ]
 
     # A reference to the module itself is a reference to the class of the bindings, M, which is what
