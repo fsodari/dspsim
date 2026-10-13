@@ -54,6 +54,8 @@ from dspsim.framework import (
     OutputU16,
     OutputU32,
     OutputU64,
+    PortBase,
+    PortBaseArrayView,
     PortStruct,
     PortStructArray,
     _Module,
@@ -225,9 +227,12 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     return ports
 
 
-# C++ modules can also have ports of floating point values.
+# C++ modules can also have ports of floating point values, and of types without classes of their own in
+# Python (structs), which are a PortBase or an array of them.
 _valid_cpp_port_types = [
     *_valid_port_types,
+    PortBase,
+    PortBaseArrayView,
     PortStruct,
     PortStructArray,
     InputFloat,

@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -44,6 +45,27 @@ namespace dspsim
 
         // Implicit conversion to the change event. This may interfere with implicit conversions to the port value...
         operator SensitivityEvent &() { return *change_event_; }
+
+        /*
+            The port without the type of its value, for code that does not know it (the Python bindings).
+        */
+        /// What the value is made of, or nullptr for a type that has no description. See SignalBase::value_type().
+        virtual const ValueType *value_type() const;
+        /// The type of the value. Compare it by name.
+        virtual const std::type_info &value_typeid() const;
+        /// True for an output.
+        bool is_output() const;
+        /// Create a signal that the port can bind to: of its value type and width, owned by the context.
+        virtual std::shared_ptr<SignalBase> create_signal(const std::string &name) const;
+        /// Bind to a signal with the same value type. Throws std::invalid_argument for another type.
+        void bind_any(SignalBase &signal);
+        /// Bind to a port with the same value type and direction. Throws std::invalid_argument for another.
+        void bind_any(PortBase &port);
+        /// The bytes of the value of the bound signal, as SignalBase::value_data(). Throws std::logic_error
+        /// if the port is not bound yet (before elaboration, for a port that is bound to another port).
+        const void *value_data() const;
+        /// Write the value that these bytes are to the bound signal. Throws std::logic_error for an input.
+        void write_data(const void *value);
 
     protected:
         /*
@@ -110,6 +132,10 @@ namespace dspsim
     public:
         Input(const std::string &name, int width = default_bitwidth<T>::value);
 
+        const ValueType *value_type() const override;
+        const std::type_info &value_typeid() const override;
+        std::shared_ptr<SignalBase> create_signal(const std::string &name) const override;
+
         // Bind the input port to a signal.
         void bind(Signal<T> &signal);
         // Bind the input port to another input port.
@@ -136,6 +162,10 @@ namespace dspsim
     {
     public:
         Output(const std::string &name, int width = default_bitwidth<T>::value);
+
+        const ValueType *value_type() const override;
+        const std::type_info &value_typeid() const override;
+        std::shared_ptr<SignalBase> create_signal(const std::string &name) const override;
 
         // Bind the output port to a signal.
         void bind(Signal<T> &signal);
@@ -181,6 +211,24 @@ namespace dspsim
     }
 
     template <typename T>
+    const ValueType *Input<T>::value_type() const
+    {
+        return value_type_of<T>();
+    }
+
+    template <typename T>
+    const std::type_info &Input<T>::value_typeid() const
+    {
+        return typeid(T);
+    }
+
+    template <typename T>
+    std::shared_ptr<SignalBase> Input<T>::create_signal(const std::string &name) const
+    {
+        return Signal<T>::create(name, width());
+    }
+
+    template <typename T>
     void Input<T>::bind(Signal<T> &signal)
     {
         bind_base(signal);
@@ -207,6 +255,24 @@ namespace dspsim
     template <typename T>
     Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
     {
+    }
+
+    template <typename T>
+    const ValueType *Output<T>::value_type() const
+    {
+        return value_type_of<T>();
+    }
+
+    template <typename T>
+    const std::type_info &Output<T>::value_typeid() const
+    {
+        return typeid(T);
+    }
+
+    template <typename T>
+    std::shared_ptr<SignalBase> Output<T>::create_signal(const std::string &name) const
+    {
+        return Signal<T>::create(name, width());
     }
 
     template <typename T>
@@ -377,6 +443,20 @@ namespace dspsim
                 throw std::invalid_argument("InputArray: shape mismatch");
         }
     };
+
+    /// The ports of an array (InputArray<T>, OutputArray<T> or a view of one) as an array of ports without
+    /// the type of their value. The array must outlive it.
+    template <typename Array>
+    detail::NdView<PortBase> port_base_array(const Array &ports)
+    {
+        std::vector<PortBase *> elements;
+        elements.reserve(ports.size());
+        for (auto &port : ports)
+        {
+            elements.push_back(&port);
+        }
+        return {ports.shape(), std::move(elements)};
+    }
 
     template <typename T>
     class OutputArray;

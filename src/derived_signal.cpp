@@ -9,6 +9,31 @@ namespace dspsim
 {
     DerivedSignalBase::~DerivedSignalBase() = default;
 
+    void DerivedSignalBase::depend_on(SignalBase &source)
+    {
+        source.add_dependent(this);
+    }
+
+    void DerivedSignalBase::request_update(SignalBase &source)
+    {
+        source.request_update();
+    }
+
+    const BitSel *DerivedSignalBase::source_selection() const
+    {
+        return nullptr;
+    }
+
+    detail::FieldRoot DerivedSignalBase::field_root()
+    {
+        return {};
+    }
+
+    SignalBase *DerivedSignalBase::field_signal(const void *)
+    {
+        return nullptr;
+    }
+
     template <typename T>
     DerivedSignal<T>::DerivedSignal(const std::string &name, const BitSel &selection)
         : Signal<T>(name, selection.width()), selection_(selection)
@@ -20,9 +45,9 @@ namespace dspsim
         }
         for (const auto &part : selection_.parts())
         {
-            part.signal->add_dependent(this);
+            depend_on(*part.signal);
         }
-        this->source_selection_ = &selection_;
+        this->derived_ = this;
         refresh();
     }
 
@@ -50,6 +75,18 @@ namespace dspsim
     {
         this->d_ = from_bits(selection_.read());
         this->q_ = this->d_;
+    }
+
+    template <typename T>
+    void DerivedSignal<T>::write_through(const void *value)
+    {
+        selection_.write(static_cast<uint64_t>(*static_cast<const T *>(value)));
+    }
+
+    template <typename T>
+    const BitSel *DerivedSignal<T>::source_selection() const
+    {
+        return &selection_;
     }
 
     template <typename T>
@@ -95,6 +132,18 @@ namespace dspsim
         }
         return *DerivedSignal<T>::create(name, *this);
     }
+
+    template class FieldSignal<uint8_t>;
+    template class FieldSignal<uint16_t>;
+    template class FieldSignal<uint32_t>;
+    template class FieldSignal<uint64_t>;
+    template class FieldSignal<int8_t>;
+    template class FieldSignal<int16_t>;
+    template class FieldSignal<int32_t>;
+    template class FieldSignal<int64_t>;
+    template class FieldSignal<float>;
+    template class FieldSignal<double>;
+    template class FieldSignal<bool>;
 
     template class DerivedSignal<uint8_t>;
     template class DerivedSignal<uint16_t>;

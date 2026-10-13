@@ -11,3 +11,12 @@
     @overload
     def __getitem__(self, key: slice | int | tuple[int | slice, ...], /) -> \1ArrayView\2: ...
 
+# The same for the arrays of signals and ports without the type of their value.
+\.(SignalBase|PortBase)ArrayView\.__getitem__$:
+    \from typing import overload
+    @overload
+    def __getitem__(self, key: int | tuple[int, ...], /) -> \1: ...  # type: ignore[overload-overlap]
+
+    @overload
+    def __getitem__(self, key: slice | int | tuple[int | slice, ...], /) -> \1ArrayView: ...
+

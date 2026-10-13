@@ -116,10 +116,11 @@ namespace dspsim::bindings
     static inline void bind_ndarray_values(NbClass &cls)
     {
         using Elem = typename Array::element_type;
-        using V = detail::value_of<Elem>;
 
+        // An element without read() (a signal or port without the type of its value) has neither.
         if constexpr (detail::Readable<Elem>)
         {
+            using V = detail::value_of<Elem>;
             auto read = [](const Array &a)
             {
                 return to_numpy<V>(a);
@@ -135,6 +136,7 @@ namespace dspsim::bindings
         }
         if constexpr (detail::Writable<Elem>)
         {
+            using V = detail::value_of<Elem>;
             // numpy arrays (or anything convertible with the same shape). A 0-d array is broadcast.
             auto write_np = [](Array &a, const nb::ndarray<const V, nb::c_contig, nb::device::cpu> &arr)
             {

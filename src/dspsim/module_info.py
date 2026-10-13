@@ -273,7 +273,8 @@ class CppPort:
     """
     A port member of a C++ module: an Input<T>, Output<T>, InputArray<T> or OutputArray<T>, or a struct port
     (a class derived from PortStruct, or from PortStructArray for an array of structs), whose fields Python
-    reads from the object.
+    reads from the object. T can be a type that the framework has no Python classes for (a struct): Python
+    then has the port as a PortBase, or an array of them as a PortBaseArrayView.
     """
 
     name: str
@@ -292,8 +293,12 @@ class CppPort:
         """Name of the framework class that Python sees for this port, e.g. "InputArrayS16"."""
         if self.is_struct:
             return "PortStructArray" if self.is_array else "PortStruct"
-        if self.suffix is None or self.direction is None:
+        if self.direction is None:
             return None
+        if self.suffix is None:
+            # A value type that the framework has no classes for, such as a struct: the port is its base
+            # class in Python, which reads and writes the value through the description of its type.
+            return "PortBaseArrayView" if self.is_array else "PortBase"
         array = "Array" if self.is_array else ""
         return f"{self.direction.capitalize()}{array}{self.suffix}"
 

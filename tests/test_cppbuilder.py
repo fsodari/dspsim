@@ -341,7 +341,8 @@ def test_cpp_template_module_info():
     info = load_cpp_module_info(header, "Stream", parameters={"T": "demo::Sample"})
     assert arguments(info) == {"T": "demo::Sample"}
     assert info.type_parameters[0].numpy_type is None
-    assert ports(info) == {"tdata": None, "tvalid": "InputU8"}
+    # A port of such a type is its base class in Python.
+    assert ports(info) == {"tdata": "PortBase", "tvalid": "InputU8"}
 
     # A class that derives from an instance of a class template has the ports of that instance.
     info = load_cpp_module_info(header, "ByteSink")

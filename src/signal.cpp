@@ -2,8 +2,12 @@
 #include <dspsim/context.h>
 #include <dspsim/event.h>
 #include <dspsim/derived_signal.h>
+#include <dspsim/struct.h>
 
 #include <algorithm>
+#include <cstring>
+#include <numeric>
+#include <stdexcept>
 
 namespace dspsim
 {
@@ -36,8 +40,133 @@ namespace dspsim
 
     const BitSel *SignalBase::source_selection() const
     {
-        return source_selection_;
+        return derived_ ? derived_->source_selection() : nullptr;
     }
+
+    detail::FieldRoot SignalBase::derived_field_root()
+    {
+        return derived_->field_root();
+    }
+
+    void SignalBase::write_through(const void *value)
+    {
+        derived_->write_through(value);
+    }
+
+    namespace
+    {
+        // The field `name` of the struct that is the value of a signal.
+        const StructField &struct_field(const SignalBase &signal, const std::string &name)
+        {
+            const ValueType *type = signal.value_type();
+            if (!type || type->kind != ValueType::Kind::structure || !type->shape.empty())
+            {
+                throw std::invalid_argument("Signal " + signal.hier_name() +
+                                            " has no fields: its value is not a struct with a DSPSIM_STRUCT");
+            }
+            const StructField *field = type->layout->find(name);
+            if (!field)
+            {
+                throw std::invalid_argument("The value of signal " + signal.hier_name() + " (" + type->layout->name +
+                                            ") has no field '" + name + "'");
+            }
+            return *field;
+        }
+
+        // Whether a field signal has the value type of one element of a field. A struct and its first field
+        // are at the same place, so the place alone does not say which of them a field signal is a view of.
+        // Layouts are compared by name: every module has its own copy of the layout of a struct.
+        bool same_element(const ValueType &signal, const ValueType &field)
+        {
+            if (signal.kind != field.kind || signal.size != field.size || !signal.shape.empty())
+            {
+                return false;
+            }
+            return signal.kind != ValueType::Kind::structure || signal.layout->name == field.layout->name;
+        }
+    } // namespace
+
+    SignalBase &SignalBase::field(const std::string &name)
+    {
+        const StructField &f = struct_field(*this, name);
+        if (!f.type.shape.empty())
+        {
+            throw std::invalid_argument("Field '" + name + "' of signal " + hier_name() +
+                                        " is an array: its elements are signals (field_array())");
+        }
+        return field_array(name).flat(0);
+    }
+
+    detail::NdView<SignalBase> SignalBase::field_array(const std::string &name)
+    {
+        const StructField &f = struct_field(*this, name);
+        const detail::FieldRoot root = field_root();
+        if (!root.signal)
+        {
+            throw std::logic_error("Signal " + hier_name() + " is a view of a bit selection and has no fields");
+        }
+        const std::size_t count = std::accumulate(f.type.shape.begin(), f.type.shape.end(), std::size_t{1}, std::multiplies<>());
+        const auto names = f.type.shape.empty() ? std::vector<std::string>{this->name() + "." + name}
+                                                : detail::struct_element_names(this->name() + "." + name, f.type.shape);
+
+        std::vector<SignalBase *> elements;
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            const std::size_t offset = f.offset + i * f.type.size;
+            const detail::FieldRoot element{root.signal, static_cast<char *>(root.d) + offset, static_cast<const char *>(root.q) + offset};
+
+            // The view of this element, if it was asked for before.
+            SignalBase *signal = nullptr;
+            for (auto *dependent : root.signal->dependents_)
+            {
+                SignalBase *candidate = dependent->field_signal(element.q);
+                if (candidate && candidate->value_type() && same_element(*candidate->value_type(), f.type))
+                {
+                    signal = candidate;
+                    break;
+                }
+            }
+            if (!signal)
+            {
+                detail::check_field_root(*this, root);
+                signal = &f.make_signal(names[i], element);
+            }
+            elements.push_back(signal);
+        }
+        return detail::NdView<SignalBase>(f.type.shape, std::move(elements));
+    }
+
+    namespace detail
+    {
+        void check_field_root(const SignalBase &signal, const FieldRoot &root)
+        {
+            if (!root.signal)
+            {
+                throw std::logic_error("Signal " + signal.hier_name() + " is a view of a bit selection and has no fields");
+            }
+            if (signal.context()->elaborated())
+            {
+                throw std::logic_error("A field of signal " + signal.hier_name() +
+                                       " must be asked for before the design is elaborated: it is a signal of its own");
+            }
+        }
+
+        std::string field_signal_name(const SignalBase &signal, std::size_t offset)
+        {
+            const ValueType *type = signal.value_type();
+            if (type && type->kind == ValueType::Kind::structure && type->shape.empty())
+            {
+                for (auto &f : type->layout->fields)
+                {
+                    if (f.offset == offset)
+                    {
+                        return signal.name() + "." + f.name;
+                    }
+                }
+            }
+            return signal.name() + ".field";
+        }
+    } // namespace detail
 
     void SignalBase::request_update()
     {
@@ -80,4 +209,5 @@ namespace dspsim
     template class Signal<int64_t>;
     template class Signal<float>;
     template class Signal<double>;
+    template class Signal<bool>;
 }

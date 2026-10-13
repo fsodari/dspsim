@@ -37,6 +37,22 @@ namespace dspsim::bindings
         bind_derived_signal<int32_t>(m, "DerivedSignalS32");
         bind_derived_signal<int64_t>(m, "DerivedSignalS64");
 
+        // The fields of a struct signal
+        bind_field_signal<uint8_t>(m, "FieldSignalU8");
+        bind_field_signal<uint16_t>(m, "FieldSignalU16");
+        bind_field_signal<uint32_t>(m, "FieldSignalU32");
+        bind_field_signal<uint64_t>(m, "FieldSignalU64");
+
+        bind_field_signal<int8_t>(m, "FieldSignalS8");
+        bind_field_signal<int16_t>(m, "FieldSignalS16");
+        bind_field_signal<int32_t>(m, "FieldSignalS32");
+        bind_field_signal<int64_t>(m, "FieldSignalS64");
+
+        bind_field_signal<double>(m, "FieldSignalFloat");
+
+        // Arrays of signals without the type of their value
+        bind_signal_base_array(m, "SignalBaseArrayView");
+
         // Clock
         bind_clock(m, "Clock");
     }

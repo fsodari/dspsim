@@ -32,5 +32,8 @@ namespace dspsim::bindings
         bind_output<int64_t>(m, "OutputS64");
 
         bind_output<double>(m, "OutputFloat");
+
+        // Arrays of ports without the type of their value
+        bind_port_base_array(m, "PortBaseArrayView");
     }
 } // namespace dspsim::bindings

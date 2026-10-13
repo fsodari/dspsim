@@ -4,22 +4,23 @@
 #include <dspsim/ndarray.h>
 #include <dspsim/bits.h>
 #include <dspsim/bitsel.h>
+#include <dspsim/value_type.h>
 
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
 namespace dspsim
 {
     class DerivedSignalBase;
-    template <typename T>
-    class DerivedSignal;
     template <typename T>
     class FlaggedStack;
 
@@ -35,9 +36,8 @@ namespace dspsim
         friend class Context;
         // Bit selections read and write the raw bits of their source signals.
         friend class BitSel;
-        // Derived signals register with their sources.
-        template <typename T>
-        friend class DerivedSignal;
+        // Derived signals register with their sources, and write through to them.
+        friend class DerivedSignalBase;
         // The update stack keeps its "is scheduled" flag in the signal.
         template <typename T>
         friend class FlaggedStack;
@@ -65,6 +65,30 @@ namespace dspsim
         // Implicit conversion to SensitivityEvent (change event)
         operator SensitivityEvent &() { return change(); }
 
+        /*
+            The value without its type, for code that does not know it (the Python bindings).
+        */
+        /// What the value is made of, or nullptr for a type that has no description (a struct without a
+        /// DSPSIM_STRUCT). See <dspsim/value_type.h>.
+        virtual const ValueType *value_type() const = 0;
+        /// The type of the value. Compare it by name: a model's extension module and the framework each have
+        /// a std::type_info of a type.
+        virtual const std::type_info &value_typeid() const = 0;
+        /// The bytes of the committed value: sizeof the value type of them.
+        virtual const void *value_data() const = 0;
+        /// write() the value that these bytes are. Throws std::logic_error if the value type cannot be copied
+        /// as bytes.
+        virtual void write_data(const void *value) = 0;
+
+        /// The field of that name of a signal whose value is a struct with a DSPSIM_STRUCT, as a signal of
+        /// its own (see FieldSignal in <dspsim/field_signal.h>). Asked for again, it is the same signal. Throws
+        /// std::invalid_argument if the value has no such field or the field is an array (see field_array()),
+        /// and std::logic_error if it does not exist yet and the design is elaborated.
+        SignalBase &field(const std::string &name);
+        /// The elements of the field of that name as an array of signals, each a view of one element. A field
+        /// that is not an array gives an array without dimensions, of one signal.
+        detail::NdView<SignalBase> field_array(const std::string &name);
+
     protected:
         // Called during the update phase to commit pending changes to the signal. An override commits this
         // signal and notifies its events. It must not write to a signal or request the update of a channel:
@@ -83,9 +107,19 @@ namespace dspsim
         /// Only called on integral signals (BitSel checks).
         virtual void write_bits(uint64_t value, uint64_t mask) = 0;
 
-        /// The selection a derived signal is computed from, or nullptr for an ordinary signal.
-        /// Selections of a derived signal refer to its sources instead, and writes to it go through to them.
+        /// The selection a derived signal is computed from, or nullptr for any other signal.
+        /// Selections of a derived signal refer to its sources instead.
         const BitSel *source_selection() const;
+
+        /// The storage that a field of this signal's value is a part of: the signal itself with its pending
+        /// and committed value, or, for a signal that is a field of another one, that signal and the field
+        /// in its values.
+        virtual detail::FieldRoot field_root() = 0;
+        /// field_root() of a derived signal. The signal is nullptr if it is not a view of a field.
+        detail::FieldRoot derived_field_root();
+        /// write() to a derived signal: the value goes to its sources. `value` points at a value of the
+        /// signal's type.
+        void write_through(const void *value);
 
         // Schedule the derived signals for recomputation after this signal has updated.
         void schedule_dependents();
@@ -113,13 +147,18 @@ namespace dspsim
         bool scheduled_;
         // True once dependents_ is non-empty (saves reading the vector in update()).
         bool has_dependents_ = false;
-        // Set by DerivedSignal: the selection this signal is a view of. Checked on the write path.
-        const BitSel *source_selection_ = nullptr;
 
     private:
         SensitivityEvent change_event_;
         SensitivityEvent posedge_event_;
         SensitivityEvent negedge_event_;
+
+    protected:
+        // Set by a derived signal (a view of a bit selection or of a field of another signal) to itself:
+        // what is written to it goes to its sources. Every write() checks it, also one that does not change
+        // the value and touches nothing else but d_ and q_: it is the last member, right before them, so
+        // that such a write stays within one or two cache lines.
+        DerivedSignalBase *derived_ = nullptr;
     };
 
     /*
@@ -144,6 +183,10 @@ namespace dspsim
 
         Only a number has edges and a width in bits, and only an integer can be sliced. The events pos()
         and neg() of a signal of another type never occur.
+
+        field() gives one field of a struct as a signal of its own, for a port of the field's type or a
+        process that waits for that field alone. Python reads and writes a struct that has a DSPSIM_STRUCT
+        (<dspsim/value_type.h>) as a numpy structured value.
 
         The member functions are defined in this header, below the class, for the types of models. The
         signals of the numeric types are instantiated in the core library (see the end of this file).
@@ -179,6 +222,25 @@ namespace dspsim
 
         bool is_integral() const override;
 
+        const ValueType *value_type() const override;
+        const std::type_info &value_typeid() const override;
+        const void *value_data() const override;
+        void write_data(const void *value) override;
+
+        /// A field of the struct that is the value, as a signal of its own: `bus.field(&Bus::tag)` is a
+        /// Signal<uint8_t> that has the value of that field in the delta cycle in which the struct changes,
+        /// and its events. What is written to it changes that field of the struct and leaves the others.
+        /// Each call creates a signal, which the context owns, so call it before the design is elaborated.
+        /// Defined in <dspsim/field_signal.h>, where FieldSignal is.
+        using SignalBase::field;
+        template <typename F, typename S = T>
+        Signal<F> &field(F S::*member, const std::string &name = "")
+            requires std::same_as<S, T>;
+        /// An element of the std::array that is the value, as a signal of its own. Like field().
+        template <typename A = T>
+        Signal<typename A::value_type> &element(std::size_t index, const std::string &name = "")
+            requires std::same_as<A, T> && detail::is_std_array<A>::value;
+
         /*
             Static Methods
         */
@@ -191,6 +253,7 @@ namespace dspsim
         void update() override;
         uint64_t read_bits() const override;
         void write_bits(uint64_t value, uint64_t mask) override;
+        detail::FieldRoot field_root() override;
 
     protected:
         T d_, q_;
@@ -209,7 +272,7 @@ namespace dspsim
     template <typename T>
     Signal<T> &Signal<T>::init(const T &value)
     {
-        if (source_selection_)
+        if (derived_)
         {
             throw std::logic_error("Cannot init derived signal " + hier_name() + ": init its source signals instead");
         }
@@ -228,15 +291,12 @@ namespace dspsim
     template <typename T>
     void Signal<T>::write(const T &value)
     {
-        if constexpr (std::is_integral_v<T>)
+        // A derived signal is a view of its sources: write the value through to them. The sources schedule
+        // their updates, and this signal is recomputed from them in the update phase.
+        if (derived_) [[unlikely]]
         {
-            // A derived signal is a view of its sources: write the bits through to them. The sources schedule
-            // their updates, and this signal is recomputed from them in the update phase.
-            if (source_selection_) [[unlikely]]
-            {
-                source_selection_->write(static_cast<uint64_t>(value));
-                return;
-            }
+            write_through(&value);
+            return;
         }
         d_ = value;
 
@@ -252,6 +312,41 @@ namespace dspsim
     bool Signal<T>::is_integral() const
     {
         return std::is_integral_v<T>;
+    }
+
+    template <typename T>
+    const ValueType *Signal<T>::value_type() const
+    {
+        return value_type_of<T>();
+    }
+
+    template <typename T>
+    const std::type_info &Signal<T>::value_typeid() const
+    {
+        return typeid(T);
+    }
+
+    template <typename T>
+    const void *Signal<T>::value_data() const
+    {
+        return &q_;
+    }
+
+    template <typename T>
+    void Signal<T>::write_data(const void *value)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            // The bytes need not be aligned.
+            T copy;
+            std::memcpy(&copy, value, sizeof(T));
+            write(copy);
+        }
+        else
+        {
+            (void)value;
+            throw std::logic_error("The value of signal " + hier_name() + " cannot be copied as bytes");
+        }
     }
 
     template <typename T>
@@ -333,6 +428,12 @@ namespace dspsim
         }
     }
 
+    template <typename T>
+    detail::FieldRoot Signal<T>::field_root()
+    {
+        return derived_ ? derived_field_root() : detail::FieldRoot{this, &d_, &q_};
+    }
+
     // Instantiated in signal.cpp.
     extern template class Signal<uint8_t>;
     extern template class Signal<uint16_t>;
@@ -344,6 +445,7 @@ namespace dspsim
     extern template class Signal<int64_t>;
     extern template class Signal<float>;
     extern template class Signal<double>;
+    extern template class Signal<bool>;
 
     /*
         Non-owning view of a selection of a SignalArray (or another view). Obtained with SignalArray::slice.
@@ -397,9 +499,26 @@ namespace dspsim
         }
     };
 
+    /// The signals of an array (SignalArray<T> or a view of one) as an array of signals without the type of
+    /// their value. The array must outlive it.
+    template <typename Array>
+    detail::NdView<SignalBase> signal_base_array(const Array &signals)
+    {
+        std::vector<SignalBase *> elements;
+        elements.reserve(signals.size());
+        for (auto &signal : signals)
+        {
+            elements.push_back(&signal);
+        }
+        return {signals.shape(), std::move(elements)};
+    }
+
     using Signal8 = Signal<uint8_t>;
     using Signal16 = Signal<uint16_t>;
     using Signal32 = Signal<uint32_t>;
     using Signal64 = Signal<uint64_t>;
 
 } // namespace dspsim
+
+// A field of a signal is a signal: FieldSignal and Signal<T>::field() need the classes above.
+#include <dspsim/field_signal.h>

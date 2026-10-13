@@ -5,6 +5,7 @@
 
 #include "log.h"
 
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -66,6 +67,83 @@ namespace dspsim
 
     void PortBase::sync()
     {
+    }
+
+    const ValueType *PortBase::value_type() const
+    {
+        return nullptr;
+    }
+
+    const std::type_info &PortBase::value_typeid() const
+    {
+        return typeid(void);
+    }
+
+    bool PortBase::is_output() const
+    {
+        return kind() == "output";
+    }
+
+    std::shared_ptr<SignalBase> PortBase::create_signal(const std::string &) const
+    {
+        throw std::logic_error("Port " + hier_name() + " has no value type");
+    }
+
+    namespace
+    {
+        // Types are compared by name: a model's extension module and the framework each have a
+        // std::type_info of a type, which do not compare equal with every standard library.
+        bool same_value_type(const std::type_info &a, const std::type_info &b)
+        {
+            return a == b || std::strcmp(a.name(), b.name()) == 0;
+        }
+    } // namespace
+
+    void PortBase::bind_any(SignalBase &signal)
+    {
+        if (!same_value_type(value_typeid(), signal.value_typeid()))
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to signal " + signal.hier_name() +
+                                        ": the signal has another value type");
+        }
+        bind_base(signal);
+    }
+
+    void PortBase::bind_any(PortBase &port)
+    {
+        if (!same_value_type(value_typeid(), port.value_typeid()))
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to port " + port.hier_name() +
+                                        ": the port has another value type");
+        }
+        if (is_output() != port.is_output())
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to port " + port.hier_name() +
+                                        ": an input binds to an input and an output to an output");
+        }
+        bind_base(port);
+    }
+
+    const void *PortBase::value_data() const
+    {
+        if (!bound_signal_)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet");
+        }
+        return bound_signal_->value_data();
+    }
+
+    void PortBase::write_data(const void *value)
+    {
+        if (!is_output())
+        {
+            throw std::logic_error("Port " + hier_name() + " is an input and cannot be written");
+        }
+        if (!bound_signal_)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet");
+        }
+        bound_signal_->write_data(value);
     }
 
     void PortBase::bind_base(SignalBase &signal)
