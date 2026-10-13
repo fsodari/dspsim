@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <typeinfo>
@@ -458,6 +459,8 @@ namespace dspsim
         S &flat(std::size_t i) const { return static_cast<S &>(PortStructArray::flat(i)); }
         S &at(const Index &idx) const { return static_cast<S &>(PortStructArray::at(idx)); }
         S &operator[](const Index &idx) const { return at(idx); }
+        S &at(std::initializer_list<std::size_t> idx) const { return static_cast<S &>(PortStructArray::at(idx)); }
+        S &operator[](std::initializer_list<std::size_t> idx) const { return at(idx); }
 
     private:
         using Structs = std::vector<std::unique_ptr<S>>;

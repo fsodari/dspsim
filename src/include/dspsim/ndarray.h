@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <compare>
 #include <functional>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -145,8 +146,12 @@ namespace dspsim
             std::size_t size() const { return elems_.size(); }
 
             Elem &flat(std::size_t i) const { return *elems_.at(i); }
-            Elem &at(const Index &idx) const { return *elems_[flat_index(idx)]; }
+            Elem &at(const Index &idx) const { return *elems_[flat_index(idx.data(), idx.size())]; }
             Elem &operator[](const Index &idx) const { return at(idx); }
+            // arr[{i, j}] and arr.at({i, j}) take these: an index written in braces is not made into an Index,
+            // which would allocate on every access.
+            Elem &at(std::initializer_list<std::size_t> idx) const { return *elems_[flat_index(idx.begin(), idx.size())]; }
+            Elem &operator[](std::initializer_list<std::size_t> idx) const { return at(idx); }
 
             using iterator = DerefIterator<Elem, typename std::vector<Elem *>::const_iterator>;
             iterator begin() const { return iterator(elems_.begin()); }
@@ -174,12 +179,12 @@ namespace dspsim
             }
 
         private:
-            std::size_t flat_index(const Index &idx) const
+            std::size_t flat_index(const std::size_t *idx, std::size_t rank) const
             {
-                if (idx.size() != shape_.size())
+                if (rank != shape_.size())
                     throw std::out_of_range("index rank does not match array rank");
                 std::size_t flat = 0;
-                for (std::size_t d = 0; d < idx.size(); ++d)
+                for (std::size_t d = 0; d < rank; ++d)
                 {
                     if (idx[d] >= shape_[d])
                         throw std::out_of_range("array index out of range");
@@ -278,16 +283,20 @@ namespace dspsim
             }
 
             // Bounds-checked multidimensional access. Throws std::out_of_range.
-            Elem &at(const Index &idx) const { return *elems_[flat_index(idx)]; }
+            Elem &at(const Index &idx) const { return *elems_[flat_index(idx.data(), idx.size())]; }
             Elem &operator[](const Index &idx) const { return at(idx); }
+            // arr[{i, j}] and arr.at({i, j}) take these: an index written in braces is not made into an Index,
+            // which would allocate on every access.
+            Elem &at(std::initializer_list<std::size_t> idx) const { return *elems_[flat_index(idx.begin(), idx.size())]; }
+            Elem &operator[](std::initializer_list<std::size_t> idx) const { return at(idx); }
 
         private:
-            std::size_t flat_index(const Index &idx) const
+            std::size_t flat_index(const std::size_t *idx, std::size_t rank) const
             {
-                if (idx.size() != shape_.size())
+                if (rank != shape_.size())
                     throw std::out_of_range("index rank does not match array rank");
                 std::size_t flat = 0;
-                for (std::size_t d = 0; d < idx.size(); ++d)
+                for (std::size_t d = 0; d < rank; ++d)
                 {
                     if (idx[d] >= shape_[d])
                         throw std::out_of_range("array index out of range");

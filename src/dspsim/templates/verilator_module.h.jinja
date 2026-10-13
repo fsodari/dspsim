@@ -30,6 +30,19 @@ public:
             ->always("*");  // Default is sensitive to all inputs. Can be changed by generator.
     }
 
+    // Copy the inputs to the model, evaluate it and copy its outputs back: what VModule::eval() does, with
+    // the ports written out so that no call is virtual.
+    void eval()
+    {
+        {%-for port in model.ports.values() if port.direction == "input"%}
+        ::dspsim::detail::vl_sync({{port.name}});
+        {%-endfor%}
+        top->eval();
+        {%-for port in model.ports.values() if port.direction != "input"%}
+        ::dspsim::detail::vl_sync({{port.name}});
+        {%-endfor%}
+    }
+
     // Tracing functions. Will raise a warning if tracing is not enabled, but will just do a no-op.
     void dump_trace_impl();
     void open_trace_impl(const std::filesystem::path &trace_path, int levels = 99, int options = 0);

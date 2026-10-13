@@ -76,8 +76,8 @@ namespace dspsim
 
         VInput(const std::string &name, Storage &ext_port);
 
-    private:
-        /// Write the input value to the top model port.
+        /// Write the input value to the top model port. Public, like sync() of the other verilated ports, so
+        /// that a module can call it on the port itself: the class is final, so that call is not virtual.
         void sync() override;
 
     private:
@@ -96,7 +96,6 @@ namespace dspsim
 
         VOutput(const std::string &name, Storage &ext_port);
 
-    private:
         /// Write the top model value to the output port.
         void sync() override;
 
@@ -233,6 +232,56 @@ namespace dspsim
         }
     } // namespace detail
 
+    template <typename S>
+    class PortStructArrayOf;
+
+    namespace detail
+    {
+        /// sync() every element of an array of verilated ports, all of class P.
+        template <typename P, typename Array>
+        void vl_sync_elements(const Array &ports)
+        {
+            for (auto &port : ports)
+            {
+                static_cast<P &>(port).sync();
+            }
+        }
+
+        /// sync() every element of an array of words: the last of every `words` elements is of class Top, the
+        /// others are of class Word.
+        template <typename Word, typename Top, typename Array>
+        void vl_sync_words(const Array &ports, std::size_t words)
+        {
+            std::size_t i = 0;
+            for (auto &port : ports)
+            {
+                if (++i == words)
+                {
+                    static_cast<Top &>(port).sync();
+                    i = 0;
+                }
+                else
+                {
+                    static_cast<Word &>(port).sync();
+                }
+            }
+        }
+
+        /// Copy the value of a port of a verilated module to or from the model: a verilated port, the struct
+        /// class of a struct port (which has a sync() for its fields), or an array of such structs. A module
+        /// that calls this for each of its ports does what VModule::eval() does through virtual calls.
+        template <typename P>
+        void vl_sync(P &port)
+        {
+            port.sync();
+        }
+        template <typename S>
+        void vl_sync(PortStructArrayOf<S> &structs)
+        {
+            vl_sync_elements<S>(structs);
+        }
+    } // namespace detail
+
     /// Array of input ports bound to a verilated unpacked array port. Elements map to the array in row-major order.
     template <typename T, int W>
     class VInputArray final : public InputArray<T>
@@ -248,6 +297,9 @@ namespace dspsim
                             { return std::make_unique<VInput<T, W>>(n, detail::vl_elements<Storage>(ext_port)[i]); })
         {
         }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VInput<T, W>>(*this); }
     };
 
     /// Array of output ports bound to a verilated unpacked array port. Elements map to the array in row-major order.
@@ -265,6 +317,9 @@ namespace dspsim
                              { return std::make_unique<VOutput<T, W>>(n, detail::vl_elements<Storage>(ext_port)[i]); })
         {
         }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VOutput<T, W>>(*this); }
     };
     namespace detail
     {
@@ -319,6 +374,12 @@ namespace dspsim
                                    })
         {
         }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VInput<uint32_t, detail::vl_word_bits>, VInput<uint32_t, detail::vl_top_word_bits<W>>>(*this, detail::vl_words<W>);
+        }
     };
 
     /// Output bound to a verilated port of more than 64 bits, or to an unpacked array of them: an array of 32-bit
@@ -343,6 +404,12 @@ namespace dspsim
                                         return std::make_unique<VOutput<uint32_t, detail::vl_word_bits>>(n, word);
                                     })
         {
+        }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VOutput<uint32_t, detail::vl_word_bits>, VOutput<uint32_t, detail::vl_top_word_bits<W>>>(*this, detail::vl_words<W>);
         }
     };
 
@@ -418,7 +485,6 @@ namespace dspsim
         {
         }
 
-    private:
         /// Write the input value to its bits of the top model port.
         void sync() override
         {
@@ -453,7 +519,6 @@ namespace dspsim
         {
         }
 
-    private:
         /// Write its bits of the top model port to the output port.
         void sync() override
         {
@@ -489,6 +554,12 @@ namespace dspsim
                                    })
         {
         }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VInputBits<uint32_t, detail::vl_word_bits, uint32_t>, VInputBits<uint32_t, detail::vl_top_word_bits<W>, uint32_t>>(*this, detail::vl_words<W>);
+        }
     };
 
     /// Output bound to a field of more than 64 bits of a verilated packed struct port. See VInputWideBits.
@@ -513,6 +584,12 @@ namespace dspsim
                                         return std::make_unique<VOutputBits<uint32_t, detail::vl_word_bits, uint32_t>>(n, ext_port, word_lsb);
                                     })
         {
+        }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VOutputBits<uint32_t, detail::vl_word_bits, uint32_t>, VOutputBits<uint32_t, detail::vl_top_word_bits<W>, uint32_t>>(*this, detail::vl_words<W>);
         }
     };
 
