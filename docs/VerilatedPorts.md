@@ -11,8 +11,10 @@ JIT builder (`vbuilder`, `build_vmodule`) and to library builds, because both re
 | `real` | `Input<double>` / `Output<double>` | `InputFloat`, `OutputFloat` |
 | unpacked array `logic [7:0] a [2][3]` | `InputArray<T>` / `OutputArray<T>` of that shape | `InputArrayU8` ... |
 | more than 64 bits | array of 32-bit words | `InputArrayU32`, `OutputArrayU32` |
-| struct, packed or unpacked | `PortStruct` with a port per field | `PortStruct` |
-| array of structs | `PortStructArray`, whose elements are `PortStruct`s | `PortStructArray` |
+| struct, packed or unpacked | one port with the struct as its value | `RecordPort`: fields are attributes, the value a numpy record |
+| array of structs | an array of such ports | `PortBaseArrayView` of `RecordPort`s |
+| struct, with `struct_ports = "fields"` | `PortStruct` with a port per field | `PortStruct` |
+| array of structs, with `struct_ports = "fields"` | `PortStructArray`, whose elements are `PortStruct`s | `PortStructArray` |
 | packed array, packed union | the vector of its bits: one of the first, second or fourth rows | |
 
 An enumeration is its base type. A packed array (`logic [3:0][7:0]`, or of packed structs) is one vector, and
@@ -57,9 +59,8 @@ In C++ the port is declared with `DSPSIM_VINPUT_WIDE(name, width)` / `DSPSIM_VOU
 
 ## Struct ports
 
-A struct port is a `PortStruct` (`dspsim/struct.h`): a group of ports with named fields. Every field of the
-struct is a port of the kind that the table above gives for its type, and a field that is a struct is a
-`PortStruct` again.
+A struct port is one port whose value is the struct: one signal carries all the fields, and the model is
+evaluated once when any of them changes. [StructValues.md](StructValues.md) describes such signals and ports.
 
 ```systemverilog
 typedef struct {
@@ -70,6 +71,68 @@ typedef struct {
 } bus_t;
 
 module Stage (input logic clk, input bus_t bus_in, output bus_t bus_out);
+```
+
+```python
+stage = Stage("stage")
+bus_in = stage.bus_in.signal("bus_in")  # the signal that the port binds to
+bus_out = stage.bus_out.signal("bus_out")
+stage.bus_in.bind(bus_in)
+stage.bus_out.bind(bus_out)
+context.elaborate()
+
+bus_in.data.d = -100  # the fields are attributes: signals that are written ...
+bus_in.valid.d = 1
+bus_in.taps.d = [1, 2, 3, 4]
+bus_in.iq.re.d = 5
+context.run(10)
+bus_out.data.q  # ... and read on their own
+bus_out.iq.re.q
+await self.wait(bus_out.valid.pos())  # and waited for
+
+bus_in.write((-100, 1, [1, 2, 3, 4], (5, -6)))  # or the whole struct at once
+value = bus_out.read()  # a Record: value.data, value.iq.re, value.taps[0]
+stage.bus_in.dtype  # numpy dtype with the fields data, valid, taps, iq
+```
+
+- The signal is a `RecordSignal` and the port a `RecordPort`. A field is the signal of that field, created
+  when it is first asked for, at any time. Fields written in one evaluation commit together, and the model
+  is evaluated once. See [StructValues.md](StructValues.md) for the names that are not fields as attributes.
+- A field has the type that a port of its own would have: the smallest of 8, 16, 32 and 64 bits that fits,
+  signed if the field is, `double` for a `real`, an array for an unpacked array, and 32-bit words (least
+  significant first) for more than 64 bits. A field that is a struct is a struct in the value.
+- The bits of a value above the width of a field do not reach the model: a 12-bit field in an `int16`
+  takes the low 12 bits, and an output is sign extended from them.
+- In C++ the value is a struct that the generator writes, in the namespace `dspsim::generated`
+  (`verilator_value_struct.jinja`), with its `DSPSIM_STRUCT`. Its name is the name of the type in the source
+  and a hash of its fields (`bus_t_17311acd62`), so it only depends on the struct type, not on the port or
+  the module: the ports of one struct type are ports of one C++ type in every model that is generated for
+  it, and bind to the same signals. A struct type with another name or other fields, or one that is packed
+  where the other is not, is another C++ type, and its ports do not bind to those signals.
+- An array of structs (`input bus_t buses [2][3]`) is an array of such ports, a `PortBaseArrayView` in Python:
+  `dut.buses.signals("buses")` creates the signals, and `read()` gives one numpy array of shape `(2, 3)`.
+- To connect a struct port to modules with a port per field, bind those ports to the fields of the signal:
+  `monitor.data.bind(bus_out.data)`.
+
+### A port per field: `struct_ports = "fields"`
+
+With `struct_ports="fields"` a struct port is a `PortStruct` (`dspsim/struct.h`) instead: a group of ports
+with named fields, each with a signal of its own. Every field of the struct is a port of the kind that the
+table above gives for its type, and a field that is a struct is a `PortStruct` again. A field is then a port
+of the module, with a width and a direction of its own. It costs a signal per field: about 1.6 times the
+cycles of the value in the `verilated` benchmarks for a packed struct of four fields.
+
+```python
+@vbuilder(source=source, struct_ports="fields")
+class Stage(VModule): ...
+```
+
+```toml
+[tool.dspsim]
+struct_ports = "fields"            # for every model of a library
+
+[tool.dspsim.models.Stage]
+struct_ports = "value"             # or for one
 ```
 
 ```python
@@ -85,6 +148,8 @@ An attribute of `PortStruct` itself (`name`, `fields`, `bind`, `signals`, `add`)
 which is then reached as an item. In C++ the fields are members of the generated class (`stage.bus_in.data`),
 and `input<T>(field)`, `output<T>(field)`, `input_array<T>(field)`, `output_array<T>(field)` and
 `nested(field)` find them by name.
+
+The rest of this section, down to "Struct ports of hand-written modules", is about this form.
 
 ### Binding a struct as a whole
 
@@ -124,20 +189,22 @@ bus.nested("iq").signal<int8_t>("re");
 
 ### Unpacked and packed structs
 
-The two kinds look the same in dspsim and differ in how Verilator stores them, which is what the generated
-class of a struct port (`verilator_struct.jinja`) deals with:
+The two kinds look the same in dspsim, in both forms, and differ in how Verilator stores them, which is what
+the generated code deals with: the struct of a value (`verilator_value_struct.jinja`) or the class of a
+`PortStruct` (`verilator_struct.jinja`).
 
-- **Unpacked** (`typedef struct { ... }`): a C++ struct with one member per field. A field port is an
-  ordinary verilated port (`VInput`, `VOutputArray`, `VInputWide`, ...) on that member, so a field can be
-  an unpacked array, wider than 64 bits, or `real`.
+- **Unpacked** (`typedef struct { ... }`): a C++ struct with one member per field. A value is copied to
+  and from it field by field (`to_model()`, `from_model()`). With a port per field, a field port is an
+  ordinary verilated port (`VInput`, `VOutputArray`, `VInputWide`, ...) on that member. A field can be an
+  unpacked array, wider than 64 bits, or `real`.
 - **Packed** (`typedef struct packed { ... }`): one vector of bits with the first field in the most
-  significant bits, in one integer up to 64 bits and in 32-bit words above. A field port reads and writes
-  its own bits of the vector (`VInputBits`, `VOutputBits`), and the other fields keep theirs. A field of
+  significant bits, in one integer up to 64 bits and in 32-bit words above. A value is copied to and from
+  the bits of its fields (`to_bits()`, `from_bits()`). With a port per field, a field port reads and writes
+  its own bits of the vector (`VInputBits`, `VOutputBits`), and the other fields keep theirs; a field of
   more than 64 bits is an array of words that can start at any bit (`VInputWideBits`, `VOutputWideBits`).
   The struct can be nested in a packed or an unpacked struct.
-- **In an array**: each element is an object of the same generated class, constructed from one verilated
-  struct of the array (`vl_element_pointers()`), or from a pointer to the first word of one packed vector
-  (`vl_word_pointers()`).
+- **In an array**: each element is a port of its own (`VInputStructArray`), or an object of the generated
+  `PortStruct` class, on one verilated struct of the array or on the first word of one packed vector.
 
 In a trace, Verilator shows an unpacked struct field by field and a packed struct as one vector. Its
 `--trace-structs` option splits packed structs (and packed arrays) into their fields, at the cost of larger
@@ -204,7 +271,14 @@ something else owns. In Python, `PortStructArray(name, shape, structs)` and
 
 ### Struct ports of hand-written modules
 
-A struct port is a class derived from `PortStruct` whose ports are members, added in the constructor:
+A hand-written C++ module has a struct as the value of a port by declaring it: `Input<Bus> bus_in{"bus_in"};`,
+with a `DSPSIM_STRUCT` for the struct if Python reads or writes it ([StructValues.md](StructValues.md)). A
+hand-written verilated module declares the port with `DSPSIM_VINPUT_STRUCT(name, S)`,
+`DSPSIM_VOUTPUT_STRUCT(name, S)` or, for an array of structs, `DSPSIM_VINPUT_STRUCT_ARRAY(name, S, 2, 3)`,
+where `S` has the functions that copy it to and from the model (`tests/cpp/StructValueModel.h`).
+
+A struct port with a port per field is a class derived from `PortStruct` whose ports are members, added in
+the constructor:
 
 ```cpp
 struct BusIn : PortStruct
@@ -236,8 +310,9 @@ class Stage(Module):
 ## Annotations
 
 The port annotations of a `vbuilder` class name the Python class of each port, and are checked against the
-model: `a: InputArrayU32` for a wide port, `bus_in: PortStruct` for a struct port and `buses: PortStructArray`
-for an array of structs (the fields are not annotated).
+model: `a: InputArrayU32` for a wide port, `bus_in: RecordPort` for a struct port and
+`buses: PortBaseArrayView` for an array of structs, or `PortStruct` and `PortStructArray` with
+`struct_ports="fields"` (the fields are not annotated).
 
 ## Verilator arguments
 
@@ -271,3 +346,5 @@ build.
 - The members of a packed union are not ports (see the table above).
 - The names of the members of Verilator's C++ structs (`__PVT__<field>`) are internal to Verilator, like the
   `m_storage` of its arrays that `vport.h` reads. They are in one place, `Port.vl_member` in `module_info.py`.
+- A struct value and a `PortStruct` of the same struct type do not bind to each other as a whole. Bind the
+  ports of the `PortStruct` to the fields of the struct signal (`ports.data.bind(bus.data)`).

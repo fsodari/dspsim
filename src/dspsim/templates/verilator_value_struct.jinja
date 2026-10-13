@@ -1,0 +1,94 @@
+{#-
+    The C++ struct that is the value of a struct port of a verilated module (Port.value_class), with a member
+    per field, and the functions that copy it to and from the verilated model, which the ports call
+    (VInputStruct, VOutputStruct in dspsim/vmodule/vport.h).
+
+    An unpacked struct is a C++ struct in the verilated model with a member `__PVT__<field>` per field (a
+    Verilator internal): to_model() and from_model() copy field by field. A packed struct is one vector of
+    bits: to_bits() and from_bits() copy every field to and from its bits, starting at bit `lsb` of the
+    vector, so that a packed struct inside a packed struct passes its position on.
+
+    The struct only depends on the struct type of the source, not on the module: it is the same text
+    wherever that type is a port, and is guarded so that one translation unit takes it once.
+
+    The parameters of the functions are named so that no field hides them.
+-#}
+{%- macro value_struct(port) -%}
+#ifndef DSPSIM_GENERATED_{{port.value_class}}
+#define DSPSIM_GENERATED_{{port.value_class}}
+namespace dspsim::generated
+{
+    // {{ "Packed" if port.packed else "Unpacked" }} struct{{ " " + port.type_name if port.type_name }}
+    struct {{port.value_class}}
+    {
+{%- for f in port.fields.values() %}
+        {{f.value_ctype}} {{f.name}}{};
+{%- endfor %}
+
+        bool operator==(const {{port.value_class}} &) const = default;
+{% if port.packed %}
+        template <typename VlWord>
+        void to_bits(VlWord *vl_words, int vl_lsb) const
+        {
+{%- for f in port.fields.values() %}
+{%- if f.is_struct %}
+            {{f.name}}.to_bits(vl_words, vl_lsb + {{f.lsb}});
+{%- elif f.is_wide %}
+            ::dspsim::detail::vl_wide_to_bits<{{f.width}}>(vl_words, vl_lsb + {{f.lsb}}, {{f.name}});
+{%- else %}
+            ::dspsim::detail::vl_number_to_bits<{{f.ctype}}, {{f.width}}>(vl_words, vl_lsb + {{f.lsb}}, {{f.name}});
+{%- endif %}
+{%- endfor %}
+        }
+
+        template <typename VlWord>
+        void from_bits(const VlWord *vl_words, int vl_lsb)
+        {
+{%- for f in port.fields.values() %}
+{%- if f.is_struct %}
+            {{f.name}}.from_bits(vl_words, vl_lsb + {{f.lsb}});
+{%- elif f.is_wide %}
+            ::dspsim::detail::vl_wide_from_bits<{{f.width}}>(vl_words, vl_lsb + {{f.lsb}}, {{f.name}});
+{%- else %}
+            {{f.name}} = ::dspsim::detail::vl_number_from_bits<{{f.ctype}}, {{f.width}}>(vl_words, vl_lsb + {{f.lsb}});
+{%- endif %}
+{%- endfor %}
+        }
+{%- else %}
+        template <typename VlStruct>
+        void to_model(VlStruct &vl_struct) const
+        {
+{%- for f in port.fields.values() %}
+{%- if f.is_struct and f.is_array %}
+            ::dspsim::detail::vl_structs_to_model<{{f.value_element_ctype}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- elif f.is_struct %}
+            ::dspsim::detail::vl_struct_to_model(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- elif f.is_wide %}
+            ::dspsim::detail::vl_wide_to_model<{{f.width}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- else %}
+            ::dspsim::detail::vl_numbers_to_model<{{f.ctype}}, {{f.value_width}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- endif %}
+{%- endfor %}
+        }
+
+        template <typename VlStruct>
+        void from_model(const VlStruct &vl_struct)
+        {
+{%- for f in port.fields.values() %}
+{%- if f.is_struct and f.is_array %}
+            ::dspsim::detail::vl_structs_from_model<{{f.value_element_ctype}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- elif f.is_struct %}
+            ::dspsim::detail::vl_struct_from_model(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- elif f.is_wide %}
+            ::dspsim::detail::vl_wide_from_model<{{f.width}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- else %}
+            ::dspsim::detail::vl_numbers_from_model<{{f.ctype}}, {{f.value_width}}>(vl_struct.{{f.vl_member}}, {{f.name}});
+{%- endif %}
+{%- endfor %}
+        }
+{%- endif %}
+    };
+    DSPSIM_STRUCT({{port.value_class}}{% for f in port.fields.values() %}, {{f.name}}{% endfor %})
+} // namespace dspsim::generated
+#endif
+{%- endmacro -%}

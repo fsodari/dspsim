@@ -94,6 +94,16 @@ static inline auto bind_{{model.name}}(nanobind::module_ &m)
         // A struct port is its PortStruct (or PortStructArray) base class in Python, which gives its fields by name.
         .def_prop_ro("{{port.name}}", [](M &self) -> ::dspsim::{{ "PortStructArray" if port.is_array else "PortStruct" }} & { return self.{{port.name}}; },
             nanobind::rv_policy::reference_internal)
+        {%-elif port.suffix is none and port.is_array%}
+        // An array of ports whose value type the framework has no classes for (a struct): an array of PortBase.
+        .def_prop_ro("{{port.name}}", [](M &self) { return ::dspsim::port_base_array(self.{{port.name}}); },
+            nanobind::keep_alive<0, 1>())
+        {%-elif port.suffix is none%}
+        // A port whose value type the framework has no class for: Python has it as a RecordPort if the value
+        // is a struct and as a PortBase otherwise, and reads and writes the value through the description of
+        // the type (DSPSIM_STRUCT).
+        .def_prop_ro("{{port.name}}", [](M &self) -> decltype(auto) { return ::dspsim::port_base(self.{{port.name}}); },
+            nanobind::rv_policy::reference_internal)
         {%-else%}
         .def_ro("{{port.name}}", &M::{{port.name}})
         {%-endif%}

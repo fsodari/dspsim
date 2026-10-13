@@ -32,6 +32,14 @@ struct {{port.struct_class}} : ::dspsim::PortStruct
         ::dspsim::PortStruct::add("{{f.name}}", {{f.name}});
 {%- endfor %}
     }
+
+    // Copy every field to or from the model.
+    void sync()
+    {
+{%- for f in port.fields.values() %}
+        ::dspsim::detail::vl_sync({{f.name}});
+{%- endfor %}
+    }
 {% for f in port.fields.values() %}
     {{f.vfield_type(storage)}} {{f.name}};
 {%- endfor %}

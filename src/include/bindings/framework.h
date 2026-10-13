@@ -19,11 +19,12 @@ namespace dspsim::bindings
 
     /// Context, Model, events, Channel, processes, awaitables and tasks, ModuleName and Module. (engine.cpp)
     void register_engine(nb::module_ &m);
-    /// SignalBase, Signal*, BitSel and the bit functions, DerivedSignal*, Clock. (signals.cpp)
+    /// SignalBase, Signal*, BitSel and the bit functions, DerivedSignal*, RecordSignal, FieldSignal*,
+    /// SignalBaseArrayView, Clock. (signals.cpp)
     void register_signals(nb::module_ &m);
     /// SignalArray* and SignalArrayView*. (signal_arrays.cpp)
     void register_signal_arrays(nb::module_ &m);
-    /// PortBase, Input* and Output*. (ports.cpp)
+    /// PortBase, RecordPort, Input*, Output* and PortBaseArrayView. (ports.cpp)
     void register_ports(nb::module_ &m);
     /// InputArray* and InputArrayView*. (input_arrays.cpp)
     void register_input_arrays(nb::module_ &m);

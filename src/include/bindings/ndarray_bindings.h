@@ -116,10 +116,11 @@ namespace dspsim::bindings
     static inline void bind_ndarray_values(NbClass &cls)
     {
         using Elem = typename Array::element_type;
-        using V = detail::value_of<Elem>;
 
+        // An element without read() (a signal or port without the type of its value) has neither.
         if constexpr (detail::Readable<Elem>)
         {
+            using V = detail::value_of<Elem>;
             auto read = [](const Array &a)
             {
                 return to_numpy<V>(a);
@@ -135,6 +136,7 @@ namespace dspsim::bindings
         }
         if constexpr (detail::Writable<Elem>)
         {
+            using V = detail::value_of<Elem>;
             // numpy arrays (or anything convertible with the same shape). A 0-d array is broadcast.
             auto write_np = [](Array &a, const nb::ndarray<const V, nb::c_contig, nb::device::cpu> &arr)
             {
@@ -185,6 +187,20 @@ namespace dspsim::bindings
         }
     }
 
+    /// How an element of an array becomes a Python object that refers to the array. The default is the
+    /// class that nanobind has for the type of the element. An array whose elements are base classes
+    /// (SignalBase, PortBase) specializes it to give each element the most specific class that it has.
+    template <typename Elem>
+    struct ElementCaster
+    {
+        static constexpr bool custom = false;
+
+        static nb::object cast(Elem *element, nb::handle parent)
+        {
+            return nb::cast(element, nb::rv_policy::reference_internal, parent);
+        }
+    };
+
     // Members shared by every array and array view class. Indexing with ints and slices (like numpy) is supported:
     // all ints returns the element, otherwise a view with the int dimensions dropped.
     template <typename Array, typename NbClass>
@@ -197,6 +213,10 @@ namespace dspsim::bindings
         // comment their intended overlap needs): keep the two in sync.
         auto *view_sig = new std::string("def __getitem__(self, key: slice | int | tuple[int | slice, ...], /) -> " + names.view);
         auto *slice_sig = new std::string("def slice(self, key: slice | int | tuple[int | slice, ...] = ()) -> " + names.view);
+        auto *flat_sig = new std::string("def flat(self, index: int) -> " + names.element);
+        auto *at_sig = new std::string("def at(self, index: collections.abc.Sequence[int]) -> " + names.element);
+        auto *iter_sig = new std::string("def __iter__(self) -> collections.abc.Iterator[" + names.element + "]");
+        using Elem = typename Array::element_type;
         auto get_view = [](Array &a, nb::handle key)
         {
             auto ranges = resolve_key(a, key);
@@ -215,12 +235,30 @@ namespace dspsim::bindings
                  { return a.size(); })
             .def_prop_ro("size", [](const Array &a)
                          { return a.size(); })
-            .def("flat", [](Array &a, std::size_t i) -> auto &
-                 { return a.flat(i); }, nb::arg("index"), nb::rv_policy::reference_internal)
-            .def("at", [](Array &a, const Index &idx) -> auto &
-                 { return a.at(idx); }, nb::arg("index"), nb::rv_policy::reference_internal)
-            .def("__iter__", [](Array &a)
-                 { return nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end()); }, nb::keep_alive<0, 1>())
+            .def("flat", [](nb::handle self, std::size_t i)
+                 { return ElementCaster<Elem>::cast(&nb::cast<Array &>(self).flat(i), self); }, nb::arg("index"),
+                 nb::sig(flat_sig->c_str()))
+            .def("at", [](nb::handle self, const Index &idx)
+                 { return ElementCaster<Elem>::cast(&nb::cast<Array &>(self).at(idx), self); }, nb::arg("index"),
+                 nb::sig(at_sig->c_str()))
+            .def("__iter__", [](nb::handle self) -> nb::object
+                 {
+                     auto &a = nb::cast<Array &>(self);
+                     if constexpr (ElementCaster<Elem>::custom)
+                     {
+                         nb::list elements;
+                         for (auto &element : a)
+                         {
+                             elements.append(ElementCaster<Elem>::cast(&element, self));
+                         }
+                         return nb::iter(elements);
+                     }
+                     else
+                     {
+                         nb::object iterator = nb::make_iterator<nb::rv_policy::reference_internal>(nb::type<Array>(), "iterator", a.begin(), a.end());
+                         nb::keep_alive_obj(iterator, self);
+                         return iterator;
+                     } }, nb::sig(iter_sig->c_str()))
             // Keys made only of ints are matched by type (no exceptions are used for dispatch, which would be slow).
             // A full-rank key returns the element. A partial key falls back to a view with those dimensions dropped.
             // Both refer to the array. The element is returned with reference_internal and not with a keep_alive
@@ -250,7 +288,7 @@ namespace dspsim::bindings
                      Index idx;
                      for (auto &r : ranges)
                          idx.push_back(static_cast<std::size_t>(r.start));
-                     return nb::cast(&a.at(idx), nb::rv_policy::reference_internal, self); }, nb::arg("key"), nb::sig(elem_sig->c_str()))
+                     return ElementCaster<Elem>::cast(&a.at(idx), self); }, nb::arg("key"), nb::sig(elem_sig->c_str()))
             .def("__getitem__", get_view, nb::arg("key"), nb::keep_alive<0, 1>(), nb::sig(view_sig->c_str()))
             // Always returns a view, so it skips the int-key overload above. An empty key views the whole array.
             .def("slice", get_view, nb::arg("key") = nb::tuple(), nb::keep_alive<0, 1>(), nb::sig(slice_sig->c_str()));

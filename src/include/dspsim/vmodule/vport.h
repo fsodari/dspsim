@@ -1,6 +1,7 @@
 #pragma once
 #include <dspsim/port.h>
 #include <dspsim/bits.h>
+#include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
@@ -76,8 +77,8 @@ namespace dspsim
 
         VInput(const std::string &name, Storage &ext_port);
 
-    private:
-        /// Write the input value to the top model port.
+        /// Write the input value to the top model port. Public, like sync() of the other verilated ports, so
+        /// that a module can call it on the port itself: the class is final, so that call is not virtual.
         void sync() override;
 
     private:
@@ -96,7 +97,6 @@ namespace dspsim
 
         VOutput(const std::string &name, Storage &ext_port);
 
-    private:
         /// Write the top model value to the output port.
         void sync() override;
 
@@ -179,6 +179,14 @@ namespace dspsim
             return reinterpret_cast<S *>(&ext_port);
         }
 
+        /// The same for a port that is read.
+        template <typename S, typename A>
+        const S *vl_elements(const A &ext_port)
+        {
+            static_assert(std::is_same_v<vl_element_t<A>, S>, "The port type does not match the storage of the verilated port.");
+            return reinterpret_cast<const S *>(&ext_port);
+        }
+
         /// Pointers to the elements of a (nested) verilated port, in row-major order. The elements of an array
         /// of structs are the structs.
         template <typename A>
@@ -233,6 +241,56 @@ namespace dspsim
         }
     } // namespace detail
 
+    template <typename S>
+    class PortStructArrayOf;
+
+    namespace detail
+    {
+        /// sync() every element of an array of verilated ports, all of class P.
+        template <typename P, typename Array>
+        void vl_sync_elements(const Array &ports)
+        {
+            for (auto &port : ports)
+            {
+                static_cast<P &>(port).sync();
+            }
+        }
+
+        /// sync() every element of an array of words: the last of every `words` elements is of class Top, the
+        /// others are of class Word.
+        template <typename Word, typename Top, typename Array>
+        void vl_sync_words(const Array &ports, std::size_t words)
+        {
+            std::size_t i = 0;
+            for (auto &port : ports)
+            {
+                if (++i == words)
+                {
+                    static_cast<Top &>(port).sync();
+                    i = 0;
+                }
+                else
+                {
+                    static_cast<Word &>(port).sync();
+                }
+            }
+        }
+
+        /// Copy the value of a port of a verilated module to or from the model: a verilated port, the struct
+        /// class of a struct port (which has a sync() for its fields), or an array of such structs. A module
+        /// that calls this for each of its ports does what VModule::eval() does through virtual calls.
+        template <typename P>
+        void vl_sync(P &port)
+        {
+            port.sync();
+        }
+        template <typename S>
+        void vl_sync(PortStructArrayOf<S> &structs)
+        {
+            vl_sync_elements<S>(structs);
+        }
+    } // namespace detail
+
     /// Array of input ports bound to a verilated unpacked array port. Elements map to the array in row-major order.
     template <typename T, int W>
     class VInputArray final : public InputArray<T>
@@ -248,6 +306,9 @@ namespace dspsim
                             { return std::make_unique<VInput<T, W>>(n, detail::vl_elements<Storage>(ext_port)[i]); })
         {
         }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VInput<T, W>>(*this); }
     };
 
     /// Array of output ports bound to a verilated unpacked array port. Elements map to the array in row-major order.
@@ -265,6 +326,9 @@ namespace dspsim
                              { return std::make_unique<VOutput<T, W>>(n, detail::vl_elements<Storage>(ext_port)[i]); })
         {
         }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VOutput<T, W>>(*this); }
     };
     namespace detail
     {
@@ -319,6 +383,12 @@ namespace dspsim
                                    })
         {
         }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VInput<uint32_t, detail::vl_word_bits>, VInput<uint32_t, detail::vl_top_word_bits<W>>>(*this, detail::vl_words<W>);
+        }
     };
 
     /// Output bound to a verilated port of more than 64 bits, or to an unpacked array of them: an array of 32-bit
@@ -343,6 +413,12 @@ namespace dspsim
                                         return std::make_unique<VOutput<uint32_t, detail::vl_word_bits>>(n, word);
                                     })
         {
+        }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VOutput<uint32_t, detail::vl_word_bits>, VOutput<uint32_t, detail::vl_top_word_bits<W>>>(*this, detail::vl_words<W>);
         }
     };
 
@@ -418,7 +494,6 @@ namespace dspsim
         {
         }
 
-    private:
         /// Write the input value to its bits of the top model port.
         void sync() override
         {
@@ -453,7 +528,6 @@ namespace dspsim
         {
         }
 
-    private:
         /// Write its bits of the top model port to the output port.
         void sync() override
         {
@@ -489,6 +563,12 @@ namespace dspsim
                                    })
         {
         }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VInputBits<uint32_t, detail::vl_word_bits, uint32_t>, VInputBits<uint32_t, detail::vl_top_word_bits<W>, uint32_t>>(*this, detail::vl_words<W>);
+        }
     };
 
     /// Output bound to a field of more than 64 bits of a verilated packed struct port. See VInputWideBits.
@@ -514,6 +594,285 @@ namespace dspsim
                                     })
         {
         }
+
+        /// sync() every word.
+        void sync()
+        {
+            detail::vl_sync_words<VOutputBits<uint32_t, detail::vl_word_bits, uint32_t>, VOutputBits<uint32_t, detail::vl_top_word_bits<W>, uint32_t>>(*this, detail::vl_words<W>);
+        }
+    };
+
+    /*
+        Struct ports as values. The value of a struct port is a C++ struct with a member per field, which the
+        generator writes (verilator_value_struct.jinja) together with the functions that copy it to and from
+        the model: to_model(ext) / from_model(ext) for an unpacked struct, which is a C++ struct in the model
+        with a member per field, and to_bits(words, lsb) / from_bits(words, lsb) for a packed struct, which is
+        a vector of bits. The functions below are what those are made of, one per kind of field.
+    */
+    namespace detail
+    {
+        /// The elements of nested std::arrays as one array, in row-major order. E is the type of the elements.
+        template <typename E, typename A>
+        E *flat_elements(A &array)
+        {
+            return reinterpret_cast<E *>(&array);
+        }
+        template <typename E, typename A>
+        const E *flat_elements(const A &array)
+        {
+            return reinterpret_cast<const E *>(&array);
+        }
+
+        /// A number, or an unpacked array of numbers, of an unpacked struct: `ext` is the member of the
+        /// verilated struct, `value` the member of the value (a T, or nested std::arrays of T). W is the width
+        /// in bits.
+        template <typename T, int W, typename Ext, typename V>
+        void vl_numbers_to_model(Ext &ext, const V &value)
+        {
+            auto *to = vl_elements<vl_storage_t<T>>(ext);
+            const T *from = flat_elements<T>(value);
+            for (std::size_t i = 0; i < sizeof(V) / sizeof(T); ++i)
+            {
+                to[i] = vl_truncate<T, W>(from[i]);
+            }
+        }
+
+        template <typename T, int W, typename Ext, typename V>
+        void vl_numbers_from_model(const Ext &ext, V &value)
+        {
+            const auto *from = vl_elements<vl_storage_t<T>>(ext);
+            T *to = flat_elements<T>(value);
+            for (std::size_t i = 0; i < sizeof(V) / sizeof(T); ++i)
+            {
+                to[i] = vl_extend<T, W>(from[i]);
+            }
+        }
+
+        /// A number of more than 64 bits, or an unpacked array of them: 32-bit words, least significant
+        /// first, on both sides. The bits above W of each most significant word are cleared on the way to the
+        /// model.
+        template <int W, typename Ext, typename V>
+        void vl_wide_to_model(Ext &ext, const V &value)
+        {
+            uint32_t *to = vl_elements<uint32_t>(ext);
+            const uint32_t *from = flat_elements<uint32_t>(value);
+            for (std::size_t i = 0; i < sizeof(V) / sizeof(uint32_t); ++i)
+            {
+                const bool top = i % vl_words<W> == vl_words<W> - 1;
+                to[i] = top ? from[i] & mask<vl_top_word_bits<W>, uint32_t>() : from[i];
+            }
+        }
+
+        template <int W, typename Ext, typename V>
+        void vl_wide_from_model(const Ext &ext, V &value)
+        {
+            const uint32_t *from = vl_elements<uint32_t>(ext);
+            uint32_t *to = flat_elements<uint32_t>(value);
+            for (std::size_t i = 0; i < sizeof(V) / sizeof(uint32_t); ++i)
+            {
+                to[i] = from[i];
+            }
+        }
+
+        /// A struct value has to_model() if its struct is unpacked, and to_bits() if it is packed.
+        template <typename S, typename Ext>
+        concept VlUnpackedStruct = requires(const S &value, Ext &ext) { value.to_model(ext); };
+
+        /// A struct: `ext` is the verilated struct, or the vector of a packed struct (its one integer, or its
+        /// 32-bit words).
+        template <typename Ext, typename S>
+        void vl_struct_to_model(Ext &ext, const S &value)
+        {
+            if constexpr (VlUnpackedStruct<S, Ext>)
+            {
+                value.to_model(ext);
+            }
+            else
+            {
+                value.to_bits(vl_elements<vl_element_t<Ext>>(ext), 0);
+            }
+        }
+
+        template <typename Ext, typename S>
+        void vl_struct_from_model(const Ext &ext, S &value)
+        {
+            if constexpr (VlUnpackedStruct<S, Ext>)
+            {
+                value.from_model(ext);
+            }
+            else
+            {
+                value.from_bits(vl_elements<vl_element_t<Ext>>(ext), 0);
+            }
+        }
+
+        /// An unpacked array of structs: `ext` is the verilated array, `value` nested std::arrays of S. The
+        /// elements of `ext` are the verilated structs, or, for packed structs, the words of their vectors, one
+        /// vector after the other.
+        template <typename S, typename Ext, typename V>
+        void vl_structs_to_model(Ext &ext, const V &value)
+        {
+            using E = vl_element_t<Ext>;
+            const std::size_t count = sizeof(V) / sizeof(S);
+            const std::size_t stride = sizeof(Ext) / sizeof(E) / count;
+            E *to = vl_elements<E>(ext);
+            const S *from = flat_elements<S>(value);
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                vl_struct_to_model(to[i * stride], from[i]);
+            }
+        }
+
+        template <typename S, typename Ext, typename V>
+        void vl_structs_from_model(const Ext &ext, V &value)
+        {
+            using E = vl_element_t<Ext>;
+            const std::size_t count = sizeof(V) / sizeof(S);
+            const std::size_t stride = sizeof(Ext) / sizeof(E) / count;
+            const E *from = vl_elements<E>(ext);
+            S *to = flat_elements<S>(value);
+            for (std::size_t i = 0; i < count; ++i)
+            {
+                vl_struct_from_model(from[i * stride], to[i]);
+            }
+        }
+
+        /// A number of at most 64 bits of a packed struct: W bits that start at bit lsb of the vector.
+        template <typename T, int W, typename S>
+        void vl_number_to_bits(S *words, int lsb, T value)
+        {
+            vl_set_bits<W>(words, lsb, static_cast<uint64_t>(vl_truncate<T, W>(value)));
+        }
+
+        template <typename T, int W, typename S>
+        T vl_number_from_bits(const S *words, int lsb)
+        {
+            return vl_extend<T, W>(static_cast<vl_storage_t<T>>(vl_get_bits<W>(words, lsb)));
+        }
+
+        /// A number of more than 64 bits of a packed struct: 32-bit words on the side of the value.
+        template <int W, typename S>
+        void vl_wide_to_bits(S *words, int lsb, const std::array<uint32_t, vl_words<W>> &value)
+        {
+            for (std::size_t i = 0; i + 1 < vl_words<W>; ++i)
+            {
+                vl_set_bits<vl_word_bits>(words, lsb + static_cast<int>(i) * vl_word_bits, value[i]);
+            }
+            vl_set_bits<vl_top_word_bits<W>>(words, lsb + static_cast<int>(vl_words<W> - 1) * vl_word_bits, value[vl_words<W> - 1]);
+        }
+
+        template <int W, typename S>
+        void vl_wide_from_bits(const S *words, int lsb, std::array<uint32_t, vl_words<W>> &value)
+        {
+            for (std::size_t i = 0; i + 1 < vl_words<W>; ++i)
+            {
+                value[i] = static_cast<uint32_t>(vl_get_bits<vl_word_bits>(words, lsb + static_cast<int>(i) * vl_word_bits));
+            }
+            value[vl_words<W> - 1] =
+                static_cast<uint32_t>(vl_get_bits<vl_top_word_bits<W>>(words, lsb + static_cast<int>(vl_words<W> - 1) * vl_word_bits));
+        }
+    } // namespace detail
+
+    /// Input of a verilated module whose value is a struct. S is the struct of the value, which the generator
+    /// writes, and Ext what the verilated model has for it: its C++ struct for an unpacked struct, and for a
+    /// packed struct its vector, or the type of the words of the vector if the struct is an element of an
+    /// array.
+    template <typename S, typename Ext>
+    class VInputStruct final : public Input<S>
+    {
+    public:
+        using Base = Input<S>;
+
+        VInputStruct(const std::string &name, Ext &ext) : Input<S>(name), ext_(&ext) {}
+
+        /// Write the value to the model.
+        void sync() override { detail::vl_struct_to_model(*ext_, this->read()); }
+
+    private:
+        Ext *ext_;
+    };
+
+    /// Output of a verilated module whose value is a struct. See VInputStruct.
+    template <typename S, typename Ext>
+    class VOutputStruct final : public Output<S>
+    {
+    public:
+        using Base = Output<S>;
+
+        VOutputStruct(const std::string &name, Ext &ext) : Output<S>(name), ext_(&ext) {}
+
+        /// Write the value that the model has to the output.
+        void sync() override
+        {
+            S value;
+            detail::vl_struct_from_model(*ext_, value);
+            this->write(value);
+        }
+
+    private:
+        Ext *ext_;
+    };
+
+    namespace detail
+    {
+        /// The verilated structs of an array of them: element i of `count`. For packed structs E is the type
+        /// of the words, and the element is the first word of vector i.
+        template <typename E, typename A>
+        E &vl_struct_element(A &ext, std::size_t count, std::size_t i)
+        {
+            if (count == 0 || sizeof(A) % (count * sizeof(E)) != 0)
+            {
+                throw std::invalid_argument("The verilated port is not an array of " + std::to_string(count) + " structs");
+            }
+            return vl_elements<E>(ext)[i * (sizeof(A) / sizeof(E) / count)];
+        }
+
+        inline std::size_t vl_shape_size(const Shape &shape)
+        {
+            std::size_t size = 1;
+            for (auto n : shape)
+            {
+                size *= n;
+            }
+            return size;
+        }
+    } // namespace detail
+
+    /// Array of inputs whose values are structs, bound to a verilated unpacked array of structs. E is the type
+    /// of an element of the verilated array: its C++ struct, or the type of the words of a packed struct.
+    template <typename S, typename E>
+    class VInputStructArray final : public InputArray<S>
+    {
+    public:
+        using Base = InputArray<S>;
+
+        template <typename A>
+        VInputStructArray(const std::string &name, Shape shape, A &ext)
+            : InputArray<S>(name, shape, [&](const std::string &n, std::size_t i)
+                            { return std::make_unique<VInputStruct<S, E>>(n, detail::vl_struct_element<E>(ext, detail::vl_shape_size(shape), i)); })
+        {
+        }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VInputStruct<S, E>>(*this); }
+    };
+
+    /// Array of outputs whose values are structs. See VInputStructArray.
+    template <typename S, typename E>
+    class VOutputStructArray final : public OutputArray<S>
+    {
+    public:
+        using Base = OutputArray<S>;
+
+        template <typename A>
+        VOutputStructArray(const std::string &name, Shape shape, A &ext)
+            : OutputArray<S>(name, shape, [&](const std::string &n, std::size_t i)
+                             { return std::make_unique<VOutputStruct<S, E>>(n, detail::vl_struct_element<E>(ext, detail::vl_shape_size(shape), i)); })
+        {
+        }
+
+        /// sync() every element.
+        void sync() { detail::vl_sync_elements<VOutputStruct<S, E>>(*this); }
     };
 
     /// Access a verilated port through its registered dspsim base class (Input<T>, OutputArray<T>, ...).
@@ -563,6 +922,21 @@ namespace dspsim
 // Declare a signed output array on a vmodule.
 #define DSPSIM_VOUTPUT_ARRAY_S(name, width) \
     DSPSIM_VPORT_ARRAY_(VOutputArray, ::dspsim::detail::vl_signed_t<decltype(top->name)>, name, width)
+
+// Declare an input or output whose value is the struct S on a vmodule, for a struct port of the model.
+#define DSPSIM_VINPUT_STRUCT(name, S) \
+    ::dspsim::VInputStruct<S, std::remove_reference_t<decltype(top->name)>> name { #name, top->name }
+
+#define DSPSIM_VOUTPUT_STRUCT(name, S) \
+    ::dspsim::VOutputStruct<S, std::remove_reference_t<decltype(top->name)>> name { #name, top->name }
+
+// Declare an array of inputs or outputs whose values are the struct S, for an unpacked array of structs. The
+// shape is given as its dimensions: DSPSIM_VINPUT_STRUCT_ARRAY(buses, bus_t, 2, 3).
+#define DSPSIM_VINPUT_STRUCT_ARRAY(name, S, ...) \
+    ::dspsim::VInputStructArray<S, ::dspsim::detail::vl_element_t<decltype(top->name)>> name { #name, ::dspsim::Shape{__VA_ARGS__}, top->name }
+
+#define DSPSIM_VOUTPUT_STRUCT_ARRAY(name, S, ...) \
+    ::dspsim::VOutputStructArray<S, ::dspsim::detail::vl_element_t<decltype(top->name)>> name { #name, ::dspsim::Shape{__VA_ARGS__}, top->name }
 
 // Declare an input wider than 64 bits (or an unpacked array of them) on a vmodule: an array of 32-bit words,
 // least significant first, as the last dimension.

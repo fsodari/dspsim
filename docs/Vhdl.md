@@ -97,8 +97,8 @@ Every port has the type that the VHDL type maps to. The rest of this table is in
 | `integer range a to b` | the bits of the range, `signed` if `a` is negative | by width |
 | an enumeration | `logic [N-1:0]`, the position of the value | unsigned, by width |
 | an array of anything else | unpacked array, a dimension for each of the VHDL type | `InputArray*` / `OutputArray*` |
-| a record | `struct` | `PortStruct` |
-| an array of records | unpacked array of structs | `PortStructArray` |
+| a record | `struct` | one port with the record as its value (`RecordPort`: the elements are attributes, the value a numpy record), or a `PortStruct` with `struct_ports = "fields"` |
+| an array of records | unpacked array of structs | an array of such ports (`PortBaseArrayView`), or a `PortStructArray` |
 | a vector of more than 64 bits | `logic [N-1:0]` | array of 32-bit words |
 
 - **Modes**: `in` is an input; `out` and `buffer` are outputs. `inout` and `linkage` are not supported.

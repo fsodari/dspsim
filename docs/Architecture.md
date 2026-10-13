@@ -5,6 +5,7 @@ nanobind, used to simulate hardware designs, either hand-written C++/Python mode
 Verilator-generated models of Verilog/SystemVerilog RTL. This document describes how the core
 pieces fit together. Related documents: [Coro.md](Coro.md) (coroutine processes and
 awaitables), [BitSlicing.md](BitSlicing.md) (bit slicing and packing) and
+[StructValues.md](StructValues.md) (signals and ports with a struct as their value),
 [VerilatedPorts.md](VerilatedPorts.md) (the ports of verilated modules: wide and struct ports) and
 [Vhdl.md](Vhdl.md) (VHDL models).
 
@@ -129,6 +130,40 @@ Holds a committed value `q_` and a pending value `d_`. `SignalBase` owns three
 A signal can also be sliced and packed (`sig[{hi, lo}]`, `pack(a, b)`). Signals derived
 from such a selection are recomputed in a second pass of the update phase. See
 [BitSlicing.md](BitSlicing.md).
+
+`T` is any type that can be copied, compared with `==` and constructed without arguments. The numbers
+(`uint8_t` to `int64_t`, `float`, `double`) are the types that the core library instantiates and that
+Python knows. A model can use others, which are compiled with the model:
+
+```cpp
+struct Sample
+{
+    int16_t re = 0;
+    int16_t im = 0;
+    bool operator==(const Sample &) const = default;
+};
+
+dspsim::Input<Sample> in{"in"};       // also Output<Sample>, Signal<Sample>, SignalArray<Sample> ...
+out.write({in.read().im, in.read().re});
+```
+
+With a struct (or a `std::array`, an enumeration, ...) as its value, a signal carries all the fields at
+once: a write replaces the whole value, the signal is compared and committed once, and it has one change
+event, whichever field changed. Its `pos()` and `neg()` never occur, and it cannot be sliced. This is the
+fast way to pass a struct whose fields go in one direction (see the `structs` suite in
+[Benchmarks.md](Benchmarks.md)): one signal instead of one per field. A `PortStruct` (below) is the other
+way: a port and a signal per field, which can have different directions, be driven by different processes
+and be waited for one by one.
+
+A field of a struct signal is a signal of its own (`bus.field(&Bus::tag)`), for ports of the field's type
+and for processes that read, write or wait for one field. In Python the fields are attributes
+(`bus.tag.d = 1`), through a description of the struct (`DSPSIM_STRUCT`), and the whole value is a numpy
+record. A field signal is the one kind of model that can be created after its design is elaborated.
+[StructValues.md](StructValues.md) has the details.
+
+`Signal<T>::write()` schedules the signal with `SignalBase::request_update()`, which is not inline: the
+member functions of `Signal<T>` are in the header, for the types of models, and need nothing of the
+scheduler that way.
 
 ### `SensitivityEvent` / `TimeEvent` ([event.h](../src/include/dspsim/event.h) / [event.cpp](../src/event.cpp))
 A `SensitivityEvent` holds the processes that are sensitive to it, in two lists: static
@@ -307,14 +342,19 @@ back. The generated subclass registers it with `DSPSIM_METHOD(eval)->always("*")
 model is evaluated whenever one of its inputs changes. `open_trace()` asks the context to
 call `dump_trace()` at the end of each delta cycle, which writes a VCD/FST trace. This is
 the bridge between hand-written `dspsim` code and Verilated SystemVerilog.
+A generated module has an `eval()` of its own that does the same with one `sync()` call per port,
+written out by name: the port classes are final, so none of those calls is virtual.
 
 `vport.h` has a port class for each way Verilator stores a port, all derived from the ordinary
 `Input<T>`/`Output<T>` and their arrays, with a `sync()` that copies between the bound signal and the
 verilated model: `VInput`/`VOutput` (one integer or `double`), `VInputArray`/`VOutputArray` (unpacked
 arrays), `VInputWide`/`VOutputWide` (more than 64 bits: 32-bit words), and `VInputBits`/`VOutputBits`
 with `VInputWideBits`/`VOutputWideBits` (the fields of a packed struct, which share the bits of one
-port). A struct port is a generated `PortStruct` with one of these per field, and an array of structs
-is a `PortStructArrayOf` of that class, each element constructed from one verilated struct.
+port). A struct port is one port with a generated struct as its value (`VInputStruct`/`VOutputStruct`,
+and `VInputStructArray`/`VOutputStructArray` for an array of structs), which copies the value to and from
+the fields of the verilated struct or the bits of the packed vector. With `struct_ports = "fields"` it is a
+generated `PortStruct` with one of the classes above per field instead, and an array of structs is a
+`PortStructArrayOf` of that class, each element constructed from one verilated struct.
 [VerilatedPorts.md](VerilatedPorts.md) describes how SystemVerilog ports map to them.
 
 ## Public interface and access
@@ -366,6 +406,12 @@ The public headers are written to be cheap to include, since every model, test a
   `SensitivityEvent::Subscribers`; both structs are defined in the `.cpp` file.
 - Definitions live in the `.cpp` files, except for templates over a user's type and the one-line accessors
   on the run cycle, which stay inline in the headers. Each of those has a comment saying so.
+  - `Signal<T>`, `Input<T>` and `Output<T>` are templates over a user's type: a model can have signals with
+    a struct as their value. Their member functions are defined in the headers, below the classes. For the
+    numeric types they are still compiled once, in `signal.cpp` and `port.cpp`: the headers declare those
+    instantiations `extern template`, so model code calls into the core library as before (the instruction
+    counts of the benchmarks did not change when the definitions moved). `Input<T>::bind(const BitSel &)`
+    and `DerivedSignal<T>` only exist for the integer types and stay in the `.cpp` files.
   - Model code calls these on every evaluation: `Signal::read()`, `Input::read()`, `Output::write()`, the
     `pos()`/`neg()`/`change()` accessors, `Model::context()`, `Module::inputs()`/`outputs()`,
     `Module::wait()` (the wait on the static sensitivity list), the awaitables'
@@ -592,8 +638,10 @@ it manually.
   executable (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated
   C++ model and to introspect a module's ports/parameters via `verilator --json-only`.
   A port is a `Port` (`module_info.py`): its width, sign and unpacked shape, and for a struct port
-  the `Port`s of its fields, recursively. The templates declare the dspsim port from it
-  ([VerilatedPorts.md](VerilatedPorts.md)).
+  the `Port`s of its fields, recursively, and the name of the C++ struct of its value
+  (`Port.value_class`). The templates declare the dspsim port from it
+  ([VerilatedPorts.md](VerilatedPorts.md)); `ModuleInfo.struct_ports` says whether a struct port is one
+  port with the struct as its value or a `PortStruct`.
 - [`src/dspsim/ghdl.py`](../src/dspsim/ghdl.py) is the front end for VHDL: `transpile()` has GHDL
   synthesize an entity to a Verilog netlist and writes a SystemVerilog module with the entity's
   generics and port types around it. `load_model_info()` does this first for a `.vhd` source, and the

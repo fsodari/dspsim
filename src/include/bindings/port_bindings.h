@@ -2,17 +2,21 @@
 #include <dspsim/port.h>
 #include "nb_include.h"
 #include "ndarray_bindings.h"
+#include "value_bindings.h"
 
 namespace dspsim::bindings
 {
     namespace nb = nanobind;
     static inline auto bind_port_base(nb::module_ &m, const char *name)
     {
-        return nb::class_<PortBase, Model>(m, name)
-            .def_prop_ro("width", &PortBase::width)
-            .def("change", &PortBase::change, nb::rv_policy::reference_internal)
-            .def("pos", &PortBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &PortBase::neg, nb::rv_policy::reference_internal);
+        auto cls = nb::class_<PortBase, Model>(m, name)
+                       .def_prop_ro("width", &PortBase::width)
+                       .def("change", &PortBase::change, nb::rv_policy::reference_internal)
+                       .def("pos", &PortBase::pos, nb::rv_policy::reference_internal)
+                       .def("neg", &PortBase::neg, nb::rv_policy::reference_internal);
+        // The value without its type: what a port of a struct has in Python.
+        bind_port_values(cls);
+        return cls;
     }
 
     template <typename T>

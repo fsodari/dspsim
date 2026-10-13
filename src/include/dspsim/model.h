@@ -47,6 +47,13 @@ namespace dspsim
         }
 
     protected:
+        /// A model of a given context, whatever state the context is in. The other constructor takes the
+        /// context that is under construction, so a model can only be created before its design is
+        /// elaborated. This one is for a model that needs no elaboration and that nothing has to find
+        /// during it, and that can therefore be created while the simulation runs: the signal of a field
+        /// of a struct signal. finalize() is not called if the design is already elaborated.
+        Model(Context *context, const std::string &name, const std::string &kind);
+
         // Called by the context during elaboration.
         virtual void finalize();
         // Called by the context at the end of every delta cycle, once the model has called request_trace().

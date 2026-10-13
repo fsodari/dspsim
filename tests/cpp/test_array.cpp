@@ -156,3 +156,28 @@ TEST_CASE("array bulk read and write")
     REQUIRE(b.read() == std::vector<int>{0, 5, 4, 7, 2, 1});
     REQUIRE(b.slice({Slice::all(), Slice{1, 3}}).read() == std::vector<int>{5, 4, 2, 1});
 }
+
+TEST_CASE("array index in braces and as an Index")
+{
+    auto context = Context::create();
+    SignalArray<int> s{"s", {2, 3}};
+    auto view = s.slice({Slice::at(1)});
+
+    // An index in braces and an Index are the same element, in an array and in a view.
+    const Index index{1, 2};
+    REQUIRE(&s[{1, 2}] == &s[index]);
+    REQUIRE(&s.at({1, 2}) == &s.at(index));
+    REQUIRE(&s[{1, 2}] == &s.flat(5));
+    REQUIRE(&view[{2}] == &view[Index{2}]);
+    REQUIRE(&view[{2}] == &s[{1, 2}]);
+
+    // Both are checked the same way.
+    REQUIRE_THROWS_AS((s[{2, 0}]), std::out_of_range);
+    REQUIRE_THROWS_AS((s[{0, 3}]), std::out_of_range);
+    REQUIRE_THROWS_AS((s[{1}]), std::out_of_range);
+    REQUIRE_THROWS_AS((s[{1, 2, 0}]), std::out_of_range);
+    REQUIRE_THROWS_AS((s[Index{2, 0}]), std::out_of_range);
+    REQUIRE_THROWS_AS(s[Index{1}], std::out_of_range);
+    REQUIRE_THROWS_AS((view[{3}]), std::out_of_range);
+    REQUIRE_THROWS_AS((view[{0, 0}]), std::out_of_range);
+}

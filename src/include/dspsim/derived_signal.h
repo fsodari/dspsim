@@ -1,7 +1,7 @@
 #pragma once
 #include <dspsim/signal.h>
 #include <dspsim/bitsel.h>
-#include <dspsim/channel.h>
+#include <dspsim/detail/derived_signal_base.h>
 
 #include <cstdint>
 #include <memory>
@@ -11,31 +11,9 @@
 namespace dspsim
 {
     /*
-        Interface for signals whose value is derived from the bits of other signals.
-        Source signals schedule their dependents on the context when they update, and the context
-        recomputes them with commit() once all signals in the delta cycle have committed, so a derived
-        signal changes in the same delta cycle as its sources and sees a consistent snapshot of them.
-    */
-    class DerivedSignalBase : public detail::Updatable
-    {
-        // Sources refresh their derived signals when they are initialized.
-        friend class SignalBase;
-
-    public:
-        ~DerivedSignalBase() override;
-
-    private:
-        // commit() (from detail::Updatable) recomputes the value from the source signals and notifies
-        // events if it changed. The scheduler calls it in the update phase.
-
-        /// Recompute the value from the source signals without notifying events. Called when a source is initialized.
-        virtual void refresh() = 0;
-    };
-
-    /*
         A signal of type T that is a view of a bit selection (a slice or pack of other signals).
         Reads see the selected bits of the sources, zero or sign extended to T. Writes go through to the
-        source signals at write time (Signal<T>::write checks source_selection()), so they combine with other
+        source signals at write time (Signal<T>::write() checks for a derived signal), so they combine with other
         writes to the sources in the same cycle, and the new value is read back from them in the update phase.
         Ports bind to a BitSel through a DerivedSignal created by Input::bind / Output::bind.
 
@@ -60,6 +38,8 @@ namespace dspsim
     private:
         void commit() override;
         void refresh() override;
+        void write_through(const void *value) override;
+        const BitSel *source_selection() const override;
 
         // Convert the selected bits to T, sign extending from the signal's width for signed types.
         T from_bits(uint64_t bits) const;

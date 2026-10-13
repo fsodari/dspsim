@@ -74,11 +74,15 @@ class Mixer(CppModule):
 | Public methods, static or not, including those of base classes | Methods |
 | Template arguments (see [Class templates](#class-templates)) | Class attributes |
 
-A port is usable from Python if the framework binds its type: `uint8_t` to `uint64_t`, `int8_t` to
-`int64_t` and `double` (`InputU8`, `OutputArrayS16`, `InputFloat`, ...). A port of another type is
-still bound, but reading the attribute raises `TypeError`.
+A port has a class of its own in Python if the framework binds its type: `uint8_t` to `uint64_t`, `int8_t`
+to `int64_t` and `double` (`InputU8`, `OutputArrayS16`, `InputFloat`, ...). A port of another type, such as
+a struct of the module (`Input<Bus>`), is a `RecordPort` in Python (a `PortBase` for a type that is not a
+struct, and an annotation as `PortBase` is accepted for both), and an array of them a `PortBaseArrayView`.
+They bind to a signal of their type (`port.signal(name)` creates one). If the struct has a `DSPSIM_STRUCT`,
+its fields are attributes of the signal (`bus.data.d = 5`) and the whole value is a numpy record: see
+[StructValues.md](StructValues.md).
 
-A struct port is annotated as `PortStruct`, and an array of structs as `PortStructArray`. Their fields are not parsed: Python reads them from the object
+A struct port with a port per field (a class derived from `PortStruct`) is annotated as `PortStruct`, and an array of them as `PortStructArray`. Their fields are not parsed: Python reads them from the object
 (`stage.bus_in.fields`, `stage.bus_in.data`), so they are whatever the constructor of the struct adds, and
 the class can be an instance of a class template. `stage.bus_in.bind(signals)` binds it as a whole. See
 [VerilatedPorts.md](VerilatedPorts.md#struct-ports). A port of more than 64 bits is an

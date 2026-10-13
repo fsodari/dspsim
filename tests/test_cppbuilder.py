@@ -341,7 +341,8 @@ def test_cpp_template_module_info():
     info = load_cpp_module_info(header, "Stream", parameters={"T": "demo::Sample"})
     assert arguments(info) == {"T": "demo::Sample"}
     assert info.type_parameters[0].numpy_type is None
-    assert ports(info) == {"tdata": None, "tvalid": "InputU8"}
+    # A port of such a type is its base class in Python.
+    assert ports(info) == {"tdata": "PortBase", "tvalid": "InputU8"}
 
     # A class that derives from an instance of a class template has the ports of that instance.
     info = load_cpp_module_info(header, "ByteSink")
@@ -865,9 +866,11 @@ def test_cpp_function_info():
     assert (
         methods["output()"].return_policy == "nanobind::rv_policy::reference_internal"
     )
-    assert methods["output()"].classes == ["dspsim::Output<int>"]
+    # The ports and signals of the numeric types are instantiated explicitly (port.h, signal.h), and
+    # libclang spells such a class the way that declaration does.
+    assert methods["output()"].classes == ["dspsim::Output<int32_t>"]
     assert methods["read_from(const dspsim::Signal<int32_t> &)"].classes == [
-        "dspsim::Signal<int>"
+        "dspsim::Signal<int32_t>"
     ]
 
     # A reference to the module itself is a reference to the class of the bindings, M, which is what

@@ -8,6 +8,8 @@ namespace dspsim::bindings
     {
         // Bind Ports
         bind_port_base(m, "PortBase");
+        // Ports whose value is a struct
+        bind_record_port(m, "RecordPort");
 
         bind_input<uint8_t>(m, "InputU8");
         bind_input<uint16_t>(m, "InputU16");
@@ -32,5 +34,8 @@ namespace dspsim::bindings
         bind_output<int64_t>(m, "OutputS64");
 
         bind_output<double>(m, "OutputFloat");
+
+        // Arrays of ports without the type of their value
+        bind_port_base_array(m, "PortBaseArrayView");
     }
 } // namespace dspsim::bindings

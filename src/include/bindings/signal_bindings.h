@@ -3,23 +3,27 @@
 #include "nb_include.h"
 #include "ndarray_bindings.h"
 #include "bitsel_bindings.h"
+#include "value_bindings.h"
 
 namespace dspsim::bindings
 {
     namespace nb = nanobind;
     static inline auto bind_signal_base(nb::module_ &m, const char *name)
     {
-        return nb::class_<SignalBase, Model>(m, name)
-            .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
-            .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
-            .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
-            .def_prop_ro("width", &SignalBase::width)
-            // Bit selections. sig[hi:lo] is inclusive, as in SystemVerilog. Selections are unsigned.
-            .def("slice", &SignalBase::slice, nb::arg("hi"), nb::arg("lo"))
-            .def("__getitem__", [](SignalBase &s, nb::handle key)
-                 {
-                     auto range = resolve_bit_key(key, s.width());
-                     return s.slice(range.hi, range.lo); }, nb::arg("key"), nb::sig("def __getitem__(self, key: int | slice, /) -> BitSel"));
+        auto cls = nb::class_<SignalBase, Model>(m, name)
+                       .def("change", &SignalBase::operator SensitivityEvent &, nb::rv_policy::reference_internal)
+                       .def("pos", &SignalBase::pos, nb::rv_policy::reference_internal)
+                       .def("neg", &SignalBase::neg, nb::rv_policy::reference_internal)
+                       .def_prop_ro("width", &SignalBase::width)
+                       // Bit selections. sig[hi:lo] is inclusive, as in SystemVerilog. Selections are unsigned.
+                       .def("slice", &SignalBase::slice, nb::arg("hi"), nb::arg("lo"))
+                       .def("__getitem__", [](SignalBase &s, nb::handle key)
+                            {
+                                auto range = resolve_bit_key(key, s.width());
+                                return s.slice(range.hi, range.lo); }, nb::arg("key"), nb::sig("def __getitem__(self, key: int | slice, /) -> BitSel"));
+        // The value without its type: what a signal of a struct has in Python.
+        bind_signal_values(cls);
+        return cls;
     }
 
     template <typename T>

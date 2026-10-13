@@ -1,7 +1,15 @@
 {%- from "verilator_struct.jinja" import struct_class -%}
+{%- from "verilator_value_struct.jinja" import value_struct -%}
 #include <dspsim/vmodule/vmodule.h>
 #include <dspsim/struct.h>
 #include <V{{model.name}}.h>
+
+#include <array>
+#include <cstdint>
+{%- for struct in model.value_structs %}
+
+{{ value_struct(struct) }}
+{%- endfor %}
 
 DSPSIM_VMOD({{model.name}}, V{{model.name}})
 {
@@ -14,7 +22,13 @@ public:
 
     // Ports
     {%-for port in model.ports.values()%}
-    {%-if port.is_struct%}
+    {%-if port.is_struct and model.struct_ports == "value"%}
+    {%-if port.is_array%}
+    DSPSIM_V{{port.direction.upper()}}_STRUCT_ARRAY({{port.name}}, {{port.value_element_ctype}}, {{port.shape | join(", ")}});
+    {%-else%}
+    DSPSIM_V{{port.direction.upper()}}_STRUCT({{port.name}}, {{port.value_element_ctype}});
+    {%-endif%}
+    {%-elif port.is_struct%}
     {{ struct_class(port) | indent(4) }}
     {{port.vfield_type()}} {{port.name}}{"{{port.name}}", {{port.vport_args}}};
     {%-else%}
@@ -28,6 +42,19 @@ public:
         // Standard eval func for verilated modules.
         DSPSIM_METHOD(eval)
             ->always("*");  // Default is sensitive to all inputs. Can be changed by generator.
+    }
+
+    // Copy the inputs to the model, evaluate it and copy its outputs back: what VModule::eval() does, with
+    // the ports written out so that no call is virtual.
+    void eval()
+    {
+        {%-for port in model.ports.values() if port.direction == "input"%}
+        ::dspsim::detail::vl_sync({{port.name}});
+        {%-endfor%}
+        top->eval();
+        {%-for port in model.ports.values() if port.direction != "input"%}
+        ::dspsim::detail::vl_sync({{port.name}});
+        {%-endfor%}
     }
 
     // Tracing functions. Will raise a warning if tracing is not enabled, but will just do a no-op.

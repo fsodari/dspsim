@@ -5,6 +5,7 @@
 
 #include "log.h"
 
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -66,6 +67,127 @@ namespace dspsim
 
     void PortBase::sync()
     {
+    }
+
+    RecordPortBase *PortBase::record()
+    {
+        return nullptr;
+    }
+
+    RecordPortBase *RecordPortBase::record()
+    {
+        return this;
+    }
+
+    RecordSignalBase &RecordPortBase::bound_record() const
+    {
+        RecordSignalBase *signal = bound_signal() ? bound_signal()->record() : nullptr;
+        if (!signal)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet: its fields are those of the signal");
+        }
+        return *signal;
+    }
+
+    SignalBase &RecordPortBase::field(const std::string &name) const
+    {
+        return bound_record().field(name);
+    }
+
+    detail::NdView<SignalBase> RecordPortBase::field_array(const std::string &name) const
+    {
+        return bound_record().field_array(name);
+    }
+
+    std::vector<std::string> RecordPortBase::field_names() const
+    {
+        std::vector<std::string> names;
+        const ValueType *type = value_type();
+        if (type && type->kind == ValueType::Kind::structure && type->shape.empty())
+        {
+            for (auto &f : type->layout->fields)
+            {
+                names.push_back(f.name);
+            }
+        }
+        return names;
+    }
+
+    const ValueType *PortBase::value_type() const
+    {
+        return nullptr;
+    }
+
+    const std::type_info &PortBase::value_typeid() const
+    {
+        return typeid(void);
+    }
+
+    bool PortBase::is_output() const
+    {
+        return kind() == "output";
+    }
+
+    std::shared_ptr<SignalBase> PortBase::create_signal(const std::string &) const
+    {
+        throw std::logic_error("Port " + hier_name() + " has no value type");
+    }
+
+    namespace
+    {
+        // Types are compared by name: a model's extension module and the framework each have a
+        // std::type_info of a type, which do not compare equal with every standard library.
+        bool same_value_type(const std::type_info &a, const std::type_info &b)
+        {
+            return a == b || std::strcmp(a.name(), b.name()) == 0;
+        }
+    } // namespace
+
+    void PortBase::bind_any(SignalBase &signal)
+    {
+        if (!same_value_type(value_typeid(), signal.value_typeid()))
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to signal " + signal.hier_name() +
+                                        ": the signal has another value type");
+        }
+        bind_base(signal);
+    }
+
+    void PortBase::bind_any(PortBase &port)
+    {
+        if (!same_value_type(value_typeid(), port.value_typeid()))
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to port " + port.hier_name() +
+                                        ": the port has another value type");
+        }
+        if (is_output() != port.is_output())
+        {
+            throw std::invalid_argument("Port " + hier_name() + " cannot bind to port " + port.hier_name() +
+                                        ": an input binds to an input and an output to an output");
+        }
+        bind_base(port);
+    }
+
+    const void *PortBase::value_data() const
+    {
+        if (!bound_signal_)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet");
+        }
+        return bound_signal_->value_data();
+    }
+
+    void PortBase::write_data(const void *value)
+    {
+        if (!is_output())
+        {
+            throw std::logic_error("Port " + hier_name() + " is an input and cannot be written");
+        }
+        if (!bound_signal_)
+        {
+            throw std::logic_error("Port " + hier_name() + " is not bound to a signal yet");
+        }
+        bound_signal_->write_data(value);
     }
 
     void PortBase::bind_base(SignalBase &signal)
@@ -135,81 +257,17 @@ namespace dspsim
     }
 
     template <typename T>
-    Input<T>::Input(const std::string &name, int width) : PortBase(name, width, "input")
-    {
-    }
-
-    template <typename T>
-    void Input<T>::bind(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Input<T>::bind(Input<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
     void Input<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
-        bind_base(make_derived_signal<T>(*this, selection));
-    }
-
-    template <typename T>
-    void Input<T>::bind_signal(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Input<T>::bind_port(Input<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
-    Output<T>::Output(const std::string &name, int width) : PortBase(name, width, "output")
-    {
-    }
-
-    template <typename T>
-    void Output<T>::bind(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Output<T>::bind(Output<T> &port)
-    {
-        bind_base(port);
+        this->bind_base(make_derived_signal<T>(*this, selection));
     }
 
     template <typename T>
     void Output<T>::bind(const BitSel &selection)
         requires std::is_integral_v<T>
     {
-        bind_base(make_derived_signal<T>(*this, selection));
-    }
-
-    template <typename T>
-    void Output<T>::bind_signal(Signal<T> &signal)
-    {
-        bind_base(signal);
-    }
-
-    template <typename T>
-    void Output<T>::bind_port(Output<T> &port)
-    {
-        bind_base(port);
-    }
-
-    template <typename T>
-    const T &Output<T>::read_d_() const
-    {
-        return static_cast<Signal<T> *>(bound_signal_)->read_d_();
+        this->bind_base(make_derived_signal<T>(*this, selection));
     }
 
     template class Input<uint8_t>;

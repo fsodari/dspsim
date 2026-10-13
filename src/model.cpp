@@ -11,7 +11,12 @@ namespace dspsim
     }
 
     Model::Model(const std::string &name, const std::string &kind)
-        : context_(Context::obtain().get()),
+        : Model(Context::obtain().get(), name, kind)
+    {
+    }
+
+    Model::Model(Context *context, const std::string &name, const std::string &kind)
+        : context_(context),
           id_(context_->next_model_id()),
           name_(name),
           parent_(nullptr),
