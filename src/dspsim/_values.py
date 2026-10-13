@@ -22,7 +22,8 @@ _FORMATS = {"b": "?", "u": "u{}", "i": "i{}", "f": "f{}"}
 _RECORD_ATTRIBUTES = ("dtype", "getfield", "setfield")
 
 
-class Record(np.record):
+# numpy's stubs pin `__module__` and the overloads of `__getitem__` of numpy.record, which a subclass changes.
+class Record(np.record):  # pyright: ignore[reportIncompatibleVariableOverride]
     """
     The value of a struct: a numpy.record whose fields come first as attributes.
 
@@ -43,7 +44,7 @@ class Record(np.record):
                 return _as_records(self[name])
         return super().__getattribute__(name)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key):  # pyright: ignore[reportIncompatibleMethodOverride]
         return _as_records(super().__getitem__(key))
 
 
