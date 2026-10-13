@@ -355,6 +355,7 @@ def _parse_port(
             fields=fields,
             packed=packed,
             lsb=lsb,
+            type_name=type_entry.get("name", ""),
         )
 
     if type_entry["type"] == "UNIONDTYPE" and not type_entry.get("packed", False):

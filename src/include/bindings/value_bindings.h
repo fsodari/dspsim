@@ -186,11 +186,15 @@ namespace dspsim::bindings
     template <typename NbClass>
     static inline void bind_signal_values(NbClass &cls)
     {
+        // The classes of the numbers (SignalU8, ...) have their own read(), write() and value, with the types
+        // of their values. The signatures here say Any, so that those are valid overrides in the stub.
         cls.def_prop_ro("dtype", &value_dtype<SignalBase>, "The numpy dtype of the value.")
-            .def("read", &read_value<SignalBase>)
-            .def("write", &write_value<SignalBase>, nb::arg("value"))
-            .def_prop_rw("value", &read_value<SignalBase>, &write_value<SignalBase>, nb::arg("value"))
-            .def_prop_ro("q", &read_value<SignalBase>)
+            .def("read", &read_value<SignalBase>, nb::sig("def read(self) -> typing.Any"))
+            .def("write", &write_value<SignalBase>, nb::arg("value"), nb::sig("def write(self, value: typing.Any) -> None"))
+            .def_prop_rw("value", &read_value<SignalBase>, &write_value<SignalBase>,
+                         nb::for_getter(nb::sig("def value(self, /) -> typing.Any")),
+                         nb::for_setter(nb::sig("def value(self, value: typing.Any, /) -> None")))
+            .def_prop_ro("q", &read_value<SignalBase>, nb::sig("def q(self, /) -> typing.Any"))
             .def_prop_ro("fields", [](const SignalBase &s)
                          {
                              std::vector<std::string> names;
@@ -210,16 +214,33 @@ namespace dspsim::bindings
     template <typename NbClass>
     static inline void bind_port_values(NbClass &cls)
     {
+        // Bind to a signal or to a port, of the value type of this port.
+        auto bind = [](PortBase &port, nb::handle target)
+        {
+            if (nb::isinstance<SignalBase>(target))
+            {
+                port.bind_any(nb::cast<SignalBase &>(target));
+            }
+            else if (nb::isinstance<PortBase>(target))
+            {
+                port.bind_any(nb::cast<PortBase &>(target));
+            }
+            else
+            {
+                throw nb::type_error("A port binds to a signal or to a port");
+            }
+        };
+        // The classes of the numbers (InputU8, ...) have their own members of these names, with the types of
+        // their values. The signatures here say Any, so that those are valid overrides in the stub.
         cls.def_prop_ro("dtype", &value_dtype<PortBase>, "The numpy dtype of the value.")
             .def_prop_ro("is_output", &PortBase::is_output)
-            .def("read", &read_value<PortBase>)
-            .def("write", &write_value<PortBase>, nb::arg("value"))
-            .def_prop_rw("value", &read_value<PortBase>, &write_value<PortBase>, nb::arg("value"))
-            .def_prop_ro("q", &read_value<PortBase>)
-            .def("bind", nb::overload_cast<SignalBase &>(&PortBase::bind_any), nb::arg("signal"))
-            .def("bind", nb::overload_cast<PortBase &>(&PortBase::bind_any), nb::arg("port"))
-            .def("__call__", nb::overload_cast<SignalBase &>(&PortBase::bind_any), nb::arg("signal"))
-            .def("__call__", nb::overload_cast<PortBase &>(&PortBase::bind_any), nb::arg("port"))
+            .def("read", &read_value<PortBase>, nb::sig("def read(self) -> typing.Any"))
+            .def("write", &write_value<PortBase>, nb::arg("value"), nb::sig("def write(self, value: typing.Any) -> None"))
+            // Read only, as for an input: an output is written with write().
+            .def_prop_ro("value", &read_value<PortBase>, nb::sig("def value(self, /) -> typing.Any"))
+            .def_prop_ro("q", &read_value<PortBase>, nb::sig("def q(self, /) -> typing.Any"))
+            .def("bind", bind, nb::arg("target"), nb::sig("def bind(self, target: typing.Any, /) -> None"))
+            .def("__call__", bind, nb::arg("target"), nb::sig("def __call__(self, target: typing.Any, /) -> None"))
             .def("signal", &PortBase::create_signal, nb::arg("name"),
                  "Create a signal that the port can bind to: of its value type and width.");
     }

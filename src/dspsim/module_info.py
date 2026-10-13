@@ -1,5 +1,6 @@
 """HDL Module information."""
 
+import hashlib
 import math
 import re
 from dataclasses import dataclass, field
@@ -15,6 +16,11 @@ WORD_BITS = 32
 
 # Keyword of a struct port. The other keywords are those of Verilog's basic types.
 STRUCT_KEYWORD = "struct"
+
+# How the struct ports of a verilated module are presented: as one port with the struct as its value, or as
+# a dspsim PortStruct with a port per field.
+type StructPorts = Literal["value", "fields"]
+STRUCT_PORTS: tuple[StructPorts, ...] = ("value", "fields")
 
 
 @dataclass
@@ -76,12 +82,17 @@ class Port:
     """
     A port of a verilated module, or a field of a struct port.
 
-    A struct port (keyword "struct") has no value of its own: its fields are the ports, each a Port with the
-    direction of the struct, and a field can be a struct again. Verilator keeps an unpacked struct as one
-    variable per field and a packed struct as one vector of bits, in which a field starts at bit `lsb`.
+    A struct port (keyword "struct") has fields, each a Port with the direction of the struct, and a field
+    can be a struct again. Verilator keeps an unpacked struct as one variable per field and a packed struct as
+    one vector of bits, in which a field starts at bit `lsb`.
 
-    An array of structs has the dimensions of the array as its `shape`, and is presented as a dspsim
-    PortStructArray: an array whose elements are the structs.
+    dspsim presents a struct port in one of two ways (ModuleInfo.struct_ports):
+
+    - "value": one port whose value is a C++ struct with a member per field (`value_class`), which
+      verilator_value_struct.jinja generates. An array of structs is an array of such ports.
+    - "fields": a dspsim PortStruct with a port per field (`struct_class`, verilator_struct.jinja). An array
+      of structs has the dimensions of the array as its `shape`, and is a PortStructArray: an array whose
+      elements are the structs.
     """
 
     name: str
@@ -97,6 +108,11 @@ class Port:
     packed: bool = False
     # Position of the least significant bit of a field in the packed struct that it is a field of.
     lsb: int = 0
+    # Name of the type of a struct in the source, with its package: "bus_pkg::bus_t". Empty if it has none.
+    type_name: str = ""
+    # Only for the annotation of a struct port (dspsim.builder): the annotation is a PortBase or a
+    # PortBaseArrayView, a port with the struct as its value, and not a PortStruct or a PortStructArray.
+    as_value: bool = False
 
     @property
     def is_struct(self) -> bool:
@@ -192,6 +208,72 @@ class Port:
         """Name of the generated C++ class of a struct port."""
         return f"{self.name}_struct"
 
+    def _value_description(self) -> tuple:
+        """What the C++ struct of a struct value and its conversion to the model depend on."""
+        if self.is_struct:
+            fields = tuple(
+                (f.name, f.lsb if self.packed else 0, f._value_description())
+                for f in self.fields.values()
+            )
+            return (STRUCT_KEYWORD, self.packed, self.shape, fields)
+        integral = self.keyword in _INTEGRAL_KEYWORDS
+        return (integral, self.signed, self.width, self.shape)
+
+    @property
+    def value_class(self) -> str:
+        """
+        Name of the generated C++ struct that is the value of a struct port, in the namespace
+        dspsim::generated: the name of the type in the source and a hash of its fields.
+
+        The name only depends on the struct, not on the port or the module, and two structs with the same
+        fields (names, types, widths, and positions in a packed struct) have the same name. So ports of one
+        struct type are ports of one C++ type, in every module that is generated for it, and bind to the same
+        signals.
+        """
+        name = re.sub(r"\W", "_", self.type_name.rpartition("::")[2]) or STRUCT_KEYWORD
+        description = (STRUCT_KEYWORD, self.packed, (), self._value_description()[3])
+        key = hashlib.sha256(repr(description).encode()).hexdigest()[:10]
+        return f"{name}_{key}"
+
+    @property
+    def value_element_ctype(self) -> str:
+        """C++ type of one element of this field in the struct of a value: without the unpacked dimensions."""
+        if self.is_struct:
+            return f"::dspsim::generated::{self.value_class}"
+        if self.is_wide:
+            return f"std::array<uint32_t, {self.words}>"
+        return self.ctype
+
+    @property
+    def value_ctype(self) -> str:
+        """C++ type of this field in the struct of a value: nested std::arrays for an unpacked array."""
+        ctype = self.value_element_ctype
+        for extent in reversed(self.shape):
+            ctype = f"std::array<{ctype}, {extent}>"
+        return ctype
+
+    @property
+    def value_width(self) -> int:
+        """Width argument of the conversions of a number: its bits, or 64 for a real."""
+        return self.width if self.keyword in _INTEGRAL_KEYWORDS else 64
+
+    def value_structs(self) -> list[Port]:
+        """
+        The structs that the C++ struct of this struct port needs, itself last: one Port per C++ struct, each
+        after the structs of its fields.
+        """
+        structs: dict[str, Port] = {}
+
+        def visit(port: Port) -> None:
+            for f in port.fields.values():
+                if f.is_struct:
+                    visit(f)
+            structs.setdefault(port.value_class, port)
+
+        if self.is_struct:
+            visit(self)
+        return list(structs.values())
+
     def vfield_type(self, storage: str | None = None) -> str:
         """
         C++ type of this field in the generated class of its struct, or of a struct port in the generated
@@ -266,6 +348,18 @@ class ModuleInfo:
     # The VHDL files that `source` was written from, for a VHDL model: `source` is then the SystemVerilog that
     # GHDL and dspsim.ghdl made of the entity.
     vhdl_files: list[Path] = field(default_factory=list)
+    # How the struct ports are presented: see Port.
+    struct_ports: StructPorts = "value"
+
+    @property
+    def value_structs(self) -> list[Port]:
+        """The C++ structs of the struct ports, each once and after the structs of its fields."""
+        structs: dict[str, Port] = {}
+        if self.struct_ports == "value":
+            for port in self.ports.values():
+                for struct in port.value_structs():
+                    structs.setdefault(struct.value_class, struct)
+        return list(structs.values())
 
 
 @dataclass

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .ghdl import VhdlOptions, is_vhdl, transpile
-from .module_info import CppModuleInfo, ModuleInfo, Parameter
+from .module_info import STRUCT_PORTS, CppModuleInfo, ModuleInfo, Parameter, StructPorts
 from .verilator import parse_module_json, verilate_json
 
 
@@ -20,10 +20,13 @@ def load_model_info(
     verilator_args: Sequence[str] | None = None,
     vhdl: VhdlOptions | None = None,
     vhdl_output_dir: Path | None = None,
+    struct_ports: StructPorts = "value",
 ) -> ModuleInfo:
     """
     Run verilator to read a module: its parameters and its ports, with the given parameter values.
     `verilator_args` are extra arguments for Verilator, which the module is later verilated with as well.
+    `struct_ports` says how the struct ports of the module are presented: "value", one port with the struct
+    as its value, or "fields", a PortStruct with a port per field (docs/VerilatedPorts.md).
 
     A VHDL source is first turned into SystemVerilog by GHDL, with the parameter values as the values of the
     generics of the entity (dspsim.ghdl.transpile, docs/Vhdl.md), under `vhdl_output_dir`. The module that
@@ -33,6 +36,8 @@ def load_model_info(
         include_dirs = []
     if parameters is None:
         parameters = {}
+    if struct_ports not in STRUCT_PORTS:
+        raise ValueError(f"struct_ports is 'value' or 'fields', not {struct_ports!r}")
 
     param_values = {k: p.value for k, p in parameters.items() if p.value is not None}
     vhdl_files: list[Path] = []
@@ -53,6 +58,7 @@ def load_model_info(
     info = parse_module_json(model_data, metadata)
     info.verilator_args = list(verilator_args or [])
     info.vhdl_files = vhdl_files
+    info.struct_ports = struct_ports
     return info
 
 
@@ -224,6 +230,8 @@ class ProjectConfig:
                 verilator_args,
                 vhdl_options(model_config),
                 vhdl_output_dir,
+                # For the library, or for one model.
+                model_config.get("struct_ports", config.get("struct_ports", "value")),
             )
 
         # Populate default models. A model is loaded again when its parameters change: from the file that it

@@ -5,6 +5,7 @@ nanobind, used to simulate hardware designs, either hand-written C++/Python mode
 Verilator-generated models of Verilog/SystemVerilog RTL. This document describes how the core
 pieces fit together. Related documents: [Coro.md](Coro.md) (coroutine processes and
 awaitables), [BitSlicing.md](BitSlicing.md) (bit slicing and packing) and
+[StructValues.md](StructValues.md) (signals and ports with a struct as their value),
 [VerilatedPorts.md](VerilatedPorts.md) (the ports of verilated modules: wide and struct ports) and
 [Vhdl.md](Vhdl.md) (VHDL models).
 
@@ -152,7 +153,11 @@ event, whichever field changed. Its `pos()` and `neg()` never occur, and it cann
 fast way to pass a struct whose fields go in one direction (see the `structs` suite in
 [Benchmarks.md](Benchmarks.md)): one signal instead of one per field. A `PortStruct` (below) is the other
 way: a port and a signal per field, which can have different directions, be driven by different processes
-and be waited for one by one. Such signals and ports are C++ only for now: they have no Python bindings.
+and be waited for one by one.
+
+Python reads and writes such a value as a numpy record, through a description of the struct
+(`DSPSIM_STRUCT`), and a field of a struct signal is a signal of its own (`bus.field(&Bus::tag)`,
+`bus["tag"]`), for ports of the field's type. [StructValues.md](StructValues.md) has both.
 
 `Signal<T>::write()` schedules the signal with `SignalBase::request_update()`, which is not inline: the
 member functions of `Signal<T>` are in the header, for the types of models, and need nothing of the
@@ -343,8 +348,11 @@ written out by name: the port classes are final, so none of those calls is virtu
 verilated model: `VInput`/`VOutput` (one integer or `double`), `VInputArray`/`VOutputArray` (unpacked
 arrays), `VInputWide`/`VOutputWide` (more than 64 bits: 32-bit words), and `VInputBits`/`VOutputBits`
 with `VInputWideBits`/`VOutputWideBits` (the fields of a packed struct, which share the bits of one
-port). A struct port is a generated `PortStruct` with one of these per field, and an array of structs
-is a `PortStructArrayOf` of that class, each element constructed from one verilated struct.
+port). A struct port is one port with a generated struct as its value (`VInputStruct`/`VOutputStruct`,
+and `VInputStructArray`/`VOutputStructArray` for an array of structs), which copies the value to and from
+the fields of the verilated struct or the bits of the packed vector. With `struct_ports = "fields"` it is a
+generated `PortStruct` with one of the classes above per field instead, and an array of structs is a
+`PortStructArrayOf` of that class, each element constructed from one verilated struct.
 [VerilatedPorts.md](VerilatedPorts.md) describes how SystemVerilog ports map to them.
 
 ## Public interface and access
@@ -628,8 +636,10 @@ it manually.
   executable (`verilate()`/`verilate_json()`) to compile SystemVerilog into a Verilated
   C++ model and to introspect a module's ports/parameters via `verilator --json-only`.
   A port is a `Port` (`module_info.py`): its width, sign and unpacked shape, and for a struct port
-  the `Port`s of its fields, recursively. The templates declare the dspsim port from it
-  ([VerilatedPorts.md](VerilatedPorts.md)).
+  the `Port`s of its fields, recursively, and the name of the C++ struct of its value
+  (`Port.value_class`). The templates declare the dspsim port from it
+  ([VerilatedPorts.md](VerilatedPorts.md)); `ModuleInfo.struct_ports` says whether a struct port is one
+  port with the struct as its value or a `PortStruct`.
 - [`src/dspsim/ghdl.py`](../src/dspsim/ghdl.py) is the front end for VHDL: `transpile()` has GHDL
   synthesize an entity to a Verilog netlist and writes a SystemVerilog module with the entity's
   generics and port types around it. `load_model_info()` does this first for a `.vhd` source, and the

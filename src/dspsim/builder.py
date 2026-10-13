@@ -70,6 +70,7 @@ from dspsim.module_info import (
     ModuleInfo,
     Parameter,
     Port,
+    StructPorts,
 )
 from dspsim.project import load_model_info
 from dspsim.templates import render_template
@@ -196,8 +197,9 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
     annotations = _get_class_annotations(namespace)
     ports = {}
     for an, typ in annotations.items():
-        if typ in (PortStruct, PortStructArray):
-            # A struct port, or an array of structs. The annotation says nothing about its fields or its
+        if typ in (PortStruct, PortStructArray, PortBase, PortBaseArrayView):
+            # A struct port, or an array of structs: as a port with the struct as its value (PortBase), or
+            # as a port per field (PortStruct). The annotation says nothing about its fields or its
             # direction, and (0,) marks an array of unknown shape.
             ports[an] = Port(
                 name=an,
@@ -205,7 +207,8 @@ def _get_port_annotations(namespace) -> dict[str, Port]:
                 signed=False,
                 width=-1,
                 direction="",
-                shape=(0,) if typ is PortStructArray else (),
+                shape=(0,) if typ in (PortStructArray, PortBaseArrayView) else (),
+                as_value=typ in (PortBase, PortBaseArrayView),
             )
         elif typ in _valid_port_types:
             # Type names look like InputU8 or OutputArrayS32.
@@ -294,8 +297,15 @@ def _validate_cpp_ports(
             )
 
 
-def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> None:
-    """Validate that the provided ports match the model's ports."""
+def _validate_ports(
+    ports: dict[str, Port],
+    model_ports: dict[str, Port],
+    struct_ports: StructPorts = "value",
+) -> None:
+    """
+    Validate that the provided ports match the model's ports. `struct_ports` is how the model presents its
+    struct ports.
+    """
     if len(ports) != len(model_ports):
         raise TypeError(
             "Partial port annotations are not allowed. "
@@ -308,20 +318,29 @@ def _validate_ports(ports: dict[str, Port], model_ports: dict[str, Port]) -> Non
         model_port = model_ports[name]
         if port.is_struct or model_port.is_struct:
 
-            def described(p: Port) -> str:
+            def described(p: Port, as_value: bool) -> str:
                 if not p.is_struct:
                     return "a port"
                 if p.is_array:
-                    return "an array of structs (PortStructArray)"
-                return "a struct (PortStruct)"
+                    cls = "PortBaseArrayView" if as_value else "PortStructArray"
+                    return f"an array of structs ({cls})"
+                return f"a struct ({'PortBase' if as_value else 'PortStruct'})"
 
+            # A struct port is a value unless the module is built with struct_ports="fields".
+            model_as_value = struct_ports == "value"
             if (port.is_struct, port.is_array) != (
                 model_port.is_struct,
                 model_port.is_array,
-            ):
+            ) or (port.is_struct and port.as_value != model_as_value):
                 raise TypeError(
                     f"Struct mismatch for port '{name}': "
-                    f"expected {described(model_port)}, got {described(port)}"
+                    f"expected {described(model_port, model_as_value)}, "
+                    f"got {described(port, port.as_value)}"
+                    + (
+                        ' (struct_ports="fields" gives a port per field)'
+                        if model_as_value and port.is_struct and not port.as_value
+                        else ""
+                    )
                 )
             continue
         if port.stdint_size != model_port.stdint_size:
@@ -561,6 +580,7 @@ def build_vmodule(
     vhdl_std: str = "08",
     vhdl_entity: str | None = None,
     ghdl_args: Sequence[str] | None = None,
+    struct_ports: StructPorts = "value",
 ):
     """
     Build and return the verilated model class.
@@ -568,6 +588,11 @@ def build_vmodule(
     `verilator_args` are extra arguments for Verilator, such as `["--trace-structs", "-DSIMULATION"]`. They
     are used both to read the ports and parameters of the module and to verilate it, and they are part of
     what identifies the build.
+
+    `struct_ports` says what a struct port of the module is. "value" (the default): one port with the struct
+    as its value, which Python reads and writes as a numpy record and which commits as one signal. "fields":
+    a PortStruct with a port and a signal per field, for fields that are bound or waited for one by one.
+    See docs/VerilatedPorts.md.
 
     `source` can be a VHDL file (.vhd, .vhdl) with a synthesizable entity, which GHDL turns into
     SystemVerilog first (docs/Vhdl.md). The parameters are then the generics of the entity. `vhdl_sources`
@@ -591,6 +616,7 @@ def build_vmodule(
             verilator_args=verilator_args,
             vhdl=vhdl,
             vhdl_output_dir=vhdl_output_dir,
+            struct_ports=struct_ports,
         )
 
     # Validate the parameter annotations, and create a set of parameter overrides.
@@ -606,11 +632,12 @@ def build_vmodule(
         verilator_args=verilator_args,
         vhdl=vhdl,
         vhdl_output_dir=vhdl_output_dir,
+        struct_ports=struct_ports,
     )
 
     # Validate ports if annotations were supplied.
     if ports:
-        _validate_ports(ports, module_info.ports)
+        _validate_ports(ports, module_info.ports, struct_ports)
 
     # At this point, the annotations are valid.
 
@@ -677,14 +704,16 @@ def vbuilder(
     vhdl_std: str = "08",
     vhdl_entity: str | None = None,
     ghdl_args: Sequence[str] | None = None,
+    struct_ports: StructPorts = "value",
 ):
     """
     Generate a verilator model to use with dspsim. Parameters can be overridden via class annotations.
     Ports may also be annotated to give a type hint for what the model has. If port annotations are given,
     they must match the model exactly.
 
-    `verilator_args` are extra arguments for Verilator, and the `vhdl_` arguments and `ghdl_args` are for a
-    VHDL source: see build_vmodule().
+    `verilator_args` are extra arguments for Verilator, the `vhdl_` arguments and `ghdl_args` are for a
+    VHDL source, and `struct_ports` says whether a struct port is one port with the struct as its value
+    (annotated as a PortBase) or a port per field (a PortStruct): see build_vmodule().
     """
 
     def class_decorator[V: type[VModule]](cls: V) -> V:
@@ -701,6 +730,7 @@ def vbuilder(
                 ghdl_args=list(ghdl_args or []),
             ),
             vhdl_output_dir=cache_dir() / "vhdl",
+            struct_ports=struct_ports,
         )
 
         # Check the class annotations for valid parameters.
@@ -726,6 +756,7 @@ def vbuilder(
             vhdl_std=vhdl_std,
             vhdl_entity=vhdl_entity,
             ghdl_args=ghdl_args,
+            struct_ports=struct_ports,
         )  # type: ignore
         wrapper: V
         return wrapper

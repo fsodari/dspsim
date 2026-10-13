@@ -13,6 +13,7 @@ from dspsim.framework import (
     Context,
     InputS8,
     OutputS64,
+    PortBase,
     PortStruct,
     SignalS32,
 )
@@ -35,6 +36,11 @@ DW = 12
 
 [tool.dspsim.models.StructModel]
 verilator_args = ["--trace-structs"]
+
+# The same module with a port per field of a struct, instead of a struct as the value of one port.
+[tool.dspsim.models.FieldModel]
+source = "{HDL_DIR.as_posix()}/StructModel.sv"
+struct_ports = "fields"
 
 # C++ modules. What they are built with is common to all of them.
 [tool.dspsim.cpp]
@@ -78,10 +84,14 @@ def test_project_config(tmp_path):
         tmp_path / "pyproject.toml", tmp_path / "generated"
     )
 
-    assert list(config.models) == ["Skid", "StructModel"]
+    assert list(config.models) == ["Skid", "StructModel", "FieldModel"]
     # The global parameters only apply to the models that have them.
     assert not config.models["StructModel"].parameters
     assert config.models["StructModel"].ports["u_in"].is_struct
+    # A struct port is a value unless the model says otherwise.
+    assert config.models["StructModel"].struct_ports == "value"
+    assert config.models["FieldModel"].struct_ports == "fields"
+    assert config.models["FieldModel"].source == config.models["StructModel"].source
     assert config.verilator_args == ["-DLIBRARY_BUILD"]
     assert config.models["Skid"].verilator_args == ["-DLIBRARY_BUILD"]
     assert config.models["StructModel"].verilator_args == [
@@ -139,13 +149,23 @@ def test_library(tmp_path):
         skid = library.Skid("skid")
         assert skid.s_axis_tdata.width == 12
 
-        # Struct ports and ports of more than 64 bits, as in a JIT build.
+        # Struct ports, as in a JIT build: a struct is the value of one port.
         structs = library.StructModel("structs")
-        assert isinstance(structs.u_in, PortStruct)
-        assert structs.u_in.fields == ["data", "valid", "taps", "iq", "wide", "flags"]
-        assert isinstance(structs.u_in.iq.re, InputS8)
-        assert structs.w_out.wide.shape == (4,)
-        assert structs.p_in.signals("p_in").flags.id.width == 3
+        assert type(structs.u_in) is PortBase
+        assert structs.u_in.dtype.names == (
+            *("data", "valid", "taps", "iq", "wide", "flags"),
+        )
+        assert structs.w_out.dtype["wide"].shape == (4,)
+        assert structs.p_in.signal("p_in").fields == ["data", "valid", "flags"]
+        # Or a port per field, with struct_ports = "fields".
+        fields = library.FieldModel("fields")
+        assert isinstance(fields.u_in, PortStruct)
+        assert fields.u_in.fields == ["data", "valid", "taps", "iq", "wide", "flags"]
+        assert isinstance(fields.u_in.iq.re, InputS8)
+        assert fields.w_out.wide.shape == (4,)
+        assert fields.p_in.signals("p_in").flags.id.width == 3
+        # The ports of one struct type are of one type in both: packed and unpacked structs of the library.
+        structs.p_out.bind(structs.p_in.signal("p"))
 
         counter = library.Counter("counter", 5, limit=1000)
         assert (counter.step(), counter.limit()) == (5, 1000)

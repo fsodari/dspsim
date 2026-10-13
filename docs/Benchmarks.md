@@ -150,26 +150,32 @@ What to expect:
   every access, and this kind cost 2.6 times as much when it did.
 - The value kinds commit one signal where the others commit one per field (`soa_value`: 1 against 32), in
   both engines: about half the cycles of `ports` for the bus, a sixteenth for the struct of arrays. That
-  is what a struct with fields in one direction is worth as a value instead of a `PortStruct`.
+  is what a struct with fields in one direction is worth as a value instead of a `PortStruct`
+  ([StructValues.md](StructValues.md)).
 
 ### The kinds of the `verilated` suite
 
 The stages are verilated and do almost nothing, so the cost is what an engine does around a model: copying
 port values in and out, evaluating it, committing its outputs. `Bus.sv` has the stage three times, with the
-bus declared in three ways:
+bus declared in three ways, and dspsim presents a struct port in two ways
+([VerilatedPorts.md](VerilatedPorts.md)):
 
 | kind | SystemVerilog | dspsim | SystemC (`verilator --sc`) |
 | --- | --- | --- | --- |
 | `ports` | a port per field | a port per field | a port per field |
-| `packed` | a packed struct | a struct port: a port per field, each a range of bits of the model's one integer | one 64-bit port |
-| `unpacked` | an unpacked struct | a struct port: a port per field | not supported by Verilator |
+| `packed` | a packed struct | one port with the struct as its value (the default) | one 64-bit port |
+| `unpacked` | an unpacked struct | one port with the struct as its value (the default) | not supported by Verilator |
+| `packed_fields` | a packed struct | a `PortStruct`: a port per field, each a range of bits of the model's one integer | one 64-bit port |
+| `unpacked_fields` | an unpacked struct | a `PortStruct`: a port per field | not supported by Verilator |
 
 The dspsim modules are declared the way the generator declares them (`models/verilated.h`), with the
 `eval()` that it writes: one call per port to copy its value, none of them virtual. That is worth 16 to 19%
-here against `VModule::eval()`, which goes through the port lists of the module. `ports` is the
-like-for-like comparison. In `packed` SystemC moves one value per link where dspsim moves four, and each
-dspsim field is read from and written to its bits of the model separately. Both engines run Verilator's
-own evaluation code, including the mutex that a model locks around every evaluation.
+here against `VModule::eval()`, which goes through the port lists of the module. `ports` and `packed` are
+the like-for-like comparisons: in `packed` both engines move one value per link, and dspsim also copies the
+four fields between the value and the bits of the model. In `packed_fields` dspsim moves four values where
+SystemC moves one, and each field is read from and written to its bits of the model separately, which costs
+about 1.6 times the cycles of `packed`. Both engines run Verilator's own evaluation code, including the
+mutex that a model locks around every evaluation.
 
 All verilated models of the suite are one library (`bench-vmodels`), because a program can only have one
 copy of Verilator's runtime, and a target with a SystemC model compiles it for SystemC.

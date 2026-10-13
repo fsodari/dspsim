@@ -434,10 +434,13 @@ def test_builder_wide_port_annotation():
 
 
 def test_builder_struct_ports():
-    """Each field of a struct port is a port. A struct binds as a whole to a struct of signals."""
+    """
+    With struct_ports="fields", each field of a struct port is a port, and a struct binds as a whole to a
+    struct of signals. (tests/test_verilated_values.py has the default, a struct as the value of one port.)
+    """
     source = HDL_DIR / "StructModel.sv"
 
-    @vbuilder(source=source, include_dirs=[HDL_DIR])
+    @vbuilder(source=source, include_dirs=[HDL_DIR], struct_ports="fields")
     class StructModel(VModule):
         clk: InputU8
         u_in: PortStruct
@@ -547,7 +550,10 @@ def test_builder_struct_ports():
 def test_builder_struct_bind_between_modules():
     """Two modules connect through the struct of signals of one of them."""
     StructModel = build_vmodule(
-        "StructPair", source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR]
+        "StructPair",
+        source=HDL_DIR / "StructModel.sv",
+        include_dirs=[HDL_DIR],
+        struct_ports="fields",
     )
     with Context() as context:
         clk = Clock("clk", 10)
@@ -594,7 +600,11 @@ def test_builder_struct_port_annotation():
     """A struct port is annotated as a PortStruct."""
     with pytest.raises(TypeError, match="Struct mismatch for port 'u_in'"):
 
-        @vbuilder(source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR])
+        @vbuilder(
+            source=HDL_DIR / "StructModel.sv",
+            include_dirs=[HDL_DIR],
+            struct_ports="fields",
+        )
         class StructModelPort(VModule):
             clk: InputU8
             u_in: InputU8
@@ -606,7 +616,11 @@ def test_builder_struct_port_annotation():
 
     with pytest.raises(TypeError, match="Struct mismatch for port 'clk'"):
 
-        @vbuilder(source=HDL_DIR / "StructModel.sv", include_dirs=[HDL_DIR])
+        @vbuilder(
+            source=HDL_DIR / "StructModel.sv",
+            include_dirs=[HDL_DIR],
+            struct_ports="fields",
+        )
         class StructModelStruct(VModule):
             clk: PortStruct
             u_in: PortStruct
@@ -688,7 +702,7 @@ def test_builder_trace_structs(tmp_path):
             dut = Model("dut")
             dut.clk.bind(clk)
             for port in ("u_in", "u_out", "p_in", "p_out", "w_in", "w_out"):
-                getattr(dut, port).bind(getattr(dut, port).signals(port))
+                getattr(dut, port).bind(getattr(dut, port).signal(port))
             dut.open_trace(tmp_path / f"{name}.vcd")
             context.elaborate()
             context.run(20)
@@ -709,7 +723,7 @@ def test_builder_struct_arrays():
     source = HDL_DIR / "StructArrayModel.sv"
 
     # A short name: see the note on names at the top of this file.
-    @vbuilder(source=source, include_dirs=[HDL_DIR])
+    @vbuilder(source=source, include_dirs=[HDL_DIR], struct_ports="fields")
     class StructArray(VModule):
         clk: InputU8
         a_in: PortStructArray
@@ -894,7 +908,11 @@ def test_builder_struct_array_annotation():
         r"got a struct \(PortStruct\)",
     ):
 
-        @vbuilder(source=HDL_DIR / "StructArrayModel.sv", include_dirs=[HDL_DIR])
+        @vbuilder(
+            source=HDL_DIR / "StructArrayModel.sv",
+            include_dirs=[HDL_DIR],
+            struct_ports="fields",
+        )
         class StructArrayModelStruct(VModule):
             clk: InputU8
             a_in: PortStruct

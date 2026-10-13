@@ -17,6 +17,7 @@ add_executable(tests
     test_vmodel_wide.cpp
     test_vmodel_struct.cpp
     test_vmodel_struct_array.cpp
+    test_vmodel_struct_value.cpp
     test_vport.cpp
     test_context.cpp
     test_listeners.cpp
